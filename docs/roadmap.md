@@ -1,4 +1,4 @@
-# Roadmap de vinculos-control (actualizado 2026-11-13)
+# Roadmap de vinculos-control (actualizado 2026-11-12)
 
 Memoria de avance del plano de control: que esta hecho, que falta y que
 depende del ERP. Se actualiza al cerrar cada pieza (estado + fecha + nota).
@@ -29,9 +29,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Retencion tras la salida (2026-11-12) | Se mantiene el protocolo vigente: tras la salida, Vinculos conserva los datos solo durante el periodo de gracia (30 dias) para entregar el exporte cifrado; luego S7 elimina. Sin custodia posterior. La retencion de 15 anos de las fichas es obligacion del centro, con su exporte |
 | Ejecutor de silos (2026-11-12) | Primera etapa construida con verbos que no tocan datos ni llaves: `estado` y `reiniciar` (backend y frontend). `reiniciar_demo`: sin excepcion a la regla de llaves (decidido 2026-11-13); P5 manual tambien en el demo |
 | Imagenes por centro vs imagen unica (2026-11-12) | Se mantiene R1 (el usuario lo confirmo: no se rompe "misma imagen para todos"): una imagen para todos, identificada por digest. El aislamiento de cada centro esta en sus contenedores (`erp-<slug>-*`), red, base, volumenes y secretos; el nombre y el tema del centro van en runtime (R9) |
-| Solicitud de modulos (tarea 31 del ERP) | Nace en el silo: el ADMIN la pide en el ERP, el ERP la expone en `/api/internal/solicitudes`, el agente la recoge y la reporta al host A (modelo pull), la consola la muestra y el operador la aprueba con un job `reconfigurar`. R2 y R3 confirmados tal como estan especificados (2026-11-13) |
-| Demo (2026-11-13) | Ademas de presentaciones, el demo (y los silos de prueba) quedan corriendo para ver en la consola, en tiempo real, los silos levantados y en uso. R10 = B + A. B (rutina): resembrar sin borrar nada, avanzando el tiempo con las funciones del ERP. A (presentaciones): reconstruir la BD del demo con un escenario de semilla (centro, equipo, pacientes ficticios y cuentas por publico), conservando las llaves. Nunca DELETE/TRUNCATE en una BD viva (triggers `bloquear_delete_clinico`) |
-| Mismo esqueleto e identidad del silo (2026-11-13) | R11 hecho en el ERP: imagenes comunes `vinculos-api`/`vinculos-web`, nombre/tema/dominio en runtime (R9), redes propias por silo (`erp-<slug>_interna`, `_silo`, `_borde`; `proxy` solo del plano del host), labels `cl.vinculos.*`, `application_name` y tabla `identidad_silo` (migrate falla si la BD es de otro silo). Debe quedar asi en cada silo que cree la consola |
+| Solicitud de modulos (tarea 31 del ERP) | Nace en el silo: el ADMIN la pide en el ERP, el ERP la expone en `/api/internal/solicitudes`, el agente la recoge y la reporta al host A (modelo pull), la consola la muestra y el operador la aprueba con un job `reconfigurar` |
 
 ## Relacion con el roadmap del ERP (`SW Proyecto/docs/roadmap_mvp.md`)
 
@@ -49,7 +47,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | API: `/agente/latido`, `/agente/reporte`, token por agente (`agente:crear`) | Hecho | |
 | Sondeo de `/api/salud` de silos adoptados | Hecho | Cada 60 s |
 | Reglas de alerta S1/S2/S3 | Hecho | `apps/api/src/alertas/reglas.ts`, con tests |
-| Consola: resumen, silos (lista, detalle, adoptar/soltar), alertas | Hecho | Version basica; el login llego en la fase 1 |
+| Consola: resumen, silos (lista, detalle, adoptar/soltar), alertas | Hecho | Version basica, sin login |
 | Web -> API con secreto compartido (`CONSOLA_SECRETO`) | Hecho | No reemplaza al login |
 
 ## Fase 1. Acceso y auditoria (Hecho 2026-11-12, salvo Cloudflare Access y revocar desde la consola)
@@ -87,19 +85,17 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Editor del manifiesto en la consola: borrador completo (centro + version + reglas + contrato), revisiones fase 2 con hash, idempotente | Hecho | Formulario de reglas generado desde `CAMPOS_REGLAS` (defaults del ERP); reglas de cobros ocultas |
 | Validacion P0 (`validarP0` del paquete): schema completo, dependencias, rangos del ERP, modulos del MVP, contrato | Hecho | La misma funcion usara el job aprovisionar |
 | APROBADO: P0 ok + contrato; congela el manifiesto en una revision fase 3; guarda `hashAprobado` | Hecho | Probado de punta a punta en Docker (2026-11-12) |
-| Aviso por correo al operador cuando llega una solicitud | Hecho 2026-11-13 | A cada operador activo; solo nombre del centro, tamano y modulos. Si el correo falla, la solicitud igual entra. Probado en local |
+| Aviso por correo al operador cuando llega una solicitud | Pendiente | Hoy solo el contador en la consola |
 
-## Fase 3. Modulos por solicitud del centro (tarea 31) (Hecha 2026-11-13)
+## Fase 3. Modulos por solicitud del centro (tarea 31) (Pendiente)
 
 | Pieza | Estado | Nota |
 |---|---|---|
-| ERP: base de `/api/internal/*` (token por silo, hash en `identidad_silo`, `InternoGuard`, funciones SECURITY DEFINER, bloqueo en Traefik) | Hecho | Comun a R2-R5. Caso 176 de `seguridad_bd.sql` y e2e `solicitudes-modulo` |
-| ERP: tabla `solicitudes_modulo`, `solicitar_modulo()` (ADMIN, dependencias, COBROS y WHATSAPP fuera del MVP), R2 y R3 | Hecho | R2 sin motivo ni quien la pidio |
-| ERP: Configuracion > Modulos con "Solicitar" / "Solicitar desactivar", estado e historial | Hecho | `SolicitudesModulo.tsx` |
-| Agente: R2 de cada silo con token -> `POST /agente/solicitudes` -> R3 | Hecho | `apps/agente/src/solicitudes.ts`; por la red de borde (o `SILO_INTERNO_URL` en desarrollo) |
-| API: modelo `SolicitudModulo` (decision del operador vs estado confirmado por el silo, error de entrega) | Hecho | Migracion `20261113165019_solicitudes_modulo`; reglas puras con tests |
-| Consola: bandeja en el detalle del silo (aprobar, rechazar, marcar aplicada) | Hecho | `componentes/solicitudes-modulo.tsx` |
-| Aprobar crea revision del manifiesto + job `reconfigurar` | Hecho 2026-11-13 | Aprobar en la consola crea la revision nueva (fase 3) con el modulo cambiado y encola RECONFIGURAR; al terminar OK la solicitud pasa a APLICADA sola. La entrega al silo va de a un paso (APROBADA y despues APLICADA). Sin centro aprobado en la consola para ese silo, queda el camino manual. Probado en local de punta a punta en los dos sentidos |
+| Agente: leer `/api/internal/solicitudes` de cada silo y reportarlas | Bloqueado (ERP) | Requisito R2 |
+| API: modelo `SolicitudModulo` (silo, modulo, accion, pedido por rol, fecha, estado) | Pendiente | Sin datos personales: rol, no nombre |
+| Consola: bandeja de solicitudes por silo, validar dependencias, aprobar o rechazar | Pendiente | No quitar un modulo del que dependa otro activo |
+| Aprobar crea revision del manifiesto + job `reconfigurar` | Pendiente | Depende de fase 4 |
+| Respuesta al silo (estado de la solicitud visible para el ADMIN) | Bloqueado (ERP) | Requisito R3 |
 
 ## Fase 4. Cola de jobs y agente ejecutor (base Hecha 2026-11-12; jobs que escriben, Bloqueados)
 
@@ -108,19 +104,15 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Cola en Postgres: `Job` y `PasoJob` (pasos idempotentes, registrados, log corto sin secretos) | Hecho | Migracion `20261112215609_cola_de_jobs` |
 | Reclamo con `FOR UPDATE SKIP LOCKED` y reserva de 2 min renovada en cada reporte; si vence, otro reclamo retoma desde el paso pendiente | Hecho | `POST /agente/jobs/reclamar`, `POST /agente/jobs/:id/pasos/:codigo` |
 | P0 en el plano de control al crear el job (si falla, el job no parte) | Hecho | Schema v1, dependencias, modulos del MVP y hash de la revision aprobada |
-| Agente: lista cerrada de pasos (un codigo desconocido se reporta FALLIDO sin ejecutar), un job a la vez, se detiene con 409 (cancelado) | Hecho | `apps/agente/src/jobs.ts` (agente 0.3.0 desde 2026-11-13) |
+| Agente: lista cerrada de pasos (un codigo desconocido se reporta FALLIDO sin ejecutar), un job a la vez, se detiene con 409 (cancelado) | Hecho | `apps/agente/src/jobs.ts`, version 0.2.0 |
 | Job VERIFICAR (solo lectura): integridad del manifiesto, red proxy, nombre libre, imagen (omitido por R1) y capacidad del host | Hecho | El proxy sigue en solo lectura: se agrego `NETWORKS: 1` con `POST: 0` |
 | Consola: vista Aprovisionamiento (lista con pasos) y job (pasos + log, reintentar desde el paso fallido, cancelar); boton "Verificar en el host B" en el manifiesto aprobado | Hecho | Probado con el agente real (2026-11-12): reintento solo repite el paso fallido; cancelar un pendiente |
 | Tests: reglas de la cola (API) y ejecutor del agente (hash compartido, lista cerrada, 409, no repetir pasos OK) | Hecho | Sin tests de integracion contra Postgres efimero todavia |
-| Ejecutor de silos (`apps/ejecutor`, opcion C): unico con el socket de Docker, verbos cerrados, red interna con el agente, token propio, sin puertos, filesystem de solo lectura, auditoria local en JSON | Hecho | Verbos `estado` y `reiniciar` (2026-11-12) y de red de borde (fila de abajo). Sin verbo de borrado. Respeta la ventana de respaldo (01:45 a 02:30 Chile) |
+| Ejecutor de silos (`apps/ejecutor`, opcion C): unico con el socket de Docker, verbos cerrados `estado` y `reiniciar`, red interna con el agente, token propio, sin puertos, filesystem de solo lectura, auditoria local en JSON | Hecho | 5 tests. Sin verbo de borrado. Respeta la ventana de respaldo (01:45 a 02:30 Chile) |
 | Job REINICIAR_SILO: P0 en el plano de control (silo reportado, sin job activo, fuera de la ventana de respaldo) + E1 estado, E2 reiniciar backend y frontend, E3 en marcha; boton "Reiniciar" en Silos | Hecho | Migracion `20261113013203_job_reiniciar_silo`. Probado con un stack de prueba (db no se reinicio) |
-| Jobs `RESEMBRAR_DEMO` (B) y `RECONSTRUIR_DEMO` (A, con escenario) | Bloqueado (ERP) | Decidido 2026-11-13: B + A (`docs/requisitos-erp.md`, R10). Requiere R10. Precauciones: doble marca de demo (`identidad_silo.es_demo` + `EJECUTOR_DEMOS` del host B), fuera de la ventana de respaldo, uno por hora, auditoria doble, salud y conteos; A ademas confirma escribiendo el slug y es la unica excepcion acotada a "sin verbo de borrado" (solo el volumen de BD de un demo) |
-| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | R1 (falta registro + digest; R9, R11, R4 y R5 ya hechos); el ejecutor necesita los verbos `preparar`, `levantar` y `conectar_borde` (sin build: imagenes por digest) |
-| Ejecutor: `conectar_borde`, `soltar_borde` y `reconectar_bordes` (Traefik y agente en `erp-<slug>_borde`) | Hecho 2026-11-13 | R11. Solo redes con labels de borde del silo; lista fija `EJECUTOR_UNIR_BORDE`; 11 tests y prueba local contra una red real. Falta llamarlos desde los jobs `aprovisionar`/salida (bloqueados) |
-| Agente: silos agrupados por label `cl.vinculos.silo` (coherente con el proyecto de compose) | Hecho 2026-11-13 | Version 0.3.0 |
-| Job VERIFICAR: comprobar Traefik en la red de borde de cada silo | Hecho 2026-11-13 | V2: red `proxy` + Traefik (`TRAEFIK_CONTENEDOR`) en cada red con label `cl.vinculos.red=borde` |
-| `infra/templates/silo.compose.tpl` (P3) | Hecho 2026-11-13 | Generada por `infra/templates/generar.py` desde el compose del ERP: sin `build`, imagenes `${REGISTRO}/vinculos-*@${*_DIGEST}`. Validada con `docker compose config` |
-| Job `RECONFIGURAR` (P0 manifiesto + silo, C1 aplicar, C2 confirmar) | Hecho 2026-11-13 | R4. Agente por `/api/internal/config` con el token del silo; no usa el ejecutor |
+| Job `reiniciar_demo` | Bloqueado (ERP) | Decidido 2026-11-13, enfoque B: resembrar los datos ficticios conservando llaves (sin borrar volumenes, sin P5 en cada reinicio). Requiere R10. Precauciones: doble marca de demo (BD + `EJECUTOR_DEMOS` del host B), fuera de la ventana de respaldo, confirmacion escribiendo el slug, uno por hora, auditoria doble, comprobar salud y conteos |
+| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | R1, R4, R5; el ejecutor necesita los verbos `preparar` y `levantar` (sin build: imagenes por digest) |
+| Job `reconfigurar` | Bloqueado (ERP) | R4 |
 
 Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 falla (umbral 80 %, el mismo de la alerta S2). Es correcto: hay que liberar disco antes de aprovisionar otro silo.
 
@@ -136,9 +128,9 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 | Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. Bloqueado por R1 |
 | Salidas: S3 a S7, gracia 30 dias, actas, `eliminar` | Pendiente | Seccion 8 |
 | Incidentes S1/S2/S3: hitos (contencion, aviso al centro, actualizaciones, informe final, cierre) con plazos en horas y dias habiles, semaforo, bitacora; abrir desde una alerta del monitoreo o desde el silo | Hecho | 2026-11-13. Migracion `20261113035502_incidentes_y_soporte`. Dias habiles sin feriados (pendiente) |
-| Soporte: ticket con la autorizacion del ADMIN (alcance, 1 a 72 h), vencimiento y resultado sin datos del centro | Hecho | La autorizacion la declara el operador. La base de `/api/internal/*` ya existe (2026-11-13); verificarla contra el silo necesita un endpoint nuevo en el ERP (por especificar) |
+| Soporte: ticket con la autorizacion del ADMIN (alcance, 1 a 72 h), vencimiento y resultado sin datos del centro | Hecho | La autorizacion la declara el operador: verificarla contra el silo requiere `/api/internal/*` |
 | Configuracion: plazos, seguridad, correo (con prueba), sesiones abiertas (revocar), operadores, cambio de la propia contrasena | Hecho | 2026-11-13. Cierra el pendiente de la fase 1 (revocar y rotar desde la consola) |
-| Demo: resembrar (B) y reconstruir con escenario (A) | Bloqueado (ERP) | R10; ver fase 4 (jobs `RESEMBRAR_DEMO` y `RECONSTRUIR_DEMO`) |
+| `reiniciar_demo` | Pendiente | |
 
 ## Fase 6. Landing (Pendiente)
 
@@ -159,17 +151,16 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 
 | ID | Requisito | Bloquea |
 |---|---|---|
-| R1 | Imagenes unicas por digest: falta CI que publique en el registro del host B y compose sin `build` (nombres comunes y runtime ya hechos con R9/R11) | Aprovisionar, releases |
-| R2 | Hecho 2026-11-13: `GET /api/internal/solicitudes` | - |
-| R3 | Hecho 2026-11-13: `POST /api/internal/solicitudes/:id/respuesta` | - |
-| R4 | Hecho 2026-11-13: `POST/GET /api/internal/config` (modulos y reglas; tema y marca aun no) | - |
-| R5 | Hecho 2026-11-13: `POST /api/internal/admin-inicial` (lo usara P9 de `aprovisionar`) | - |
-| R6 | Notas de version en el panel del ADMIN | Releases |
+| R1 | Imagenes unicas (`vinculos-api`, `vinculos-web`) con nombre del centro en runtime, no build arg | Aprovisionar, releases |
+| R2 | `/api/internal/solicitudes`: solicitudes de modulo del ADMIN (modulo, accion, rol, fecha), token por silo | Tarea 31 |
+| R3 | `/api/internal/solicitudes/:id` para devolver el estado (aprobada, rechazada, aplicada) | Tarea 31 |
+| R4 | `/api/internal/config` con funciones SECURITY DEFINER para `modulos_activos` y reglas | Reconfigurar, aprovisionar |
+| R5 | `/api/internal/admin-inicial` (invitacion del ADMIN) | Aprovisionar P9 |
+| R6 | Notas de version en el panel del ADMIN | Releases 
 | R7 | Agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion) | Resumen, soporte |
 | R8 | Implementar el tema "editorial" (ya disenado en el boceto del landing) en `frontend/src/app/temas/` | Aprobar centros que lo eligieron |
-| R10 | Demo B + A: `demo:resembrar` sin borrar (B) y `reconstruir.sh` con escenarios de semilla conservando llaves (A); marca `identidad_silo.es_demo` (spec en `docs/requisitos-erp.md`) | Jobs del demo |
-| R9 | Hecho 2026-11-13 (con R11): nombre, tema y dominio del centro en runtime | - |
-| R11 | Hecho 2026-11-13: mismo esqueleto e identidad del silo (redes, labels, `identidad_silo`, bloqueo de `/api/internal` en Traefik) | - |
+| R10 | `demo:resembrar`: vaciar los datos ficticios del demo y volver a sembrar, conservando llaves y configuracion; marca `es_demo` en la BD (spec en `docs/requisitos-erp.md`) | `reiniciar_demo` |
+| R9 | Tema y nombre del centro en runtime (hoy build args `NEXT_PUBLIC_TEMA`, `NEXT_PUBLIC_CENTRO_NOMBRE`): parte de R1 | Imagen unica |
 
 ## Bocetos de `system-reference/` contra lo construido
 
@@ -193,42 +184,15 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 - Temas: el ERP tiene "Moderno A" y "Cuaderno"; los docs decian solo Moderno (corregido 2026-11-12). "editorial" esta disenado (boceto del landing) pero no implementado en el ERP: requisito R8.
 - `CLAUDE.md` dice que el default de `modulos_activos` es "todos menos WHATSAPP"; en el ERP hoy (MVP 2026-11-11) COBROS tambien viene apagado. El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
 
-## Estado al 2026-11-13: que sigue y que lo bloquea
-
-Hecho y probado en local (2026-11-13, `docs/entorno-local.md` seccion 7 y
-`docs/registro-implementacion.md` seccion 11): tarea 31 de punta a punta,
-R9, R11, base de `/api/internal/*`, verbos de red de borde del ejecutor.
-
-**Sin commit:** todo lo de 2026-11-12 y 2026-11-13 esta solo en la carpeta de
-trabajo de los dos repos (el plano de control tiene un unico commit inicial).
-Es lo primero antes de clonar en otro PC.
-
-Se puede avanzar sin decisiones nuevas (hay especificacion):
-
-| Pieza | Repo | Toca schema, jobs o seguridad (plan corto y confirmacion, `CLAUDE.md`) |
-|---|---|---|
-| R10 demo: B `demo:resembrar` y A `reconstruir.sh` con escenarios, verbos y jobs | ERP + control | Si |
-| Tests de integracion de la API de control contra Postgres efimero | Control | No |
-| Fase 6 landing (boceto en `system-reference/Landing`; sin COBROS) | Control | No |
-| Fase 5 salidas S3 a S7 (exporte `.vxp`, gracia, actas, `eliminar`) | ERP + control | Si (borrado: verbo nuevo del ejecutor, hoy prohibido) |
-
-Necesita una decision o algo externo:
-
-| Pieza | Que falta |
-|---|---|
-| R1 imagenes por digest, releases y canales, job `aprovisionar` completo | En curso: R9/R11 hechos (imagenes comunes, configuracion en runtime) y plantilla por digest lista. Falta el registro del host B (`registry:2` o Zot, CONTEXTO seccion 12) y el CI (Bitbucket) que publique tag + digest |
-| Probar R11 en el servidor de pruebas | Decidido (usuario, 2026-11-13): al terminar el MVP, cuando se empiecen a levantar silos reales |
-| Cloudflare Access delante de la consola | Configuracion en el panel de Cloudflare (no es un contenedor): pasos en `docs/plan-dominios-dns.md`, seccion 3 |
-| R7 agregados periodicos para la consola | Acordarlo en el DPA (CONTEXTO seccion 12) |
-| R8 tema "editorial" | Existe solo en las muestras del boceto; faltan los CSS completos del tema en el ERP (los genera el usuario) |
-| Dominios (Vinculos y propio del centro, `.cl` en NIC Chile) | Plan en `docs/plan-dominios-dns.md`: subdominio `<slug>.vinculos.cl` siempre; dominio propio del centro con Cloudflare for SaaS. Faltan 3 decisiones (seccion 4 del plan) |
-| Salida de un centro (S3 a S7) | Decidido (usuario, 2026-11-13): borrado por plazos, nunca automatico: cerrar accesos, entregar los datos de los pacientes y toda la informacion del centro, mantenerlos durante el plazo y solo despues el borrado definitivo con acta. Requiere su propio plan (y la excepcion acotada al "sin verbo de borrado") antes de codificar |
-
 ## Siguiente paso
 
-0. Commit de lo hecho en los dos repos (ver "Sin commit" arriba).
-1. Hecho 2026-11-13: tarea 31 probada en local. Pendiente: R11 en el servidor de pruebas (`servidor.sh levantar`: redes de borde, Traefik unido, 403 en `/api/internal`) y derivar `infra/templates/silo.compose.tpl` del compose nuevo.
-2. R10 en el ERP: B (`demo:resembrar`) y A (escenarios + `reconstruir.sh`), luego los verbos y jobs del demo.
-3. Hecho 2026-11-13: R5 y R4 (`/api/internal/config`, ya con la base interna hecha): habilita `reconfigurar` y aplicar las solicitudes aprobadas.
-4. R1 (registro + digest): habilita `preparar`, `levantar` y el job `aprovisionar`.
-5. Fase 6: landing en `apps/sitio` (hoy la raiz redirige a `/solicitud`, que se mantiene para compartir).
+1. Implementar en el ERP R10 (demo), R2/R3 (tarea 31) y R1/R9 segun `docs/requisitos-erp.md`, previa confirmacion.
+2. R1 en el ERP (imagen unica por digest + nombre y tema en runtime, R9): habilita los verbos `preparar` y `levantar` del ejecutor y el job `aprovisionar`.
+3. Tarea 31 de punta a punta: R2 y R3 en el ERP y la bandeja por silo en la consola.
+
+-----
+Siguiente
+
+  Las dos piezas sin bloqueos que siguen por esfuerzo:
+  - R10 (demo), con plan corto antes de codificar.
+  - Tests de integración de la API de control.
