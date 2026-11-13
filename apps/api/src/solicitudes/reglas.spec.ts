@@ -1,4 +1,4 @@
-import { fusionar, porEntregar, transicionValida } from './reglas';
+import { fusionar, porEntregar, siguienteEntrega, transicionValida } from './reglas';
 
 describe('solicitudes de modulos (tarea 31)', () => {
   it('mismas transiciones que la BD del silo', () => {
@@ -29,6 +29,13 @@ describe('solicitudes de modulos (tarea 31)', () => {
   it('el silo avanzo mas alla: la decision lo sigue (nunca retrocede)', () => {
     expect(fusionar({ estado: 'APROBADA', estadoSilo: 'APROBADA' }, 'APLICADA').estado).toBe('APLICADA');
     expect(fusionar({ estado: 'APLICADA', estadoSilo: 'APROBADA' }, 'APROBADA').estado).toBe('APLICADA');
+  });
+
+  it('entrega de a un paso: APLICADA con el silo en PENDIENTE pasa primero por APROBADA', () => {
+    expect(siguienteEntrega({ estado: 'APLICADA', estadoSilo: 'PENDIENTE' })).toBe('APROBADA');
+    expect(siguienteEntrega({ estado: 'APLICADA', estadoSilo: 'APROBADA' })).toBe('APLICADA');
+    expect(siguienteEntrega({ estado: 'RECHAZADA', estadoSilo: 'PENDIENTE' })).toBe('RECHAZADA');
+    expect(transicionValida('PENDIENTE', siguienteEntrega({ estado: 'APLICADA', estadoSilo: 'PENDIENTE' }))).toBe(true);
   });
 
   it('pendiente nunca se entrega (no hay decision)', () => {

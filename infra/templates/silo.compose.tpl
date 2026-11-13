@@ -1,0 +1,271 @@
+# =============================================================================
+# silo.compose.tpl: plantilla del stack erp-<slug> que usara el job
+# `aprovisionar` (P3). GENERADA por infra/templates/generar.py desde
+# SW Proyecto/infra/docker-compose.yml (R11). No editar a mano: regenerar.
+# Diferencias con el original, y nada mas:
+#   - sin `build`: imagenes por digest del registro del host B (R1):
+#       ${REGISTRO}/vinculos-api@${API_DIGEST}, ${REGISTRO}/vinculos-web@${WEB_DIGEST}
+#   - VINCULOS_VERSION es el tag que corresponde al digest (label informativa).
+# Se renderiza dentro de infra/ del repo del ERP en el host B (mismas rutas
+# relativas: ./postgres/init, ./secrets/<slug>/).
+# Variables del .env del silo: las de SW Proyecto/infra/.env.example, mas
+# REGISTRO, API_DIGEST, WEB_DIGEST.
+# =============================================================================
+# Un silo = un cliente = este compose desplegado con su propio .env.
+# La DB es de este silo y de nadie mas: cero queries entre silos.
+# Traefik corre aparte (infra/traefik/) y descubre estos servicios por labels.
+#
+# Roles de BD (ver docs/seguridad/matriz_permisos.md):
+#   POSTGRES_USER  superusuario, solo dentro del contenedor db (init).
+#   vinculos_owner dueño, solo en el servicio migrate.
+#   app_user       la API, sujeto a RLS.
+#
+# Llaves (docs/seguridad/cifrado.md): la KEK es un Docker secret que solo
+# monta el servicio backend; migrate no la recibe. Sin infra/secrets/<slug>/kek
+# la API no arranca (falla cerrado). Se crea con infra/scripts/llaves/aprovisionar.sh
+# despues del primer `up -d db migrate`.
+#
+# Mismo esqueleto para todos los silos (R11, 2026-11-13): las imagenes son
+# comunes (vinculos-api y vinculos-web, sin el slug en el nombre) y todo lo
+# propio del centro entra en runtime por este .env. La identidad del silo es
+# explicita en cada pieza:
+#   - redes erp-<slug>_interna, erp-<slug>_silo y erp-<slug>_borde (nombre de compose);
+#     dos silos nunca comparten una red (la red `proxy` es solo del plano del
+#     host: cloudflared + Traefik);
+#   - labels cl.vinculos.silo / cl.vinculos.servicio en contenedores y en la red de borde
+#     (el agente y cAdvisor agrupan por label, no por nombre);
+#   - application_name=erp-<slug>-backend en la conexion de la API;
+#   - tabla identidad_silo: migrate falla si la BD es de otro silo
+#     (prisma/scripts/identidad_silo.js).
+# Traefik se une a erp-<slug>_borde despues del `up` (servidor.sh, o el
+# ejecutor del plano de control): sin esa union el silo no recibe trafico.
+
+name: erp-${CLIENTE_SLUG}
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    labels:
+      - cl.vinculos.silo=${CLIENTE_SLUG}
+      - cl.vinculos.version=${VINCULOS_VERSION:-dev}
+      - cl.vinculos.servicio=db
+    # AUD-02: estadisticas de consultas (postgres/init/20-pg-stat-statements.sh).
+    # track=top: solo las sentencias de nivel superior (no las internas de las funciones).
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=top
+      # AUD-02 (INFRA-03, BD-04): ajustado a 256 MB. La API usa 12 conexiones
+      # (connection_limit). 24 = 12 de la API + migrate, respaldo (pg_dump) y
+      # soporte (~4) + 3 reservadas del superusuario + ~20 % de margen.
+      # 04_pruebas (2026-11-07): con 8 el pool se agoto en rafagas (P2028 -> 503).
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=24
+      - -c
+      - work_mem=2MB
+    # AUD-02 (INFRA-03): presupuesto de un host de 1 GB / 1 vCPU con un silo.
+    # db 256M + backend 256M + frontend 256M + Traefik 128M; el resto, el SO.
+    mem_limit: 256m
+    cpus: 1.0
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Contraseña de vinculos_owner. La aplica init/10-rol-owner.sh.
+      OWNER_DB_PASSWORD: ${OWNER_DB_PASSWORD}
+    volumes:
+      # Postgres 18: la imagen declara VOLUME /var/lib/postgresql y usa
+      # PGDATA=/var/lib/postgresql/18/docker. Montar en .../data (como en <=17)
+      # deja los datos fuera del volumen.
+      - db_data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1: durante el init la imagen levanta un servidor temporal
+      # solo por socket; por TCP no responde hasta que el init terminó.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - interna
+
+  # Corre y termina: migraciones + contraseña de app_user. Idempotente, corre
+  # en cada `up`. Unico servicio con credenciales del dueño.
+  migrate:
+    image: ${REGISTRO}/vinculos-api@${API_DIGEST}
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # El schema exige ambas variables; aqui las dos son el dueño.
+      DATABASE_URL: postgresql://vinculos_owner:${OWNER_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public&application_name=erp-${CLIENTE_SLUG}-migrate
+      MIGRATION_DATABASE_URL: postgresql://vinculos_owner:${OWNER_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public&application_name=erp-${CLIENTE_SLUG}-migrate
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      # identidad_silo.js: la BD queda marcada con este slug la primera vez y
+      # desde ahi migrate se niega a correr si el .env apunta a otra BD.
+      CLIENTE_SLUG: ${CLIENTE_SLUG}
+      # Hash del token de /api/internal/* (plano de control). Vacio: endpoints cerrados.
+      INTERNO_TOKEN_SHA256: ${INTERNO_TOKEN_SHA256:-}
+    command: ['sh', '-c', 'npx prisma migrate deploy && node prisma/scripts/rol_api.js && node prisma/scripts/identidad_silo.js']
+    labels:
+      - cl.vinculos.silo=${CLIENTE_SLUG}
+      - cl.vinculos.version=${VINCULOS_VERSION:-dev}
+      - cl.vinculos.servicio=migrate
+    networks:
+      - interna
+
+  backend:
+    image: ${REGISTRO}/vinculos-api@${API_DIGEST}
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      # Solo app_user (sujeto a RLS). Sin MIGRATION_DATABASE_URL.
+      # AUD-02 (BD-04): 12 conexiones (Prisma usaria 3 con 1 vCPU). Cada request
+      # autenticada retiene la suya toda la request (transaccion RLS) y el job de
+      # exportacion una durante toda su corrida. 04_pruebas: 8 se agotaba en una
+      # rafaga de 30 reservas simultaneas; 12 = +50 % (max_connections del silo: 24).
+      # application_name: cada conexion se ve como erp-<slug>-backend en pg_stat_activity.
+      DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public&connection_limit=12&application_name=erp-${CLIENTE_SLUG}-backend
+      PORT: 3001
+      FRONTEND_URL: https://${DOMINIO}
+      JWT_SECRET: ${JWT_SECRET}
+      # Access token corto; las sesiones largas van por refresh token (tabla sesiones).
+      JWT_ACCESO_MINUTOS: ${JWT_ACCESO_MINUTOS:-15}
+      SESION_INACTIVIDAD_MINUTOS: ${SESION_INACTIVIDAD_MINUTOS:-30}
+      LOGIN_LIMITE_POR_MINUTO: ${LOGIN_LIMITE_POR_MINUTO:-10}
+      PUBLICO_LIMITE_POR_MINUTO: ${PUBLICO_LIMITE_POR_MINUTO:-60}
+      BLOQUEO_TEMPORAL_TTL_SEGUNDOS: ${BLOQUEO_TEMPORAL_TTL_SEGUNDOS:-300}
+      # Integraciones (docs/api/integraciones.md): SMTP de la plataforma, Jitsi opcional.
+      SMTP_URL: ${SMTP_URL:-}
+      CORREO_REMITENTE: ${CORREO_REMITENTE:-no-responder@vinculos.cl}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
+      JITSI_HABILITADO: ${JITSI_HABILITADO:-false}
+      JITSI_URL_BASE: ${JITSI_URL_BASE:-https://meet.jit.si}
+      DOCUMENTO_ENLACE_HORAS: ${DOCUMENTO_ENLACE_HORAS:-72}
+      ADJUNTO_MAX_MB: ${ADJUNTO_MAX_MB:-10}
+      # AUD-02: archivo cifrado de la exportacion del centro hasta su descarga (maximo 24 h).
+      EXPORTACIONES_DIR: /var/lib/vinculos/exportaciones
+      # Archivo, nunca variable de entorno con la llave.
+      KEK_PATH: /run/secrets/vinculos_kek
+      RECUPERACION_PUBLICA_PATH: /recuperacion.pub
+    volumes:
+      - exportaciones:/var/lib/vinculos/exportaciones
+    secrets:
+      - vinculos_kek
+    configs:
+      - source: recuperacion_publica
+        target: /recuperacion.pub
+    networks:
+      interna:
+      # Entrada desde Traefik (y del agente del plano de control). Solo de este silo.
+      borde:
+      # Nombre por el que el front llega a la API: igual en todos los silos
+      # (esqueleto comun), resuelve solo dentro de erp-<slug>_silo.
+      silo:
+        aliases:
+          - api-silo
+    labels:
+      - cl.vinculos.silo=${CLIENTE_SLUG}
+      - cl.vinculos.version=${VINCULOS_VERSION:-dev}
+      - cl.vinculos.servicio=backend
+      - traefik.enable=true
+      - traefik.docker.network=erp-${CLIENTE_SLUG}_borde
+      - traefik.http.routers.${CLIENTE_SLUG}-api.rule=Host(`${DOMINIO}`) && PathPrefix(`/api`)
+      - traefik.http.routers.${CLIENTE_SLUG}-api.entrypoints=websecure
+      - traefik.http.routers.${CLIENTE_SLUG}-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.${CLIENTE_SLUG}-api.service=${CLIENTE_SLUG}-api
+      # AUD-02 (API-05): compresion solo de la API; el front ya comprime (Next).
+      # Los PDF, imagenes y .vxp no se recomprimen (excludedContentTypes).
+      - traefik.http.routers.${CLIENTE_SLUG}-api.middlewares=${CLIENTE_SLUG}-api-compress
+      - traefik.http.middlewares.${CLIENTE_SLUG}-api-compress.compress.excludedcontenttypes=application/pdf,application/octet-stream,image/jpeg,image/png,image/webp
+      # /api/internal/* (plano de control) nunca se publica: este router gana
+      # por prioridad y responde 403 a todo el que llega por el tunel. El agente
+      # entra por erp-<slug>_borde, sin pasar por Traefik, y con token del silo.
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.rule=Host(`${DOMINIO}`) && PathPrefix(`/api/internal`)
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.priority=1000
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.entrypoints=websecure
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.tls.certresolver=letsencrypt
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.service=${CLIENTE_SLUG}-api
+      - traefik.http.routers.${CLIENTE_SLUG}-interno.middlewares=${CLIENTE_SLUG}-interno-cerrado
+      - traefik.http.middlewares.${CLIENTE_SLUG}-interno-cerrado.ipallowlist.sourcerange=127.0.0.1/32
+      - traefik.http.services.${CLIENTE_SLUG}-api.loadbalancer.server.port=3001
+
+  frontend:
+    image: ${REGISTRO}/vinculos-web@${WEB_DIGEST}
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    environment:
+      # /sesion/*, SSR y el rewrite /api llaman al backend por la red `silo` (solo de este silo).
+      API_URL: http://api-silo:3001
+      # Respaldo si la API no entrega el nombre (la fuente es configuracion_centro.nombre_centro).
+      CENTRO_NOMBRE: ${CENTRO_NOMBRE}
+      SITE_URL: https://${DOMINIO}
+      # Estilo visual: moderno o cuaderno (app/temas/). Cambiarlo: editar el .env y `up -d frontend`, sin reconstruir.
+      TEMA: ${TEMA:-moderno}
+    depends_on:
+      - backend
+    networks:
+      - borde
+      - silo
+    labels:
+      - cl.vinculos.silo=${CLIENTE_SLUG}
+      - cl.vinculos.version=${VINCULOS_VERSION:-dev}
+      - cl.vinculos.servicio=frontend
+      - traefik.enable=true
+      - traefik.docker.network=erp-${CLIENTE_SLUG}_borde
+      - traefik.http.routers.${CLIENTE_SLUG}-web.rule=Host(`${DOMINIO}`)
+      - traefik.http.routers.${CLIENTE_SLUG}-web.entrypoints=websecure
+      - traefik.http.routers.${CLIENTE_SLUG}-web.tls.certresolver=letsencrypt
+      - traefik.http.services.${CLIENTE_SLUG}-web.loadbalancer.server.port=3000
+
+# Volumenes sin cambios (erp-<slug>_db_data ya lleva el slug): ni nombre ni
+# labels nuevos, porque compose ofrece recrear un volumen cuya configuracion
+# cambio, y eso borraria los datos de un silo existente.
+volumes:
+  db_data:
+  # Solo archivos cifrados con la clave del ADMIN (que no se guarda); se borran al descargar o a las 24 h.
+  exportaciones:
+
+secrets:
+  vinculos_kek:
+    file: ./secrets/${CLIENTE_SLUG}/kek
+
+configs:
+  # Publica de recuperacion: no es secreta, pero es del silo.
+  recuperacion_publica:
+    file: ./secrets/${CLIENTE_SLUG}/recuperacion.pub
+
+# Tres redes, todas de este silo; compose les pone el proyecto delante
+# (erp-<slug>_interna, erp-<slug>_silo, erp-<slug>_borde). Ninguna se
+# comparte con otro silo (antes `proxy` unia el backend y el front de todos:
+# `backend` resolvia al de cualquier silo y un front podia llegar a la API de
+# otro centro por IP).
+networks:
+  # Solo backend + migrate + db. La DB nunca se expone al borde ni al host.
+  # Unica red con salida (correo por SMTP/SES desde la API).
+  interna:
+  # Solo backend + frontend de este silo. Sin salida propia (internal).
+  silo:
+    internal: true
+  # Entrada: backend + frontend de este silo, mas Traefik (y el agente) que se
+  # unen desde fuera con `docker network connect`. Sin salida (internal): el
+  # front no habla con internet. Antes de `down`, desconectar a Traefik
+  # (servidor.sh lo hace); si no, Docker no puede borrar la red.
+  # Labels solo aqui: interna y silo ya existen en los silos de prueba y un
+  # cambio de configuracion haria que compose las recree.
+  borde:
+    internal: true
+    labels:
+      - cl.vinculos.silo=${CLIENTE_SLUG}
+      - cl.vinculos.red=borde

@@ -407,7 +407,7 @@ Pendientes:
 - Precios y planes para centros.
 - Modelo para profesionales independientes (futuro): es una persona, no una organizacion. Requiere adaptar el apartado del profesional y probablemente un silo compartido con aislamiento por fila, porque un silo completo por persona no se paga.
 - Actualizar el capitulo de la tesis con el nuevo alcance (seccion 11) al retomar la redaccion.
-- Requisitos en el ERP antes de automatizar: imagenes unicas con configuracion en runtime, modulo `/api/internal/*`, notas de version en el panel del ADMIN, funcion de agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion del centro; acordarlo en el DPA).
+- Requisitos en el ERP antes de automatizar: imagenes unicas por digest (configuracion en runtime ya hecha, R9/R11, 2026-11-13; falta registro + CI, R1), modulo `/api/internal/*` (base, R2 y R3 hechos 2026-11-13; faltan R4 y R5), notas de version en el panel del ADMIN, funcion de agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion del centro; acordarlo en el DPA). Estado al dia en `docs/roadmap.md`.
 - Dominio propio de un centro tras el tunel Cloudflare: custom hostnames (Cloudflare for SaaS) o DNS delegado.
 - Texto legal final de terminos y DPA, si la aceptacion de un ADMIN basta como firma, y el plazo de eliminacion por defecto.
 

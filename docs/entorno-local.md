@@ -173,6 +173,19 @@ En la consola, el silo `centro-prueba` aparece "sin adoptar".
    docker exec erp-centro-prueba-db-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE configuracion_centro SET modulos_activos = modulos_activos || '"'"'MATCH'"'"'::modulo_centro"'
    ```
 
+**Con R4 (automatico):** si la consola tiene un centro aprobado para el silo,
+aprobar crea la revision nueva y el job RECONFIGURAR, y la solicitud termina
+APLICADA sin tocar la BD. Para el silo de desarrollo, crear una vez ese centro
+de prueba (reglas vacias: no cambia las reglas del centro de desarrollo):
+
+```sh
+docker cp scripts/prueba-local/centro-aprobado.js vinculos-control-api-1:/tmp/c.js
+docker exec -e NODE_PATH=/app/node_modules vinculos-control-api-1 node /tmp/c.js
+```
+
+Despues de cada R4, `identidad_silo` del silo guarda la revision aplicada: una
+revision menor ya no se acepta (409 "no es posterior").
+
 Lo mismo sin navegador (util para repetir la prueba despues de clonar):
 
 ```sh
@@ -263,6 +276,9 @@ cd ../frontend && npx vitest run && npx tsc --noEmit
 - **`migrate` termina con "La BD pertenece al silo X".** El `.env` o el volumen
   son de otro silo (por ejemplo, un respaldo cruzado). No forzar.
 - **El 5432 esta ocupado.** Detener el servicio de Postgres de Windows.
+- **`test:bd` o `test:e2e` fallan con `EPERM ... query_engine-windows.dll.node`.**
+  `npm run dev` del ERP tiene abierto el motor de Prisma: detenerlo (y sus
+  procesos hijos) antes de correr los tests, y levantarlo despues.
 
 ## 11. Antes de publicar un repo (push, export, zip)
 

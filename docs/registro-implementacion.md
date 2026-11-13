@@ -237,3 +237,37 @@ Fallos encontrados y corregidos en la corrida:
    e2e los verifica.
 
 Script para repetir sin navegador: `scripts/prueba-local/tarea31.mjs`.
+
+### R5 admin inicial (2026-11-13)
+
+ERP: `invitar_admin_inicial()` (token del silo, sin contexto) + `POST
+/api/internal/admin-inicial`. Crea la cuenta ADMIN sin contrasena y la
+invitacion de un uso de 72 h (mismo flujo que la invitacion de equipo); el
+correo sale del silo y al plano de control solo vuelve `{ invitada, vence }`.
+Tests: caso 177 (camino feliz en una subtransaccion que se deshace, porque el
+fixture ya trae cuentas madre), e2e (401, 400, 409 con mensaje propio),
+prueba en vivo contra el ERP de desarrollo (409 "ya tiene una cuenta madre").
+Hallazgo: `emitir_token` anula la invitacion anterior dejandola vencer en
+`max(creada + 1 s, now())`; dentro de una misma transaccion conviven 1 s.
+Sin efecto practico; documentado en el caso 177.
+
+### R4 config interna + job RECONFIGURAR (2026-11-13)
+
+ERP: `aplicar_config_interna()` / `config_interna()` + `POST/GET
+/api/internal/config` (modulos y reglas de una lista cerrada, un solo UPDATE,
+dependencias, SIN_CAMBIOS idempotente, nunca hacia atras). Caso 178 y e2e.
+Plano de control: job RECONFIGURAR (P0 manifiesto + silo, C1 aplicar, C2
+confirmar); aprobar una solicitud crea la revision nueva del manifiesto y
+encola el job; al terminar OK la solicitud pasa a APLICADA.
+
+Prueba local de punta a punta (centro de prueba aprobado para `centro-prueba`):
+desactivar MATCH (rev 2, job #4) y volver a activarlo (rev 3, job #5), ambos
+OK sin tocar la BD a mano.
+
+Fallos encontrados y corregidos:
+1. Reglas aplicadas columna por columna violaban un CHECK entre columnas
+   (recordatorio antes del plazo de cancelacion) en un estado intermedio.
+   Ahora un solo UPDATE con todas las reglas.
+2. El job cerraba la solicitud en APLICADA antes de que el silo recibiera
+   APROBADA, y el silo no acepta PENDIENTE -> APLICADA (quedaba trabada). Ahora
+   la entrega va de a un paso (`siguienteEntrega`, con test).

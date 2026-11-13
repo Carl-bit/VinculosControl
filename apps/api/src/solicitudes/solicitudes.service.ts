@@ -1,9 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
+import { manifiestoSchema } from '@vinculos/manifest';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { guardarRevision } from '../centros/borrador';
 import { PrismaService } from '../comun/prisma.service';
-import { type Decision, type EstadoSolicitud, fusionar, porEntregar, transicionValida } from './reglas';
+import { JobsService } from '../jobs/jobs.service';
+import { type Decision, type EstadoSolicitud, fusionar, porEntregar, siguienteEntrega, transicionValida } from './reglas';
 
 export interface SolicitudDelSilo {
   id: string;
@@ -25,6 +28,7 @@ export class SolicitudesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly jobs: JobsService,
   ) {}
 
   /** Agente: guarda lo que reporto el silo y devuelve las decisiones por entregar. */
@@ -55,7 +59,7 @@ export class SolicitudesService {
     return {
       respuestas: abiertas
         .filter((s) => porEntregar({ estado: s.estado as EstadoSolicitud, estadoSilo: s.estadoSilo as EstadoSolicitud }))
-        .map((s) => ({ id: s.id, estado: s.estado, respuesta: s.respuesta })),
+        .map((s) => ({ id: s.id, estado: siguienteEntrega({ estado: s.estado as EstadoSolicitud, estadoSilo: s.estadoSilo as EstadoSolicitud }), respuesta: s.respuesta })),
     };
   }
 
@@ -84,6 +88,41 @@ export class SolicitudesService {
       data: { estado, respuesta: texto, decididaPor: o.correo, decididaEn: new Date(), errorEntrega: null },
     });
     await this.auditoria.registrar(o.correo, 'modulo.solicitud_decidida', `${slug}/${s.modulo}`, `${s.accion} ${s.estado} -> ${estado}`);
-    return r;
+    if (estado !== 'APROBADA') return r;
+    return { ...r, reconfigurar: await this.reconfigurar(slug, s.modulo, s.accion, o) };
+  }
+
+  /**
+   * Aprobar = nueva revision aprobada del manifiesto con el cambio de modulo +
+   * job RECONFIGURAR (R4). Al terminar OK, el job marca la solicitud APLICADA.
+   * Sin centro con manifiesto aprobado para ese silo (por ejemplo, el silo de
+   * desarrollo), queda el camino manual y se informa por que.
+   */
+  private async reconfigurar(slug: string, modulo: string, accion: string, o: OperadorSesion): Promise<{ jobId: number | null; motivo: string }> {
+    const centro = await this.prisma.centro.findFirst({ where: { slug } });
+    if (!centro?.revisionAprobada || !centro.hashAprobado) {
+      return { jobId: null, motivo: 'El silo no tiene un centro con manifiesto aprobado en la consola: aplicar el cambio a mano y marcar aplicada' };
+    }
+    const rev = await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: centro.id, numero: centro.revisionAprobada } } });
+    const actual = (rev?.contenido ?? {}) as { modulos?: string[] };
+    const modulos = new Set(actual.modulos ?? []);
+    if (accion === 'ACTIVAR') modulos.add(modulo);
+    else modulos.delete(modulo);
+    const nuevo = { ...actual, modulos: [...modulos].sort() };
+    const p = manifiestoSchema.safeParse(nuevo);
+    if (!p.success) return { jobId: null, motivo: `La revision nueva no pasa el schema: ${p.error.issues.map((i) => i.message).join('; ')}` };
+    const r = await this.prisma.$transaction(async (tx) => {
+      const g = await guardarRevision(tx, centro.id, 3, p.data, o.correo);
+      await tx.centro.update({ where: { id: centro.id }, data: { revisionAprobada: g.numero, hashAprobado: g.hash } });
+      return g;
+    });
+    await this.auditoria.registrar(o.correo, 'manifiesto.revision_por_solicitud', `centro:${centro.id}`, `rev ${r.numero} ${accion} ${modulo}`);
+    try {
+      const job = await this.jobs.crear('RECONFIGURAR', { centroId: centro.id }, o, null);
+      return { jobId: job.id, motivo: `rev ${r.numero} aprobada y job RECONFIGURAR #${job.id} encolado` };
+    } catch (e) {
+      const mensaje = e instanceof HttpException ? JSON.stringify(e.getResponse()) : String(e);
+      return { jobId: null, motivo: `rev ${r.numero} aprobada, pero el job no se encolo: ${mensaje.slice(0, 200)}` };
+    }
   }
 }

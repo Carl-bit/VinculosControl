@@ -1,9 +1,10 @@
-import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { type EstadoCentro, Prisma } from '@prisma/client';
 import { type Fase1 } from '@vinculos/manifest';
 import { hashManifiesto } from '@vinculos/manifest/hash';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
+import { CorreoService } from '../acceso/correo.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
 import { SIGUIENTE, TRANSICIONES, validarTransicionManual } from './estados';
@@ -17,7 +18,23 @@ export class CentrosService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly fase2: Fase2Service,
+    private readonly correo: CorreoService,
   ) {}
+
+  private readonly logger = new Logger(CentrosService.name);
+
+  /**
+   * Aviso por correo a los operadores activos. Nunca hace fallar la solicitud
+   * del sitio: si el correo falla, queda en el log y la consola la muestra igual.
+   */
+  private async avisarOperadores(centro: string, tamano: string | null, modulos: string[]): Promise<void> {
+    const operadores = await this.prisma.operador.findMany({ where: { activo: true }, select: { correo: true } });
+    for (const o of operadores) {
+      await this.correo.avisarSolicitud(o.correo, centro, tamano, modulos).catch((e: unknown) => {
+        this.logger.warn(`aviso de solicitud a ${o.correo} fallo: ${e instanceof Error ? e.message : String(e)}`);
+      });
+    }
+  }
 
   /** Fase 1 desde el sitio: centro en SOLICITUD + revision 1 del manifiesto (solo la fase 1). */
   async crearSolicitud(f: Fase1, origen = 'formulario'): Promise<void> {
@@ -39,6 +56,7 @@ export class CentrosService {
       return c;
     });
     await this.auditoria.registrar('sitio', 'centro.solicitud', `centro:${centro.id}`, centro.nombre);
+    await this.avisarOperadores(centro.nombre, f.tamano_equipo ?? null, f.modulos_interes ?? []);
   }
 
   async listar(estado?: string) {

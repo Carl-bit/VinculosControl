@@ -199,11 +199,23 @@ centro esta en sus contenedores, red, base, volumenes y secretos.
 
 ## R4 y R5. Modulo `/api/internal/*`
 
-- R4 `POST /api/internal/config`: aplica una revision del manifiesto
-  (`modulos_activos`, reglas de `configuracion_centro`, tema y marca) con
-  funciones SECURITY DEFINER; registra la revision aplicada (hash).
-- R5 `POST /api/internal/admin-inicial`: invitacion de un solo uso (72 h) al
-  admin del manifiesto.
+- R4 `POST /api/internal/config` y `GET /api/internal/config` (**hecho
+  2026-11-13**): cuerpo `{ revision, hash, modulos, reglas }`, respuesta
+  `{ resultado: APLICADA | SIN_CAMBIOS, revision, hash }`.
+  `aplicar_config_interna()` aplica `modulos_activos` y las reglas de una lista
+  cerrada (las columnas de CAMPOS_REGLAS) en un solo UPDATE, con dependencias de
+  modulos y los CHECK de siempre; registra revision y hash en `identidad_silo`;
+  misma revision y hash = SIN_CAMBIOS; nunca acepta una revision menor o igual
+  con otro hash. Tema y marca **no** se aplican aun (el tema sigue en `TEMA`
+  del `.env`; marca por zona la edita el ADMIN). Migracion
+  `20261113002500_config_interna`, caso 178 y e2e.
+- R5 `POST /api/internal/admin-inicial` (**hecho 2026-11-13**): cuerpo
+  `{ email, nombre }` (el admin inicial del manifiesto), respuesta
+  `{ invitada, vence }` (nunca el enlace). `invitar_admin_inicial()` crea la
+  cuenta ADMIN sin contrasena y la invitacion de un uso (72 h, el mismo flujo
+  de `/cuenta/activar`); el correo lo manda el silo. 409 si ya hay una cuenta
+  madre activada o una pendiente con otro correo; mismo correo reemite.
+  Migracion `20261113002400_admin_inicial`, caso 177 y e2e.
 - Comun: token por silo, solo en la red Docker del host B, nunca con
   credenciales de dueno en runtime ni con cuentas de usuarios del centro.
 

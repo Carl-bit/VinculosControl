@@ -25,9 +25,10 @@ const CLASE: Record<SolicitudModulo['estado'], string> = { PENDIENTE: 'warn', AP
 
 /**
  * Bandeja del silo: aprobar, rechazar o marcar aplicada. La decision la
- * entrega el agente al silo (R3) en su siguiente ciclo (60 s). Aplicar el
- * cambio de modulos es aparte: hoy a mano como dueno en `migrate`
- * (ERP_REGLAS_Y_DESPLIEGUE.md, seccion 5); con R4, un job `reconfigurar`.
+ * entrega el agente al silo (R3) en su siguiente ciclo (60 s). Aprobar crea
+ * una revision nueva del manifiesto y un job RECONFIGURAR (R4) que, al
+ * terminar, marca la solicitud APLICADA. Sin centro aprobado en la consola
+ * (silo de desarrollo), el cambio se aplica a mano y se marca aplicada.
  */
 export function SolicitudesModulo({ slug }: { slug: string }) {
   const { datos, error, recargar } = useDatos<SolicitudModulo[]>(`consola/solicitudes-modulo?silo=${slug}`, 30_000);
@@ -41,7 +42,12 @@ export function SolicitudesModulo({ slug }: { slug: string }) {
     const respuesta = window.prompt(pregunta, '');
     if (respuesta === null) return;
     const r = await enviarConSesion(`consola/solicitudes-modulo/${s.siloSlug}/${s.id}/decision`, { estado, ...(respuesta.trim() ? { respuesta: respuesta.trim() } : {}) });
-    setMsg(r.ok ? 'Decision registrada: el agente la entrega al silo en el siguiente ciclo.' : mensajeDe(r.datos as { mensaje?: string }, `HTTP ${r.status}`));
+    const reconf = (r.datos as { reconfigurar?: { motivo: string } }).reconfigurar;
+    setMsg(
+      r.ok
+        ? `Decision registrada: el agente la entrega al silo en el siguiente ciclo.${reconf ? ` ${reconf.motivo}.` : ''}`
+        : mensajeDe(r.datos as { mensaje?: string }, `HTTP ${r.status}`),
+    );
     void recargar();
   };
 

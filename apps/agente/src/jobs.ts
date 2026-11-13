@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 
 import { getJson, listar } from './docker';
 import { host } from './host';
+import { llamarSilo, tokenDe } from './solicitudes';
 
 /**
  * Ejecutor de silos (opcion C): unico con el socket de Docker. El agente le
@@ -22,7 +23,8 @@ import { host } from './host';
 const EJECUTOR = (process.env.EJECUTOR_URL ?? '').replace(/\/$/, '');
 const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
-export const TIPOS = EJECUTOR ? (['VERIFICAR', 'REINICIAR_SILO'] as const) : (['VERIFICAR'] as const);
+/** RECONFIGURAR no usa el ejecutor: habla con /api/internal del silo (token por silo). */
+export const TIPOS = EJECUTOR ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR'] as const) : (['VERIFICAR', 'RECONFIGURAR'] as const);
 
 interface EstadoContenedor {
   servicio: string;
@@ -42,6 +44,15 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: 'estado'
   if (!r.ok) throw new Error(`ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
   return cuerpo;
 }
+
+interface RedDocker {
+  Name: string;
+  Driver: string;
+  Containers?: Record<string, { Name?: string }>;
+}
+
+/** Contenedor de Traefik del host B (mismo nombre que en EJECUTOR_UNIR_BORDE). */
+const TRAEFIK = process.env.TRAEFIK_CONTENEDOR || 'vinculos-servidor-traefik-1';
 
 const lineaEstado = (c: EstadoContenedor) => `${c.servicio}: ${c.estado}${c.salud ? ` (${c.salud})` : ''} · ${c.detalle}`;
 
@@ -88,12 +99,26 @@ export const EJECUTORES: Record<string, Ejecutor> = {
   },
 
   async V2() {
+    let log: string[];
     try {
-      const red = await getJson<{ Name: string; Driver: string; Containers?: Record<string, unknown> }>('/networks/proxy');
-      return { estado: 'OK', log: [`red ${red.Name} (${red.Driver}) con ${Object.keys(red.Containers ?? {}).length} contenedor(es)`] };
+      const red = await getJson<RedDocker>('/networks/proxy');
+      log = [`red ${red.Name} (${red.Driver}) con ${Object.keys(red.Containers ?? {}).length} contenedor(es)`];
     } catch (e) {
       return { estado: 'FALLIDO', log: ['docker network inspect proxy'], error: `No existe la red proxy de Traefik (${e instanceof Error ? e.message : String(e)})` };
     }
+    // R11: Traefik debe estar en la red de borde de cada silo (si no, ese silo no recibe trafico).
+    const filtro = encodeURIComponent(JSON.stringify({ label: ['cl.vinculos.red=borde'] }));
+    const bordes = await getJson<RedDocker[]>(`/networks?filters=${filtro}`);
+    const sinTraefik: string[] = [];
+    for (const b of bordes) {
+      const red = await getJson<RedDocker>(`/networks/${encodeURIComponent(b.Name)}`);
+      const nombres = Object.values(red.Containers ?? {}).map((c) => c.Name ?? '');
+      if (!nombres.includes(TRAEFIK)) sinTraefik.push(red.Name);
+    }
+    log.push(`${bordes.length} red(es) de borde; ${TRAEFIK} falta en ${sinTraefik.length}`);
+    return sinTraefik.length
+      ? { estado: 'FALLIDO', log, error: `${TRAEFIK} no esta en ${sinTraefik.join(', ')}: ejecutor reconectar_bordes` }
+      : { estado: 'OK', log };
   },
 
   async V3(j) {
@@ -107,6 +132,27 @@ export const EJECUTORES: Record<string, Ejecutor> = {
   async V4() {
     // Requisito R1 del ERP: hoy cada silo construye su imagen; no hay vinculos-api/web en un registro.
     return { estado: 'OMITIDO', log: ['sin imagenes unicas en el registro (requisito R1 del ERP)'] };
+  },
+
+  // ---------- RECONFIGURAR (R4, por /api/internal/config) ----------
+  async C1(j) {
+    const m = (j.manifiesto ?? {}) as { modulos?: string[]; reglas?: Record<string, unknown> };
+    if (!Array.isArray(m.modulos)) return { estado: 'FALLIDO', log: ['manifiesto sin modulos'], error: 'La revision no trae modulos' };
+    const r = await llamarSilo<{ resultado: string }>(j.slug, await tokenDe(j.slug), 'POST', '/config', {
+      revision: j.revision,
+      hash: j.hashManifiesto,
+      modulos: m.modulos,
+      reglas: m.reglas ?? {},
+    });
+    return { estado: 'OK', log: [`${r.resultado}: rev ${j.revision} sha ${j.hashManifiesto.slice(0, 12)}`, `modulos ${m.modulos.join(', ') || 'solo nucleo'}`, `${Object.keys(m.reglas ?? {}).length} regla(s)`] };
+  },
+
+  async C2(j) {
+    const c = await llamarSilo<{ revision: number | null; hash: string | null; modulos: string[] }>(j.slug, await tokenDe(j.slug), 'GET', '/config');
+    const log = [`silo: rev ${c.revision ?? '-'} sha ${c.hash?.slice(0, 12) ?? '-'}`, `modulos activos ${c.modulos.join(', ')}`];
+    return c.revision === j.revision && c.hash === j.hashManifiesto
+      ? { estado: 'OK', log }
+      : { estado: 'FALLIDO', log, error: 'El silo no confirma la revision aplicada' };
   },
 
   // ---------- REINICIAR_SILO (por el ejecutor) ----------

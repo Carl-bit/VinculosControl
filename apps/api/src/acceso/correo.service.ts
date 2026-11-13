@@ -53,6 +53,21 @@ export class CorreoService {
     ]);
   }
 
+  /**
+   * Aviso al operador: llego una solicitud por el sitio publico. Solo el nombre
+   * del centro, tamano y modulos de interes; el detalle se ve en la consola.
+   */
+  async avisarSolicitud(para: string, centro: string, tamano: string | null, modulos: string[]): Promise<void> {
+    await this.enviar(para, `vinculos-control: nueva solicitud de ${centro}`, [
+      `Llego una solicitud de ${centro} por el sitio publico.`,
+      '',
+      `Tamano del equipo: ${tamano ?? 'sin indicar'}`,
+      `Modulos de interes: ${modulos.length ? modulos.join(', ') : 'sin indicar'}`,
+      '',
+      'Revisala en la consola: Solicitudes.',
+    ]);
+  }
+
   /** Prueba de la configuracion de correo (vista Configuracion). */
   async enviarPrueba(para: string): Promise<void> {
     await this.enviar(para, 'vinculos-control: correo de prueba', ['Si lees esto, el correo de la consola funciona.']);

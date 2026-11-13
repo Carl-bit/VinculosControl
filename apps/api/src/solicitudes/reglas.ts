@@ -49,3 +49,14 @@ export function fusionar(existente: Registrada | null, delSilo: EstadoSolicitud)
 
 /** Respuesta que falta entregar al silo (R3). */
 export const porEntregar = (s: Registrada) => s.estado !== 'PENDIENTE' && s.estado !== s.estadoSilo;
+
+/**
+ * Proximo estado que se entrega al silo. El silo solo acepta transiciones de a
+ * una (PENDIENTE -> APROBADA -> APLICADA): si la decision ya es APLICADA (el
+ * job RECONFIGURAR la cerro) y el silo sigue en PENDIENTE, primero va APROBADA
+ * y en el ciclo siguiente APLICADA.
+ */
+export function siguienteEntrega(s: Registrada): EstadoSolicitud {
+  if (s.estado === 'APLICADA' && s.estadoSilo === 'PENDIENTE') return 'APROBADA';
+  return s.estado;
+}

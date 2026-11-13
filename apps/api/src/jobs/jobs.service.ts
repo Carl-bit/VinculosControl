@@ -91,13 +91,41 @@ export class JobsService {
     const job = await this.prisma.job.findUniqueOrThrow({ where: { id: jobId }, include: { pasos: { orderBy: { orden: 'asc' } } } });
     for (const p of job.pasos.filter((x) => x.ejecutor === 'control' && x.estado !== 'OK')) {
       await this.prisma.pasoJob.update({ where: { id: p.id }, data: { estado: 'EN_CURSO', inicioEn: new Date(), intentos: { increment: 1 } } });
-      const { ok, log, error } = SOBRE_SILO.includes(job.tipo) ? await this.p0Silo(job.siloSlug!) : await this.p0(job.centroId!, job.revision!, job.hashManifiesto!);
+      const { ok, log, error } = SOBRE_SILO.includes(job.tipo) ? await this.p0Silo(job.siloSlug!) : await this.p0Manifiesto(job.tipo, job.centroId!, job.revision!, job.hashManifiesto!, job.siloSlug!);
       await this.prisma.pasoJob.update({ where: { id: p.id }, data: { estado: ok ? 'OK' : 'FALLIDO', finEn: new Date(), log, error } });
       if (!ok) {
         await this.prisma.job.update({ where: { id: jobId }, data: { estado: 'FALLIDO', error, terminadoEn: new Date() } });
         await this.auditoria.registrar('control', 'job.fallido', `job:${jobId}`, `${p.codigo}: ${error}`);
         return;
       }
+    }
+  }
+
+  /** P0 de los jobs que nacen del manifiesto. RECONFIGURAR actua sobre un silo vivo: ademas, el silo reportado. */
+  private async p0Manifiesto(tipo: TipoJob, centroId: number, revision: number, hash: string, slug: string) {
+    const m = await this.p0(centroId, revision, hash);
+    if (!m.ok || tipo !== 'RECONFIGURAR') return m;
+    const s = await this.p0Silo(slug);
+    return { ok: s.ok, log: [...m.log, ...s.log], error: s.error };
+  }
+
+  /**
+   * RECONFIGURAR terminado OK: las solicitudes de modulo APROBADAS del silo que
+   * la revision aplicada ya refleja pasan a APLICADA (el agente lo entrega al
+   * silo con R3 en su siguiente ciclo).
+   */
+  private async cerrarSolicitudes(jobId: number) {
+    const job = await this.prisma.job.findUniqueOrThrow({ where: { id: jobId } });
+    if (job.tipo !== 'RECONFIGURAR' || !job.centroId || !job.revision || !job.siloSlug) return;
+    const rev = await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: job.centroId, numero: job.revision } } });
+    const modulos = ((rev?.contenido as { modulos?: string[] } | null)?.modulos ?? []) as string[];
+    const aprobadas = await this.prisma.solicitudModulo.findMany({ where: { siloSlug: job.siloSlug, estado: 'APROBADA' } });
+    for (const s of aprobadas.filter((x) => modulos.includes(x.modulo) === (x.accion === 'ACTIVAR'))) {
+      await this.prisma.solicitudModulo.update({
+        where: { siloSlug_id: { siloSlug: s.siloSlug, id: s.id } },
+        data: { estado: 'APLICADA', respuesta: s.respuesta ?? 'Aplicado', decididaPor: `job:${jobId}`, decididaEn: new Date(), errorEntrega: null },
+      });
+      await this.auditoria.registrar('control', 'modulo.solicitud_aplicada', `${s.siloSlug}/${s.modulo}`, `${s.accion} por job:${jobId} rev ${job.revision}`);
     }
   }
 
@@ -228,6 +256,7 @@ export class JobsService {
     if (nuevo !== 'EN_CURSO') {
       await this.prisma.job.update({ where: { id: jobId }, data: { estado: nuevo, terminadoEn: ahora, error: nuevo === 'FALLIDO' ? `${codigo}: ${error ?? 'fallo'}`.slice(0, 500) : null } });
       await this.auditoria.registrar(`agente:${agenteId}`, nuevo === 'OK' ? 'job.ok' : 'job.fallido', `job:${jobId}`, nuevo === 'FALLIDO' ? `${codigo}: ${error ?? ''}` : job.siloSlug);
+      if (nuevo === 'OK') await this.cerrarSolicitudes(jobId);
     }
     return { seguir: nuevo === 'EN_CURSO' };
   }

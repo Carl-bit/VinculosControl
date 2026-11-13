@@ -56,7 +56,14 @@ export async function silosConToken(dir = DIR): Promise<{ slug: string; token: s
   return silos.filter((s) => s.token.length >= 32);
 }
 
-async function llamarSilo<T>(slug: string, token: string, metodo: 'GET' | 'POST', ruta: string, cuerpo?: unknown): Promise<T> {
+/** Token interno de un silo (TOKENS_INTERNOS_DIR/<slug>.token), o error claro si falta. */
+export async function tokenDe(slug: string, dir = DIR): Promise<string> {
+  const t = (await silosConToken(dir)).find((s) => s.slug === slug)?.token;
+  if (!t) throw new Error(`sin token interno para ${slug} en ${dir || 'TOKENS_INTERNOS_DIR'}`);
+  return t;
+}
+
+export async function llamarSilo<T>(slug: string, token: string, metodo: 'GET' | 'POST', ruta: string, cuerpo?: unknown): Promise<T> {
   const r = await fetch(`${urlSilo(slug)}${ruta}`, {
     method: metodo,
     headers: { authorization: `Bearer ${token}`, ...(cuerpo ? { 'content-type': 'application/json' } : {}) },

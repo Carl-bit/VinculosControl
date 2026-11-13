@@ -20,7 +20,7 @@ export interface DefPaso {
 const VERIFICAR: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'schema v1, dependencias y hash de la revision aprobada', ejecutor: 'control' },
   { codigo: 'V1', nombre: 'Integridad', detalle: 'sha256 del manifiesto recibido = hash aprobado', ejecutor: 'agente' },
-  { codigo: 'V2', nombre: 'Red de Traefik', detalle: 'existe la red proxy del host B', ejecutor: 'agente' },
+  { codigo: 'V2', nombre: 'Red de Traefik', detalle: 'existe la red proxy del host B y Traefik esta en la red de borde de cada silo', ejecutor: 'agente' },
   { codigo: 'V3', nombre: 'Nombre libre', detalle: 'no hay contenedores erp-<slug> en el host B', ejecutor: 'agente' },
   { codigo: 'V4', nombre: 'Imagen', detalle: 'vinculos-api/web en el registro (requisito R1 del ERP)', ejecutor: 'agente' },
   { codigo: 'V5', nombre: 'Capacidad', detalle: 'disco < 80 % y 1 GiB de RAM libre para el silo', ejecutor: 'agente' },
@@ -35,6 +35,18 @@ const REINICIAR_SILO: DefPaso[] = [
   { codigo: 'E1', nombre: 'Estado previo', detalle: 'contenedores de erp-<slug> (ejecutor)', ejecutor: 'agente' },
   { codigo: 'E2', nombre: 'Reiniciar', detalle: 'backend y despues frontend (ejecutor); db no se toca', ejecutor: 'agente' },
   { codigo: 'E3', nombre: 'Estado posterior', detalle: 'backend y frontend en marcha', ejecutor: 'agente' },
+];
+
+/**
+ * RECONFIGURAR (R4): aplica al silo la revision aprobada del manifiesto
+ * (modulos y reglas) por /api/internal/config, dentro de la red de borde.
+ * Nace de un manifiesto aprobado (por ejemplo, al aprobar una solicitud de
+ * modulo). Idempotente: la misma revision ya aplicada da SIN_CAMBIOS.
+ */
+const RECONFIGURAR: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'revision aprobada (schema, dependencias, hash), silo reportado, fuera de la ventana de respaldo', ejecutor: 'control' },
+  { codigo: 'C1', nombre: 'Aplicar', detalle: 'POST /api/internal/config con modulos y reglas de la revision', ejecutor: 'agente' },
+  { codigo: 'C2', nombre: 'Confirmar', detalle: 'GET /api/internal/config: el silo tiene esa revision y ese hash', ejecutor: 'agente' },
 ];
 
 /** Pasos de aprovisionar (para mostrarlos y documentar el bloqueo; aun no se encolan). */
@@ -53,7 +65,7 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
 ];
 
 /** Tipos que hoy se pueden encolar, con sus pasos. El resto responde por que no. */
-export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO };
+export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR };
 
 /** Jobs sobre un silo existente (no nacen de un manifiesto aprobado). */
 export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO'];
@@ -70,7 +82,6 @@ export function enVentanaRespaldo(ahora: Date): boolean {
 
 export const BLOQUEO: Partial<Record<TipoJob, string>> = {
   APROVISIONAR: 'Bloqueado: requiere imagenes unicas (R1), /api/internal/* (R4, R5) y escritura en el docker-socket-proxy',
-  RECONFIGURAR: 'Bloqueado: requiere /api/internal/config en el ERP (R4)',
   ACTUALIZAR: 'Bloqueado: requiere imagenes unicas y registro de releases (R1)',
   REINICIAR_DEMO: 'Bloqueado: requiere demo:resembrar en el ERP (R10: resembrar datos ficticios conservando llaves). Para reiniciar contenedores sin tocar datos: REINICIAR_SILO',
   EXPORTAR: 'Pendiente: fase 5 (salidas)',

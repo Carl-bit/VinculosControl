@@ -26,8 +26,9 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('OK')).toBe(false);
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
-  it('ejecutables hoy: VERIFICAR y REINICIAR_SILO, ambos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO']);
+  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO y RECONFIGURAR (R4), todos con P0 en el plano de control', () => {
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR']);
+    expect(EJECUTABLES.RECONFIGURAR?.map((p) => p.codigo)).toEqual(['P0', 'C1', 'C2']);
     for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: 'P0', ejecutor: 'control' });
   });
   it('ventana de respaldo: 01:45 a 02:30 en Chile', () => {
