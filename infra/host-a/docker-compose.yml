@@ -1,0 +1,100 @@
+# Host A: plano de control (CONTEXTO.md, seccion 1). Hoy en el PC de desarrollo;
+# despues en el host que deje libre el VPS de los silos (siempre separado del host B).
+#
+#   cp infra/host-a/.env.example infra/host-a/.env   # y completar
+#   docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env up -d --build
+#   docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env exec api node dist/cli/crear-agente.js host-b
+#
+# La API se publica en la red (el agente del host B la llama). La consola (web)
+# solo en 127.0.0.1: para verla desde afuera, cloudflared + Cloudflare Access.
+
+name: vinculos-control
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: control
+      POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD:?CONTROL_DB_PASSWORD es obligatoria}
+      POSTGRES_DB: control
+    volumes:
+      - db_control:/var/lib/postgresql
+    ports:
+      # Solo para correr la API en modo desarrollo desde el host (pnpm api dev).
+      - '127.0.0.1:5440:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U control -d control']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://control:${CONTROL_DB_PASSWORD}@db:5432/control
+      CONSOLA_SECRETO: ${CONSOLA_SECRETO:?CONSOLA_SECRETO es obligatoria}
+      SITIO_SECRETO: ${SITIO_SECRETO:?SITIO_SECRETO es obligatoria}
+      # Enlace de fase 2 (lo arma la API) y dominio base de los subdominios de los silos.
+      SITIO_URL: ${SITIO_URL:-http://127.0.0.1:3200}
+      DOMINIO_BASE: ${DOMINIO_BASE:-vinculos.cl}
+      SALUD_INTERVALO_S: ${SALUD_INTERVALO_S:-60}
+      TZ: America/Santiago
+      # Codigo del login. Local: Mailpit; produccion: SMTP de SES (587 + usuario/clave) y su configuration set.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PUERTO: ${SMTP_PUERTO:-1025}
+      SMTP_USUARIO: ${SMTP_USUARIO:-}
+      SMTP_CLAVE: ${SMTP_CLAVE:-}
+      CORREO_REMITENTE: ${CORREO_REMITENTE:-vinculos-control <consola@vinculos.local>}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
+    ports:
+      - '${API_PUERTO:-4000}:4000'
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:4000
+      CONSOLA_SECRETO: ${CONSOLA_SECRETO}
+      # Direccion publica del formulario (para el enlace que comparte el operador).
+      SITIO_URL: ${SITIO_URL:-http://127.0.0.1:3200}
+    ports:
+      - '127.0.0.1:${WEB_PUERTO:-3100}:3000'
+
+  # Sitio publico (landing + formulario fase 1). App y puerto propios, separado de la consola:
+  # solo habla con /publico/* de la API, con su propio secreto. En pruebas, 127.0.0.1:3200;
+  # publicarlo (tunel o ruta de Cloudflare) se decide cuando el landing exista.
+  sitio:
+    build:
+      context: ../..
+      dockerfile: apps/sitio/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:4000
+      SITIO_SECRETO: ${SITIO_SECRETO}
+    ports:
+      - '127.0.0.1:${SITIO_PUERTO:-3200}:3000'
+
+  # Correo local del login (codigos de acceso). Puertos distintos a los del Mailpit del ERP (1025/8025).
+  # En produccion no se levanta: SMTP_HOST apunta a SES.
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8026:8025'
+      - '127.0.0.1:1026:1025'
+
+volumes:
+  db_control:

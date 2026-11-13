@@ -1,0 +1,16 @@
+{
+  "name": "@vc/ejecutor",
+  "private": true,
+  "description": "Ejecutor de silos del host B (opcion C): unico con el socket de Docker, verbos cerrados.",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  }
+}

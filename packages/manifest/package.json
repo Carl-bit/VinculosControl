@@ -1,0 +1,25 @@
+{
+  "name": "@vinculos/manifest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schema del manifiesto de un centro (fase 1, fase 2, completo), modulos y sus dependencias. Compartido con el ERP.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "hash.js",
+    "hash.d.ts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  }
+}

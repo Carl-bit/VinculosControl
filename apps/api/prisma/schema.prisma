@@ -1,0 +1,471 @@
+// Plano de control: SOLO metadatos de silos y del host. Nunca datos clinicos ni
+// personales, ni lineas de log: el agente manda numeros y booleanos.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Stack erp-<slug> del host B. Lo descubre el agente; el operador lo adopta.
+model Silo {
+  slug       String    @id
+  dominio    String?
+  adoptado   Boolean   @default(false)
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+  vistoEn    DateTime? @map("visto_en")
+  adoptadoEn DateTime? @map("adoptado_en")
+
+  @@map("silos")
+}
+
+/// Agente del host B. El token se guarda solo como sha256.
+model Agente {
+  id           Int       @id @default(autoincrement())
+  nombre       String    @unique
+  tokenHash    String    @unique @map("token_hash")
+  version      String?
+  ultimoLatido DateTime? @map("ultimo_latido")
+  creadoEn     DateTime  @default(now()) @map("creado_en")
+
+  @@map("agentes")
+}
+
+/// Sondeo de https://<dominio>/api/salud desde el host A (como un usuario real).
+model MuestraSalud {
+  id         BigInt   @id @default(autoincrement())
+  slug       String
+  en         DateTime @default(now())
+  http       Int?
+  ok         Boolean
+  bd         Boolean?
+  canarios   Boolean?
+  latenciaMs Int?     @map("latencia_ms")
+  error      String?
+
+  @@index([slug, en])
+  @@map("muestras_salud")
+}
+
+/// docker stats por contenedor de un silo (db, backend, frontend).
+model MetricaContenedor {
+  id        BigInt   @id @default(autoincrement())
+  slug      String
+  servicio  String
+  en        DateTime @default(now())
+  cpuPct    Float    @map("cpu_pct")
+  memBytes  BigInt   @map("mem_bytes")
+  memLimite BigInt   @map("mem_limite")
+  reinicios Int
+  oom       Boolean
+  estado    String
+
+  @@index([slug, en])
+  @@map("metricas_contenedor")
+}
+
+model MetricaHost {
+  id       BigInt   @id @default(autoincrement())
+  en       DateTime @default(now())
+  discoPct Float    @map("disco_pct")
+  memUsada BigInt   @map("mem_usada")
+  memTotal BigInt   @map("mem_total")
+  carga1   Float
+  cpus     Int
+
+  @@index([en])
+  @@map("metricas_host")
+}
+
+/// p50/p95/max por ruta (sin ids ni query) calculados en el agente desde los logs del backend.
+model LatenciaRuta {
+  id   BigInt   @id @default(autoincrement())
+  slug String
+  en   DateTime @default(now())
+  ruta String
+  n    Int
+  p50  Int
+  p95  Int
+  max  Int
+
+  @@index([slug, en])
+  @@map("latencias_ruta")
+}
+
+/// Ultimo respaldo cifrado visto en infra/respaldos/<slug>/ (nombre, fecha, tamaño, sha256).
+model Respaldo {
+  slug    String   @id
+  archivo String
+  fecha   DateTime
+  bytes   BigInt
+  sha256  String?
+  vistoEn DateTime @default(now()) @map("visto_en")
+
+  @@map("respaldos")
+}
+
+/// Una alerta abierta por clave (p. ej. "salud:estres"); se cierra sola cuando la condicion desaparece.
+model Alerta {
+  id        Int       @id @default(autoincrement())
+  clave     String
+  tipo      String
+  severidad String
+  slug      String?
+  mensaje   String
+  abiertaEn DateTime  @default(now()) @map("abierta_en")
+  cerradaEn DateTime? @map("cerrada_en")
+
+  @@index([clave, cerradaEn])
+  @@map("alertas")
+}
+
+/// Persona del proveedor que entra a la consola (no es usuario de ningun silo).
+/// Contrasena con scrypt (sal propia). Tras 5 fallos seguidos queda bloqueada 15 min.
+model Operador {
+  id             Int       @id @default(autoincrement())
+  correo         String    @unique
+  nombre         String
+  claveHash      String    @map("clave_hash")
+  fallos         Int       @default(0)
+  bloqueadaHasta DateTime? @map("bloqueada_hasta")
+  activo         Boolean   @default(true)
+  creadoEn       DateTime  @default(now()) @map("creado_en")
+
+  desafios CodigoAcceso[]
+  sesiones Sesion[]
+
+  @@map("operadores")
+}
+
+/// Paso 2 del login: codigo de 6 digitos por correo. Se guarda solo su HMAC.
+/// Vence a los 10 min, sirve una vez y admite 5 intentos.
+model CodigoAcceso {
+  id         String    @id
+  operadorId Int       @map("operador_id")
+  codigoHmac String    @map("codigo_hmac")
+  intentos   Int       @default(0)
+  enviadoEn  DateTime  @default(now()) @map("enviado_en")
+  reenvios   Int       @default(0)
+  venceEn    DateTime  @map("vence_en")
+  usadoEn    DateTime? @map("usado_en")
+  ip         String?
+
+  operador Operador @relation(fields: [operadorId], references: [id], onDelete: Cascade)
+
+  @@index([operadorId])
+  @@map("codigos_acceso")
+}
+
+/// Sesion de la consola. El token vive solo en la cookie httpOnly de la web; aca, su sha256.
+/// Expira con 30 min sin actividad o 12 h desde el inicio.
+model Sesion {
+  id              Int       @id @default(autoincrement())
+  tokenHash       String    @unique @map("token_hash")
+  operadorId      Int       @map("operador_id")
+  creadaEn        DateTime  @default(now()) @map("creada_en")
+  ultimaActividad DateTime  @default(now()) @map("ultima_actividad")
+  revocadaEn      DateTime? @map("revocada_en")
+  ip              String?
+
+  operador Operador @relation(fields: [operadorId], references: [id], onDelete: Cascade)
+
+  @@index([operadorId, creadaEn])
+  @@map("sesiones")
+}
+
+/// Auditoria de la consola: transiciones, accesos y acciones. Solo metadatos; nunca datos clinicos.
+model EventoAuditoria {
+  id      BigInt   @id @default(autoincrement())
+  en      DateTime @default(now())
+  actor   String
+  accion  String
+  objeto  String?
+  detalle String?
+
+  @@index([en])
+  @@index([accion, en])
+  @@map("eventos_auditoria")
+}
+
+/// Ciclo de vida de un centro (CONTEXTO.md seccion 2).
+enum EstadoCentro {
+  SOLICITUD
+  CONTACTADO
+  REUNION
+  DATOS_COMPLETOS
+  APROBADO
+  APROVISIONANDO
+  ACTIVO
+  ACTIVO_SIN_DOMINIO
+  SUSPENDIDO
+  EN_SALIDA
+  EXPORTADO
+  GRACIA
+  ELIMINADO
+  DESCARTADO
+
+  @@map("estado_centro")
+}
+
+/// Centro cliente (o prospecto). Solo el contacto comercial; nunca datos de pacientes ni del equipo.
+/// `slug` = nombre del silo (erp-<slug>): lo fija el operador al pasar a fase 2 y no cambia desde APROBADO.
+model Centro {
+  id               Int          @id @default(autoincrement())
+  slug             String?      @unique
+  nombre           String
+  estado           EstadoCentro @default(SOLICITUD)
+  contactoNombre   String       @map("contacto_nombre")
+  contactoCorreo   String       @map("contacto_correo")
+  contactoTelefono String?      @map("contacto_telefono")
+  comuna           String
+  /// formulario (sitio), conversacion, demo o consola.
+  origen           String
+  creadoEn         DateTime     @default(now()) @map("creado_en")
+  actualizadoEn    DateTime     @updatedAt @map("actualizado_en")
+
+  /// Revision aprobada (fase 3 = manifiesto completo validado por P0) y su hash: entrada del job aprovisionar.
+  revisionAprobada Int?      @map("revision_aprobada")
+  hashAprobado     String?   @map("hash_aprobado")
+  aprobadoEn       DateTime? @map("aprobado_en")
+
+  transiciones TransicionCentro[]
+  revisiones   RevisionManifiesto[]
+  enlaces      EnlaceFase2[]
+
+  @@index([estado, creadoEn])
+  @@map("centros")
+}
+
+/// Cada cambio de estado: quien, cuando, desde que estado y por que.
+model TransicionCentro {
+  id       Int           @id @default(autoincrement())
+  centroId Int           @map("centro_id")
+  desde    EstadoCentro?
+  hacia    EstadoCentro
+  actor    String
+  motivo   String?
+  en       DateTime      @default(now())
+
+  centro Centro @relation(fields: [centroId], references: [id], onDelete: Cascade)
+
+  @@index([centroId, en])
+  @@map("transiciones_centro")
+}
+
+/// Revision del manifiesto: fase 1 = formulario publico; fase 2 = borrador de datos formales;
+/// fase 3 = manifiesto completo aprobado (P0 ok). Inmutable: cada cambio crea una nueva con su hash.
+model RevisionManifiesto {
+  id        Int      @id @default(autoincrement())
+  centroId  Int      @map("centro_id")
+  numero    Int
+  fase      Int
+  contenido Json
+  hash      String
+  autor     String
+  creadaEn  DateTime @default(now()) @map("creada_en")
+
+  centro Centro @relation(fields: [centroId], references: [id], onDelete: Cascade)
+
+  @@unique([centroId, numero])
+  @@map("revisiones_manifiesto")
+}
+
+/// Enlace privado de fase 2 (CONTEXTO.md seccion 3): el centro completa sus datos formales.
+/// Token solo en el correo; aca, su sha256. Vence a los 7 dias; uno vivo por centro; se revoca al aprobar.
+model EnlaceFase2 {
+  id          Int       @id @default(autoincrement())
+  centroId    Int       @map("centro_id")
+  tokenHash   String    @unique @map("token_hash")
+  enviadoA    String    @map("enviado_a")
+  creadoEn    DateTime  @default(now()) @map("creado_en")
+  venceEn     DateTime  @map("vence_en")
+  revocadoEn  DateTime? @map("revocado_en")
+  ultimoUsoEn DateTime? @map("ultimo_uso_en")
+
+  centro Centro @relation(fields: [centroId], references: [id], onDelete: Cascade)
+
+  @@index([centroId])
+  @@map("enlaces_fase2")
+}
+
+/// Tipos de job (CONTEXTO.md secciones 5 y 8). Hoy solo VERIFICAR se ejecuta: el resto espera
+/// requisitos del ERP (imagenes unicas, /api/internal/*) y escritura en el docker-socket-proxy.
+enum TipoJob {
+  VERIFICAR
+  /// Reinicia backend y frontend de un silo por el ejecutor (accion "Reiniciar contenedor" del boceto). No toca db ni datos.
+  REINICIAR_SILO
+  APROVISIONAR
+  RECONFIGURAR
+  ACTUALIZAR
+  REINICIAR_DEMO
+  EXPORTAR
+  ELIMINAR
+
+  @@map("tipo_job")
+}
+
+enum EstadoJob {
+  PENDIENTE
+  EN_CURSO
+  ESPERANDO_LLAVES
+  FALLIDO
+  OK
+  CANCELADO
+
+  @@map("estado_job")
+}
+
+enum EstadoPaso {
+  PENDIENTE
+  EN_CURSO
+  OK
+  FALLIDO
+  OMITIDO
+
+  @@map("estado_paso")
+}
+
+/// Cola de jobs en Postgres: el agente reclama con FOR UPDATE SKIP LOCKED y una reserva (lease)
+/// que renueva al reportar cada paso. Si la reserva vence, otro reclamo lo retoma desde el paso pendiente.
+model Job {
+  id             Int       @id @default(autoincrement())
+  tipo           TipoJob
+  estado         EstadoJob @default(PENDIENTE)
+  centroId       Int?      @map("centro_id")
+  siloSlug       String?   @map("silo_slug")
+  /// Revision del manifiesto que ejecuta el job (todo cambio en un silo nace de una revision aprobada).
+  revision       Int?
+  hashManifiesto String?   @map("hash_manifiesto")
+  creadoPor      String    @map("creado_por")
+  creadoEn       DateTime  @default(now()) @map("creado_en")
+  agenteId       Int?      @map("agente_id")
+  reclamadoEn    DateTime? @map("reclamado_en")
+  reservaHasta   DateTime? @map("reserva_hasta")
+  terminadoEn    DateTime? @map("terminado_en")
+  intentos       Int       @default(0)
+  error          String?
+
+  pasos PasoJob[]
+
+  @@index([estado, creadoEn])
+  @@index([centroId])
+  @@map("jobs")
+}
+
+/// Paso de un job: idempotente, registrado y reintentable desde el que fallo. `log` = lineas cortas sin secretos.
+model PasoJob {
+  id       Int        @id @default(autoincrement())
+  jobId    Int        @map("job_id")
+  orden    Int
+  codigo   String
+  nombre   String
+  detalle  String
+  /// control = lo ejecuta la API; agente = el agente del host B.
+  ejecutor String
+  estado   EstadoPaso @default(PENDIENTE)
+  intentos Int        @default(0)
+  inicioEn DateTime?  @map("inicio_en")
+  finEn    DateTime?  @map("fin_en")
+  log      String[]   @default([])
+  error    String?
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, codigo])
+  @@map("pasos_job")
+}
+
+/// Incidentes (CONTEXTO.md 8b, docs/cumplimiento/incidentes.md del ERP). Registro fuera del silo y sin
+/// datos personales: titulo y notas describen el hecho tecnico, nunca a pacientes ni al equipo del centro.
+model Incidente {
+  id                    Int       @id @default(autoincrement())
+  severidad             String
+  titulo                String
+  siloSlug              String?   @map("silo_slug")
+  centroId              Int?      @map("centro_id")
+  /// Alerta del monitoreo que lo origino, si la hay.
+  alertaId              Int?      @map("alerta_id")
+  detectadoEn           DateTime  @map("detectado_en")
+  contenidoEn           DateTime? @map("contenido_en")
+  avisoCentroEn         DateTime? @map("aviso_centro_en")
+  ultimaActualizacionEn DateTime? @map("ultima_actualizacion_en")
+  informeFinalEn        DateTime? @map("informe_final_en")
+  cerradoEn             DateTime? @map("cerrado_en")
+  creadoPor             String    @map("creado_por")
+  creadoEn              DateTime  @default(now()) @map("creado_en")
+
+  eventos EventoIncidente[]
+
+  @@index([cerradoEn, detectadoEn])
+  @@map("incidentes")
+}
+
+/// Bitacora del incidente: contencion, aviso al centro, actualizaciones, informe final, cierre y notas.
+model EventoIncidente {
+  id          Int      @id @default(autoincrement())
+  incidenteId Int      @map("incidente_id")
+  tipo        String
+  texto       String
+  actor       String
+  en          DateTime @default(now())
+
+  incidente Incidente @relation(fields: [incidenteId], references: [id], onDelete: Cascade)
+
+  @@index([incidenteId, en])
+  @@map("eventos_incidente")
+}
+
+/// Solicitud de soporte (docs/cumplimiento/soporte.md del ERP): solo con autorizacion vigente del ADMIN
+/// en su silo (motivo, alcance, 1 a 72 h). La consola lleva el ticket, nunca el detalle del silo.
+model SolicitudSoporte {
+  id           Int       @id @default(autoincrement())
+  siloSlug     String    @map("silo_slug")
+  centroId     Int?      @map("centro_id")
+  motivo       String
+  /// DIAGNOSTICO o CONFIGURACION (alcance que autorizo el ADMIN).
+  alcance      String
+  autorizadaEn DateTime  @map("autorizada_en")
+  venceEn      DateTime  @map("vence_en")
+  /// ABIERTA, CERRADA (el vencimiento se calcula).
+  estado       String    @default("ABIERTA")
+  resultado    String?
+  creadoPor    String    @map("creado_por")
+  creadoEn     DateTime  @default(now()) @map("creado_en")
+  cerradaEn    DateTime? @map("cerrada_en")
+
+  @@index([estado, venceEn])
+  @@map("solicitudes_soporte")
+}
+
+/// Tarea 31 (R2/R3 del ERP): solicitud de modulo que nacio en el silo (la pide su ADMIN).
+/// Solo metadatos: modulo, accion, rol, fechas y estado. Nunca el motivo ni quien la pidio
+/// (se quedan en el silo). `estado` es la decision del operador; `estadoSilo`, lo que el silo
+/// confirma por R2. Si difieren, el agente entrega la respuesta con R3 en su siguiente ciclo.
+model SolicitudModulo {
+  siloSlug     String    @map("silo_slug")
+  /// uuid de la solicitud en el silo.
+  id           String
+  modulo       String
+  /// ACTIVAR o DESACTIVAR.
+  accion       String
+  pedidaPorRol String    @map("pedida_por_rol")
+  pedidaEn     DateTime  @map("pedida_en")
+  /// PENDIENTE, APROBADA, RECHAZADA o APLICADA (decision del operador).
+  estado       String    @default("PENDIENTE")
+  /// Ultimo estado que confirmo el silo (R2).
+  estadoSilo   String    @map("estado_silo")
+  /// Texto para el ADMIN del centro (sin datos personales).
+  respuesta    String?
+  decididaPor  String?   @map("decidida_por")
+  decididaEn   DateTime? @map("decidida_en")
+  /// Error del ultimo intento de entregar la respuesta al silo (R3), si lo hubo.
+  errorEntrega String?   @map("error_entrega")
+  vistaEn      DateTime  @map("vista_en")
+
+  @@id([siloSlug, id])
+  @@index([estado])
+  @@map("solicitudes_modulo")
+}

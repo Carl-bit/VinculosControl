@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Consola del proveedor</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Inter:wght@400;500;600;700&amp;family=Figtree:wght@400;500;600;700;800&amp;family=Bricolage+Grotesque:wght@700;800&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1200px; display: flex; flex-wrap: wrap; background: {{ t.bg }}; color: {{ t.ink }}; font-family: {{ t.font }}; font-size: 14px; line-height: 1.5">
+
+<aside style="flex: 1 1 232px; max-width: 250px; box-sizing: border-box; background: {{ t.side }}; border-right: 1px solid {{ t.line }}; padding: 18px 12px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px"><span aria-hidden="true" style="display: grid; grid-template-columns: repeat(2, 9px); gap: 3px"><span style="width: 9px; height: 9px; border-radius: 2px; background: {{ t.accent }}"></span><span style="width: 9px; height: 9px; border-radius: 2px; background: {{ t.ink2 }}"></span><span style="width: 9px; height: 9px; border-radius: 2px; background: {{ t.ink2 }}"></span><span style="width: 9px; height: 9px; border-radius: 2px; background: {{ t.accent }}"></span></span><strong style="font-family: {{ t.tf }}; font-size: 16px">vinculos-control</strong></div>
+<sc-for list="{{ grupos }}" as="g" hint-placeholder-count="5"><div style="display: flex; flex-direction: column; gap: 2px">
+<span style="padding: 0 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: {{ t.ink2 }}">{{ g.l }}</span>
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3"><button type="button" onClick="{{ it.pick }}" aria-current="{{ it.cur }}" style="min-height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: {{ t.rs }}; background: {{ it.f }}; color: {{ it.c }}; font-size: 14px; font-weight: {{ it.fw }}; text-align: left; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ it.d }}"></path></svg><span style="flex: 1">{{ it.l }}</span><sc-if value="{{ it.hayBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: {{ t.warnS }}; color: {{ t.warn }}; font-size: 12px; font-weight: 700; text-align: center">{{ it.badge }}</span></sc-if></button></sc-for>
+</div></sc-for>
+<div style="margin-top: auto; padding: 12px; border-radius: {{ t.r }}; background: {{ t.panel2 }}; border: 1px solid {{ t.line }}; font-size: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; align-items: center; gap: 8px; font-weight: 700"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: {{ t.ok }}"></span>agente host-b en línea</span>
+<span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">latido hace 12 s · v0.1.0</span>
+</div>
+</aside>
+
+<main style="flex: 999 1 900px; min-width: 0; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px; border-bottom: 1px solid {{ t.line }}; background: {{ t.side }}">
+<span style="font-size: 13px; color: {{ t.ink2 }}">consola /</span><strong style="font-size: 14px">{{ titulo }}</strong>
+<label style="margin-left: auto; display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink2 }}; font-size: 13px; min-width: 280px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z M21 21l-5-5"></path></svg><input type="search" placeholder="Buscar centro, silo, job o evento" style="flex: 1; border: 0; background: transparent; color: {{ t.ink }}; font-size: 13px; outline: none"></label>
+<span style="padding: 4px 10px; border-radius: 999px; background: {{ t.okS }}; color: {{ t.ok }}; font-size: 12px; font-weight: 700; font-family: {{ t.mono }}">host-b: en línea</span>
+<span style="font-size: 13px">Charlie · <span style="color: {{ t.ink2 }}">2FA</span></span>
+</header>
+
+<div style="padding: 24px; display: flex; flex-direction: column; gap: 20px">
+
+<!-- RESUMEN -->
+<sc-if value="{{ v.resumen }}" hint-placeholder-val="{{ true }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Resumen</h1><span style="color: {{ t.ink2 }}">Estado de la plataforma · actualizado hace 12 s</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5"><div style="padding: 16px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: {{ t.ink2 }}">{{ k.l }}</span><strong style="font-family: {{ t.tf }}; font-size: 26px; color: {{ k.c }}">{{ k.v }}</strong><span style="font-size: 12px; color: {{ t.ink2 }}; font-family: {{ t.mono }}">{{ k.d }}</span></div></sc-for>
+</div>
+<div role="alert" style="padding: 12px 16px; border-radius: {{ t.r }}; background: {{ t.warnS }}; color: {{ t.warn }}; font-size: 13px"><strong>aurora en salida:</strong> periodo de gracia hasta el 04 dic. Sus respaldos se eliminan en el paso S7.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 520px; min-width: 0; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}">
+<div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid {{ t.line }}"><h2 style="margin: 0; font-size: 15px">Silos</h2><button type="button" onClick="{{ irSilos }}" style="margin-left: auto; min-height: 36px; padding: 0 12px; border: 0; background: transparent; color: {{ t.accent }}; font-weight: 700; cursor: pointer">Ver todos</button></div>
+<sc-for list="{{ silos }}" as="s" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 110px 90px 110px 140px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 13px"><strong style="font-family: {{ t.mono }}">{{ s.id }}</strong><span style="font-family: {{ t.mono }}">{{ s.ver }}</span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ s.canalF }}; color: {{ s.canalC }}; font-size: 12px; font-weight: 700">{{ s.canal }}</span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ s.estF }}; color: {{ s.estC }}; font-size: 12px; font-weight: 700; font-family: {{ t.mono }}">{{ s.estado }}</span><span style="display: flex; align-items: center; gap: 8px"><span style="flex: 1; height: 6px; border-radius: 999px; background: {{ t.panel2 }}; overflow: hidden"><span style="display: block; height: 6px; width: {{ s.ramW }}; background: {{ s.ramColor }}"></span></span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ s.ram }}</span></span></div></sc-for>
+</section>
+<div style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 20px">
+<section style="padding: 16px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 12px"><h2 style="margin: 0; font-size: 15px">Host B · i7 4a gen · 16 GB DDR3</h2>
+<sc-for list="{{ recursos }}" as="r" hint-placeholder-count="3"><div style="display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>{{ r.l }}</span><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ r.v }}</span></span><span style="height: 8px; border-radius: 999px; background: {{ t.panel2 }}; overflow: hidden"><span style="display: block; height: 8px; width: {{ r.w }}; background: {{ t.accent }}"></span></span></div></sc-for>
+<span style="font-size: 12px; color: {{ t.ink2 }}">Capacidad estimada: 6 a 10 silos. Confirmar con prueba de estrés k6.</span>
+</section>
+<section style="padding: 16px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px"><h2 style="margin: 0; font-size: 15px">Eventos recientes</h2>
+<sc-for list="{{ eventosCortos }}" as="e" hint-placeholder-count="5"><div style="display: flex; flex-direction: column; font-size: 13px"><span style="font-family: {{ t.mono }}">{{ e.accion }} <span style="color: {{ t.ink2 }}">{{ e.objeto }}</span></span><span style="font-size: 12px; color: {{ t.ink2 }}">{{ e.fecha }} · {{ e.actor }}</span></div></sc-for>
+</section>
+</div>
+</div>
+</sc-if>
+
+<!-- SOLICITUDES -->
+<sc-if value="{{ v.solicitudes }}" hint-placeholder-val="{{ false }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Solicitudes</h1><span style="color: {{ t.ink2 }}">Llegan desde el sitio de Vinculos (manifiesto fase 1, sin datos sensibles)</span></div>
+<div role="group" aria-label="Filtrar por estado" style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ filtrosSol }}" as="f" hint-placeholder-count="5"><button type="button" aria-pressed="{{ f.on }}" onClick="{{ f.pick }}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ t.line }}; background: {{ f.fondo }}; color: {{ f.color }}; font-size: 13px; font-weight: 600; cursor: pointer">{{ f.l }}</button></sc-for></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 560px; min-width: 0; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; overflow-x: auto">
+<div style="min-width: 640px">
+<div style="display: grid; grid-template-columns: 70px minmax(0, 1.3fr) minmax(0, 1fr) 80px 60px 110px 150px; gap: 10px; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: {{ t.ink2 }}"><span>ID</span><span>Centro</span><span>Comuna</span><span>Tamaño</span><span>Bloq.</span><span>Recibida</span><span>Estado</span></div>
+<sc-for list="{{ sols }}" as="s" hint-placeholder-count="4"><button type="button" onClick="{{ s.pick }}" aria-pressed="{{ s.sel }}" style="width: 100%; display: grid; grid-template-columns: 70px minmax(0, 1.3fr) minmax(0, 1fr) 80px 60px 110px 150px; gap: 10px; align-items: center; min-height: 48px; padding: 0 16px; border: 0; border-bottom: 1px solid {{ t.line }}; background: {{ s.fondo }}; color: {{ t.ink }}; font-size: 13px; text-align: left; cursor: pointer"><span style="font-family: {{ t.mono }}">{{ s.id }}</span><strong>{{ s.centro }}</strong><span style="color: {{ t.ink2 }}">{{ s.comuna }}</span><span>{{ s.tam }}</span><span style="font-family: {{ t.mono }}">{{ s.nMods }}</span><span style="color: {{ t.ink2 }}">{{ s.recibida }}</span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ s.estF }}; color: {{ s.estC }}; font-size: 12px; font-weight: 700; font-family: {{ t.mono }}">{{ s.estado }}</span></button></sc-for>
+</div>
+</section>
+<section style="flex: 1 1 380px; box-sizing: border-box; padding: 20px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ sol.id }}</span><h2 style="margin: 0; font-family: {{ t.tf }}; font-size: 20px">{{ sol.centro }}</h2></div>
+<ol aria-label="Etapas" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px"><sc-for list="{{ sol.etapas }}" as="e" hint-placeholder-count="5"><li style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: {{ e.c }}"><span style="height: 4px; border-radius: 999px; background: {{ e.barra }}"></span>{{ e.l }}</li></sc-for></ol>
+<dl style="margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 13px">
+<dt style="color: {{ t.ink2 }}">Comuna</dt><dd style="margin: 0">{{ sol.comuna }}</dd>
+<dt style="color: {{ t.ink2 }}">Tamaño equipo</dt><dd style="margin: 0">{{ sol.tam }}</dd>
+<dt style="color: {{ t.ink2 }}">Cómo trabajan hoy</dt><dd style="margin: 0">{{ sol.hoy }}</dd>
+<dt style="color: {{ t.ink2 }}">Sitio web</dt><dd style="margin: 0">{{ sol.sitio }}</dd>
+<dt style="color: {{ t.ink2 }}">Estilo</dt><dd style="margin: 0">{{ sol.estilo }}</dd>
+<dt style="color: {{ t.ink2 }}">Contacto</dt><dd style="margin: 0">{{ sol.contacto }}</dd>
+<dt style="color: {{ t.ink2 }}">Origen</dt><dd style="margin: 0">{{ sol.origen }}</dd>
+</dl>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ sol.mods }}" as="m" hint-placeholder-count="4"><span style="padding: 2px 8px; border-radius: {{ t.rs }}; background: {{ t.infoS }}; color: {{ t.info }}; font-size: 12px; font-weight: 700">{{ m }}</span></sc-for></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid {{ t.line }}">
+<sc-if value="{{ sol.puedeAvanzar }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ sol.avanzar }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">{{ sol.accion }}</button></sc-if>
+<sc-if value="{{ sol.listo }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ irManifiesto }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">Abrir manifiesto</button></sc-if>
+<sc-if value="{{ sol.descartable }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ sol.descartar }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.danger }}; font-weight: 700; cursor: pointer">Descartar</button></sc-if>
+</div>
+<span style="font-size: 12px; color: {{ t.ink2 }}">{{ sol.nota }}</span>
+</section>
+</div>
+</sc-if>
+
+<!-- MANIFIESTO -->
+<sc-if value="{{ v.manifiestos }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Manifiesto · alba</h1><span style="color: {{ t.ink2 }}">Centro Alba · S-012 · fase 2 completada por el centro</span></div><span style="margin-left: auto; padding: 4px 10px; border-radius: 999px; background: {{ t.panel2 }}; font-family: {{ t.mono }}; font-size: 12px">rev 3 · sha 7c21e9</span><span style="padding: 4px 10px; border-radius: 999px; background: {{ man.estF }}; color: {{ man.estC }}; font-family: {{ t.mono }}; font-size: 12px; font-weight: 700">{{ man.estado }}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 520px; min-width: 0; box-sizing: border-box; padding: 20px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 18px">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Razón social<input type="text" value="Alba Salud Mental SpA" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">RUT<input type="text" value="77.xxx.xxx-x" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-size: 14px; font-family: {{ t.mono }}"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Admin inicial<input type="email" value="admin@alba.cl" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Responsable de datos (recibe exportes)<input type="email" value="direccion@alba.cl" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Dominio<input type="text" value="alba.vinculos.cl" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-size: 14px; font-family: {{ t.mono }}"></label>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Estilo</span><div style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ man.temas }}" as="o" hint-placeholder-count="4"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="min-height: 36px; padding: 0 12px; border-radius: {{ t.rs }}; border: {{ o.b }}; background: {{ o.f }}; color: {{ o.c }}; font-size: 13px; font-weight: 600; cursor: pointer">{{ o.l }}</button></sc-for></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Módulos (las dependencias se agregan solas)</span><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px"><sc-for list="{{ man.mods }}" as="m" hint-placeholder-count="7"><button type="button" role="switch" aria-checked="{{ m.on }}" onClick="{{ m.pick }}" style="min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: {{ t.rs }}; border: {{ m.b }}; background: {{ m.f }}; color: {{ t.ink }}; font-size: 13px; text-align: left; cursor: pointer"><span style="font-family: {{ t.mono }}; font-weight: 700; color: {{ m.mark }}">{{ m.check }}</span>{{ m.l }}</button></sc-for></div><sc-if value="{{ hayMsg }}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 12px; color: {{ t.warn }}">{{ msg }}</span></sc-if></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">agenda.duracion_sesion_min<input type="number" value="50" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-family: {{ t.mono }}"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">agenda.aviso_cancelacion_h<input type="number" value="24" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-family: {{ t.mono }}"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">derivacion.respuesta_h<input type="number" value="24" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-family: {{ t.mono }}"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">practicante.consentimiento_h<input type="number" value="48" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}; font-family: {{ t.mono }}"></label>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Canal de versión</span><div style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ man.canales }}" as="o" hint-placeholder-count="3"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="min-height: 36px; padding: 0 12px; border-radius: {{ t.rs }}; border: {{ o.b }}; background: {{ o.f }}; color: {{ o.c }}; font-size: 13px; font-weight: 600; font-family: {{ t.mono }}; cursor: pointer">{{ o.l }}</button></sc-for></div></div>
+<button type="button" role="checkbox" aria-checked="{{ man.legal }}" onClick="{{ man.toggleLegal }}" style="align-self: flex-start; min-height: 40px; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: {{ t.ink }}; font-size: 13px; cursor: pointer"><span style="width: 20px; height: 20px; box-sizing: border-box; border-radius: 4px; border: 2px solid {{ t.ink2 }}; background: {{ man.legalF }}; color: {{ t.onAccent }}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{ man.legalMark }}</span>Contrato de encargo de tratamiento aceptado (v 2026-11)</button>
+</section>
+<div style="flex: 1 1 380px; display: flex; flex-direction: column; gap: 16px">
+<section style="border-radius: {{ t.r }}; background: {{ t.code }}; border: 1px solid {{ t.line }}; overflow: hidden"><div style="padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); color: #A9B4C2; font-family: {{ t.mono }}; font-size: 12px">centros/alba.yaml</div><pre style="margin: 0; padding: 14px; color: #D7DEE8; font-family: {{ t.mono }}; font-size: 12px; line-height: 1.6; white-space: pre-wrap">{{ man.yaml }}</pre></section>
+<section style="padding: 16px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 8px"><h2 style="margin: 0 0 4px; font-size: 15px">Validación P0</h2>
+<sc-for list="{{ man.checks }}" as="c" hint-placeholder-count="5"><div style="display: flex; gap: 10px; align-items: center; font-size: 13px"><span style="min-width: 34px; padding: 1px 6px; border-radius: 4px; background: {{ c.f }}; color: {{ c.c }}; font-family: {{ t.mono }}; font-size: 11px; font-weight: 700; text-align: center">{{ c.tag }}</span>{{ c.l }}</div></sc-for>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid {{ t.line }}"><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 700; cursor: pointer">Guardar revisión</button><button type="button" onClick="{{ man.aprobar }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ man.aprobarF }}; color: {{ man.aprobarC }}; font-weight: 700; cursor: pointer">Aprobar y aprovisionar</button></div>
+<sc-if value="{{ man.bloqueado }}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 12px; color: {{ t.warn }}">Falta aceptar el contrato de encargo para aprobar.</span></sc-if>
+</section>
+</div>
+</div>
+</sc-if>
+
+<!-- APROVISIONAMIENTO -->
+<sc-if value="{{ v.job }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Job aprovisionar · {{ job.centro }}</h1><span style="color: {{ t.ink2 }}; font-family: {{ t.mono }}; font-size: 13px">job #{{ job.num }} · ejecuta agente@host-b · imagen vinculos:0.1.4</span></div><span style="margin-left: auto; padding: 4px 10px; border-radius: 999px; background: {{ job.estF }}; color: {{ job.estC }}; font-family: {{ t.mono }}; font-size: 12px; font-weight: 700">{{ job.estado }}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" onClick="{{ job.siguiente }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">Simular siguiente paso</button>
+<button type="button" onClick="{{ job.fallar }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.danger }}; font-weight: 700; cursor: pointer">Simular falla</button>
+<button type="button" onClick="{{ job.reintentar }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 700; cursor: pointer">Reintentar desde {{ job.actual }}</button>
+<button type="button" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink2 }}; font-weight: 700; cursor: pointer">Cancelar (deshace solo lo creado por este job)</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 1 1 440px; min-width: 0; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}">
+<sc-for list="{{ job.pasos }}" as="p" hint-placeholder-count="11"><div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 96px 56px; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid {{ t.line }}; background: {{ p.fondo }}"><span style="font-family: {{ t.mono }}; font-weight: 700; color: {{ t.ink2 }}">{{ p.id }}</span><span><strong style="display: block; font-size: 13px">{{ p.l }}</strong><span style="font-size: 12px; color: {{ t.ink2 }}">{{ p.d }}</span></span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ p.f }}; color: {{ p.c }}; font-family: {{ t.mono }}; font-size: 11px; font-weight: 700">{{ p.estado }}</span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ p.dur }}</span></div></sc-for>
+</section>
+<section aria-label="Log del job" style="flex: 999 1 460px; min-width: 0; border-radius: {{ t.r }}; background: {{ t.code }}; border: 1px solid {{ t.line }}; overflow: hidden">
+<div style="padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); color: #A9B4C2; font-family: {{ t.mono }}; font-size: 12px">agente@host-b · stdout</div>
+<div role="log" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-height: 420px; font-family: {{ t.mono }}; font-size: 12px; line-height: 1.6">
+<sc-for list="{{ job.log }}" as="l" hint-placeholder-count="12"><span style="color: {{ l.c }}; white-space: pre-wrap">{{ l.t }}</span></sc-for>
+</div>
+</section>
+</div>
+</sc-if>
+
+<!-- SILOS -->
+<sc-if value="{{ v.silos }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Silos</h1><span style="color: {{ t.ink2 }}">Un contenedor + una base Postgres + secretos propios por centro</span></div><button type="button" onClick="{{ irManifiesto }}" style="margin-left: auto; min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">Nuevo silo desde manifiesto</button></div>
+<section style="border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; overflow-x: auto"><div style="min-width: 960px">
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1.2fr) 150px 110px 70px 140px 60px minmax(0, 1fr) 100px; gap: 10px; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: {{ t.ink2 }}"><span>Silo</span><span>Dominio</span><span>Versión · digest</span><span>Canal</span><span>Mód.</span><span>Estado</span><span>CPU</span><span>RAM</span><span>Respaldo</span></div>
+<sc-for list="{{ silos }}" as="s" hint-placeholder-count="5"><button type="button" onClick="{{ s.pick }}" style="width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.2fr) 150px 110px 70px 140px 60px minmax(0, 1fr) 100px; gap: 10px; align-items: center; min-height: 50px; padding: 0 16px; border: 0; border-bottom: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-size: 13px; text-align: left; cursor: pointer"><strong style="font-family: {{ t.mono }}">{{ s.id }}</strong><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ s.dom }}</span><span style="font-family: {{ t.mono }}">{{ s.ver }} <span style="color: {{ t.ink2 }}">{{ s.dig }}</span></span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ s.canalF }}; color: {{ s.canalC }}; font-size: 12px; font-weight: 700">{{ s.canal }}</span><span style="font-family: {{ t.mono }}">{{ s.mods }}/7</span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ s.estF }}; color: {{ s.estC }}; font-size: 12px; font-weight: 700; font-family: {{ t.mono }}">{{ s.estado }}</span><span style="font-family: {{ t.mono }}">{{ s.cpu }}</span><span style="display: flex; align-items: center; gap: 8px"><span style="flex: 1; height: 6px; border-radius: 999px; background: {{ t.panel2 }}; overflow: hidden"><span style="display: block; height: 6px; width: {{ s.ramW }}; background: {{ s.ramColor }}"></span></span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ s.ram }}</span></span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ s.resp }}</span></button></sc-for>
+</div></section>
+</sc-if>
+
+<!-- SILO DETALLE -->
+<sc-if value="{{ v.silo }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><button type="button" onClick="{{ irSilos }}" aria-label="Volver a silos" style="min-height: 36px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; cursor: pointer">Silos</button><div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">{{ sd.id }} <span style="font-size: 14px; font-weight: 400; color: {{ t.ink2 }}">{{ sd.centro }}</span></h1><span style="font-family: {{ t.mono }}; font-size: 13px; color: {{ t.ink2 }}">{{ sd.dom }} · {{ sd.ver }} {{ sd.dig }}</span></div><span style="margin-left: auto; padding: 4px 10px; border-radius: 999px; background: {{ sd.estF }}; color: {{ sd.estC }}; font-family: {{ t.mono }}; font-size: 12px; font-weight: 700">{{ sd.estado }}</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start">
+<section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px"><h2 style="margin: 0; font-size: 15px">Módulos</h2>
+<sc-for list="{{ sd.mods }}" as="m" hint-placeholder-count="7"><button type="button" role="switch" aria-checked="{{ m.on }}" onClick="{{ m.pick }}" style="min-height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ m.f }}; color: {{ t.ink }}; font-size: 13px; text-align: left; cursor: pointer"><span style="width: 36px; height: 20px; box-sizing: border-box; padding: 2px; border-radius: 999px; background: {{ m.pista }}; display: flex; justify-content: {{ m.lado }}"><span style="width: 16px; height: 16px; border-radius: 999px; background: #FFFFFF"></span></span><span style="flex: 1">{{ m.l }}</span><span style="font-size: 11px; color: {{ t.ink2 }}">{{ m.req }}</span><sc-if value="{{ m.cambio }}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 6px; border-radius: 4px; background: {{ t.warnS }}; color: {{ t.warn }}; font-family: {{ t.mono }}; font-size: 11px; font-weight: 700">{{ m.cambioTxt }}</span></sc-if></button></sc-for>
+<sc-if value="{{ hayMsg }}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 12px; color: {{ t.warn }}">{{ msg }}</span></sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Solicitado por<input type="text" placeholder="Nombre y cargo en el centro" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}"></label><label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: {{ t.ink2 }}">Canal de la solicitud<input type="text" placeholder="Correo, reunión, ticket" style="min-height: 38px; padding: 0 10px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ t.panel2 }}; color: {{ t.ink }}"></label></div>
+<button type="button" style="align-self: flex-start; min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ sd.aplicarF }}; color: {{ sd.aplicarC }}; font-weight: 700; cursor: pointer">Aplicar {{ sd.nCambios }} cambios (job reconfigurar)</button>
+<span style="font-size: 12px; color: {{ t.ink2 }}">Quitar un módulo oculta su interfaz y bloquea la escritura. No borra datos.</span>
+</section>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px"><h2 style="margin: 0; font-size: 15px">Versión y canal</h2><span style="font-family: {{ t.mono }}; font-size: 13px">vinculos:{{ sd.ver }} · {{ sd.dig }}</span><div style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ sd.canales }}" as="o" hint-placeholder-count="3"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="min-height: 36px; padding: 0 12px; border-radius: {{ t.rs }}; border: {{ o.b }}; background: {{ o.f }}; color: {{ o.c }}; font-family: {{ t.mono }}; font-size: 13px; cursor: pointer">{{ o.l }}</button></sc-for></div><span style="font-size: 12px; color: {{ t.ink2 }}">Patch se aplica solo dentro del canal. Minor (0.1 a 0.2) pide confirmación por silo.</span></section>
+<section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 8px"><h2 style="margin: 0; font-size: 15px">Respaldos · respaldos/{{ sd.id }}/</h2><sc-for list="{{ sd.respaldos }}" as="r" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: 110px 70px minmax(0, 1fr); gap: 10px; font-family: {{ t.mono }}; font-size: 12px"><span>{{ r.f }}</span><span>{{ r.t }}</span><span style="color: {{ t.ink2 }}">pg_dump · age · ok</span></div></sc-for></section>
+<section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-wrap: wrap; gap: 8px"><h2 style="margin: 0 0 4px; font-size: 15px; width: 100%">Acciones</h2><button type="button" style="min-height: 40px; padding: 0 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 600; cursor: pointer">Reiniciar contenedor</button><button type="button" style="min-height: 40px; padding: 0 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 600; cursor: pointer">Suspender (solo lectura)</button><button type="button" onClick="{{ irSalidas }}" style="min-height: 40px; padding: 0 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.danger }}; background: transparent; color: {{ t.danger }}; font-weight: 700; cursor: pointer">Iniciar salida</button></section>
+</div>
+</div>
+</sc-if>
+
+<!-- RELEASES -->
+<sc-if value="{{ v.releases }}" hint-placeholder-val="{{ false }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Releases y canales</h1><span style="color: {{ t.ink2 }}">Imágenes del registro privado de host-b · tags inmutables</span></div>
+<section style="border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; overflow-x: auto"><div style="min-width: 820px">
+<sc-for list="{{ releases }}" as="r" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 80px 70px 80px 100px 120px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 13px"><strong style="font-family: {{ t.mono }}">{{ r.v }}</strong><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ r.tipo }}</span><span style="color: {{ t.ink2 }}">{{ r.fecha }}</span><span style="justify-self: start; padding: 2px 8px; border-radius: 999px; background: {{ r.f }}; color: {{ r.c }}; font-size: 12px; font-weight: 700">{{ r.canal }}</span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ r.migr }}</span><span>{{ r.notas }}</span></div></sc-for>
+</div></section>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 520px; min-width: 0; box-sizing: border-box; padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 15px">Cascada de 0.1.5</h2>
+<sc-for list="{{ cascada }}" as="c" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 90px 90px minmax(0, 1fr) 120px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: {{ c.fondo }}"><strong style="font-family: {{ t.mono }}">{{ c.silo }}</strong><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ c.canal }}</span><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ c.sub }}</span><span style="justify-self: end; padding: 2px 8px; border-radius: 999px; background: {{ c.f }}; color: {{ c.c }}; font-family: {{ t.mono }}; font-size: 11px; font-weight: 700">{{ c.estado }}</span></div></sc-for>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" onClick="{{ relSiguiente }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">Actualizar siguiente silo</button><button type="button" onClick="{{ promover }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 700; cursor: pointer">{{ txtPromover }}</button><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink2 }}; font-weight: 700; cursor: pointer">Pausar cascada</button></div>
+<sc-if value="{{ hayRelMsg }}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 12px; color: {{ t.warn }}">{{ relMsg }}</span></sc-if>
+<span style="font-size: 12px; color: {{ t.ink2 }}">Por silo: respaldo, migrate deploy, cambio de contenedor y /health. Si falla, vuelve a la imagen anterior (migraciones solo aditivas).</span>
+</section>
+<section style="flex: 1 1 340px; padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{ canales }}" as="c" hint-placeholder-count="4"><div style="padding: 12px; border-radius: {{ t.rs }}; background: {{ t.panel2 }}; display: flex; flex-direction: column; gap: 6px"><span style="font-family: {{ t.mono }}; font-weight: 700">{{ c.l }}</span><sc-for list="{{ c.silos }}" as="s" hint-placeholder-count="2"><span style="font-family: {{ t.mono }}; font-size: 12px; color: {{ t.ink2 }}">{{ s }}</span></sc-for></div></sc-for>
+</section>
+</div>
+</sc-if>
+
+<!-- MONITOREO -->
+<sc-if value="{{ v.monitoreo }}" hint-placeholder-val="{{ false }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Monitoreo</h1><span style="color: {{ t.ink2 }}">El plano de control no entra al host B: el agente reporta cada minuto</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px">
+<sc-for list="{{ hosts }}" as="h" hint-placeholder-count="3"><section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px"><h2 style="margin: 0; font-size: 15px">{{ h.l }}</h2><span style="font-size: 12px; color: {{ t.ink2 }}">{{ h.d }}</span>
+<sc-for list="{{ h.filas }}" as="f" hint-placeholder-count="4"><div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: {{ f.punto }}"></span><span style="flex: 1; font-family: {{ t.mono }}">{{ f.l }}</span><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ f.v }}</span></div></sc-for></section></sc-for>
+</div>
+<section style="border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; overflow-x: auto"><div style="min-width: 760px">
+<div style="display: grid; grid-template-columns: 100px minmax(0, 1fr) 90px 110px 100px 140px; gap: 10px; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: {{ t.ink2 }}"><span>Silo</span><span>Health</span><span>p95</span><span>Uptime 7 d</span><span>CPU</span><span>Certificado</span></div>
+<sc-for list="{{ health }}" as="h" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 100px minmax(0, 1fr) 90px 110px 100px 140px; gap: 10px; align-items: center; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-family: {{ t.mono }}; font-size: 12px"><strong>{{ h.id }}</strong><span><span style="padding: 2px 8px; border-radius: 999px; background: {{ h.f }}; color: {{ h.c }}; font-weight: 700">{{ h.estado }}</span> <span style="color: {{ t.ink2 }}">GET /health</span></span><span>{{ h.p95 }}</span><span>{{ h.up }}</span><span>{{ h.cpu }}</span><span style="color: {{ t.ink2 }}">{{ h.cert }}</span></div></sc-for>
+</div></section>
+</sc-if>
+
+<!-- SALIDAS -->
+<sc-if value="{{ v.salidas }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px"><div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Salida · aurora</h1><span style="color: {{ t.ink2 }}">Centro Aurora · Vinculos es encargado; el centro es responsable de los datos (Ley 21.719)</span></div><span style="margin-left: auto; padding: 4px 10px; border-radius: 999px; background: {{ t.dangerS }}; color: {{ t.danger }}; font-family: {{ t.mono }}; font-size: 12px; font-weight: 700">{{ salEstado }}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<ol style="flex: 999 1 560px; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ salida }}" as="p" hint-placeholder-count="8"><li style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 100px; gap: 12px; align-items: start; padding: 14px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: {{ p.borde }}"><span style="font-family: {{ t.mono }}; font-weight: 700; color: {{ t.ink2 }}">{{ p.id }}</span><span><strong style="display: block">{{ p.l }}</strong><span style="font-size: 13px; color: {{ t.ink2 }}">{{ p.d }}</span></span><span style="justify-self: end; padding: 2px 8px; border-radius: 999px; background: {{ p.f }}; color: {{ p.c }}; font-family: {{ t.mono }}; font-size: 11px; font-weight: 700">{{ p.estado }}</span></li></sc-for>
+</ol>
+<section style="flex: 1 1 320px; padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 15px">Evidencia</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 6px 10px; font-size: 13px"><dt style="color: {{ t.ink2 }}">Paquete</dt><dd style="margin: 0; font-family: {{ t.mono }}">1.284 archivos · 2,4 GB</dd><dt style="color: {{ t.ink2 }}">Formato</dt><dd style="margin: 0">Canónico v1 · 7z AES-256</dd><dt style="color: {{ t.ink2 }}">Hashes</dt><dd style="margin: 0; font-family: {{ t.mono }}">manifest.json · SHA-256</dd><dt style="color: {{ t.ink2 }}">Entregado a</dt><dd style="margin: 0">direccion@aurora.cl</dd><dt style="color: {{ t.ink2 }}">Clave</dt><dd style="margin: 0">Por SMS al responsable</dd><dt style="color: {{ t.ink2 }}">Gracia hasta</dt><dd style="margin: 0">04 dic 2026</dd></dl>
+<button type="button" onClick="{{ salSiguiente }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 0; background: {{ t.accent }}; color: {{ t.onAccent }}; font-weight: 700; cursor: pointer">Avanzar paso (simulado)</button>
+<button type="button" onClick="{{ salSiguiente }}" style="min-height: 40px; padding: 0 14px; border-radius: {{ t.rs }}; border: 1px solid {{ t.danger }}; background: transparent; color: {{ t.danger }}; font-weight: 700; opacity: {{ elimOp }}; cursor: pointer">Eliminar silo y respaldos</button>
+<span style="font-size: 12px; color: {{ t.ink2 }}">Ni el proveedor ni el admin del centro abren el contenido del exporte. El job lo genera dentro del silo.</span>
+</section>
+</div>
+</sc-if>
+
+<!-- AUDITORIA -->
+<sc-if value="{{ v.auditoria }}" hint-placeholder-val="{{ false }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Auditoría</h1><span style="color: {{ t.ink2 }}">Cada transición de estado, job y acción de la consola. Sin datos clínicos.</span></div>
+<div role="group" aria-label="Filtrar eventos" style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{ filtrosEv }}" as="f" hint-placeholder-count="5"><button type="button" aria-pressed="{{ f.on }}" onClick="{{ f.pick }}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ t.line }}; background: {{ f.fondo }}; color: {{ f.color }}; font-size: 13px; font-weight: 600; cursor: pointer">{{ f.l }}</button></sc-for></div>
+<section style="border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; overflow-x: auto"><div style="min-width: 820px">
+<div style="display: grid; grid-template-columns: 120px 140px 190px 140px minmax(0, 1fr); gap: 10px; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: {{ t.ink2 }}"><span>Fecha</span><span>Actor</span><span>Acción</span><span>Objeto</span><span>Detalle</span></div>
+<sc-for list="{{ eventos }}" as="e" hint-placeholder-count="8"><div style="display: grid; grid-template-columns: 120px 140px 190px 140px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 16px; border-bottom: 1px solid {{ t.line }}; font-size: 12px"><span style="font-family: {{ t.mono }}; color: {{ t.ink2 }}">{{ e.fecha }}</span><span style="font-family: {{ t.mono }}">{{ e.actor }}</span><span style="font-family: {{ t.mono }}; color: {{ t.accent }}">{{ e.accion }}</span><span style="font-family: {{ t.mono }}">{{ e.objeto }}</span><span>{{ e.det }}</span></div></sc-for>
+</div></section>
+</sc-if>
+
+<!-- CONFIGURACION -->
+<sc-if value="{{ v.config }}" hint-placeholder-val="{{ false }}">
+<div><h1 style="margin: 0; font-family: {{ t.tf }}; font-size: {{ t.h1 }}; font-weight: {{ t.h1w }}">Configuración</h1><span style="color: {{ t.ink2 }}">Parámetros del plano de control y del agente</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start">
+<sc-for list="{{ ajustes }}" as="a" hint-placeholder-count="6"><section style="padding: 18px; border-radius: {{ t.r }}; background: {{ t.panel }}; border: 1px solid {{ t.line }}; display: flex; flex-direction: column; gap: 10px"><h2 style="margin: 0; font-size: 15px">{{ a.l }}</h2>
+<sc-for list="{{ a.filas }}" as="f" hint-placeholder-count="3"><div style="display: flex; gap: 10px; font-size: 13px"><span style="flex: 1; color: {{ t.ink2 }}">{{ f.k }}</span><span style="font-family: {{ t.mono }}; text-align: right">{{ f.v }}</span></div></sc-for>
+<sc-if value="{{ a.hayBoton }}" hint-placeholder-val="{{ false }}"><button type="button" style="align-self: flex-start; min-height: 38px; padding: 0 12px; border-radius: {{ t.rs }}; border: 1px solid {{ t.line }}; background: transparent; color: {{ t.ink }}; font-weight: 700; cursor: pointer">{{ a.boton }}</button></sc-if>
+</section></sc-for>
+</div>
+</sc-if>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"tema":{"editor":"enum","options":["terminal","claro","vinculos"],"default":"terminal"},"$preview":{"width":1440,"height":1200}}'>
+var MONO = "'JetBrains Mono', ui-monospace, monospace";
+var T = {
+  terminal: { font: MONO, mono: MONO, tf: MONO, bg: '#0B0F14', side: '#0E131A', panel: '#121821', panel2: '#18202B', line: '#243040', ink: '#D7DEE8', ink2: '#8E9AAB', accent: '#3DDC97', onAccent: '#06120C', ok: '#3DDC97', okS: 'rgba(61,220,151,0.14)', warn: '#F2C14E', warnS: 'rgba(242,193,78,0.15)', danger: '#FF7A7A', dangerS: 'rgba(255,122,122,0.15)', info: '#6CB6FF', infoS: 'rgba(108,182,255,0.15)', neuS: 'rgba(215,222,232,0.08)', r: '6px', rs: '4px', navOn: 'rgba(61,220,151,0.12)', navOnC: '#3DDC97', h1: '22px', h1w: '700', code: '#080B10', sel: 'rgba(61,220,151,0.07)' },
+  claro: { font: "'Inter', system-ui, sans-serif", mono: MONO, tf: "'Inter', system-ui, sans-serif", bg: '#F6F7F9', side: '#FFFFFF', panel: '#FFFFFF', panel2: '#F2F4F7', line: '#E3E6EB', ink: '#14171C', ink2: '#5A6270', accent: '#4453D1', onAccent: '#FFFFFF', ok: '#18794E', okS: '#E3F4EA', warn: '#8F5400', warnS: '#FFF1D6', danger: '#C42B2B', dangerS: '#FDE5E5', info: '#1E5FAE', infoS: '#E2EDFB', neuS: '#EEF0F3', r: '8px', rs: '6px', navOn: '#ECEEFB', navOnC: '#3240B8', h1: '22px', h1w: '700', code: '#0F1420', sel: '#F4F5FD' },
+  vinculos: { font: "'Figtree', system-ui, sans-serif", mono: MONO, tf: "'Bricolage Grotesque', sans-serif", bg: '#F4F1EA', side: '#FFFFFF', panel: '#FFFFFF', panel2: '#FBFAF6', line: '#E4DED2', ink: '#1C2230', ink2: '#4B5262', accent: '#1F5C57', onAccent: '#FFFFFF', ok: '#2F5E2A', okS: '#E1E8CF', warn: '#7A520A', warnS: '#FFF4D6', danger: '#9B2C1F', dangerS: '#F6D9C7', info: '#2F4A6B', infoS: '#DCE6F2', neuS: '#EEF0F4', r: '16px', rs: '10px', navOn: '#DCEBE8', navOnC: '#1F5C57', h1: '28px', h1w: '800', code: '#1C2230', sel: '#F4F8F7' }
+};
+var OKW = ['ACTIVO', 'OK', 'en línea', 'HECHO', 'APROBADO', 'sano', 'estable'], INFOW = ['APROVISIONANDO', 'REUNION', 'CONTACTADO', 'beta', 'EN CURSO', 'demo'], WARNW = ['SOLICITUD', 'DATOS_COMPLETOS', 'PENDIENTE', 'GRACIA', 'EN_GRACIA', 'BLOQUEADO', 'lento'], BADW = ['EN_SALIDA', 'FALLA', 'DESCARTADO', 'ELIMINADO'];
+function tono(t, e) { var k = String(e).split(' ')[0]; if (OKW.indexOf(k) >= 0 || OKW.indexOf(e) >= 0) return [t.okS, t.ok]; if (INFOW.indexOf(k) >= 0) return [t.infoS, t.info]; if (WARNW.indexOf(k) >= 0) return [t.warnS, t.warn]; if (BADW.indexOf(k) >= 0) return [t.dangerS, t.danger]; return [t.neuS, t.ink2]; }
+var NAV = [
+  { l: 'Operación', items: [['resumen', 'Resumen', 'M4 13h6V4H4z M14 20h6v-9h-6z M4 20h6v-3H4z M14 7h6V4h-6z'], ['solicitudes', 'Solicitudes', 'M4 4h16v12H8l-4 4z'], ['manifiestos', 'Manifiestos', 'M6 3h9l4 4v14H6z M14 3v5h5 M9 13h7 M9 17h5'], ['job', 'Aprovisionamiento', 'M4 17l6-6-6-6 M12 19h8'], ['silos', 'Silos', 'M4 5h16v5H4z M4 14h16v5H4z M8 7.5h.01 M8 16.5h.01']] },
+  { l: 'Versiones', items: [['releases', 'Releases y canales', 'M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9c0 6-12 3-12 9']] },
+  { l: 'Salud', items: [['monitoreo', 'Monitoreo', 'M3 12h4l3-8 4 16 3-8h4'], ['auditoria', 'Auditoría', 'M9 5h11 M9 12h11 M9 19h11 M4 5h.01 M4 12h.01 M4 19h.01']] },
+  { l: 'Ciclo de vida', items: [['salidas', 'Salidas', 'M10 17l5-5-5-5 M15 12H3 M14 3h6v18h-6']] },
+  { l: 'Ajustes', items: [['config', 'Configuración', 'M4 7h10 M18 7h2 M4 17h4 M12 17h8 M16 5v4 M10 15v4']] }
+];
+var TITULOS = { resumen: 'Resumen', solicitudes: 'Solicitudes', manifiestos: 'Manifiestos', job: 'Aprovisionamiento', silos: 'Silos', silo: 'Silos / detalle', releases: 'Releases y canales', monitoreo: 'Monitoreo', salidas: 'Salidas', auditoria: 'Auditoría', config: 'Configuración' };
+var SILOS = [
+  { id: 'demo', centro: 'Centro de Prueba', dom: 'demo.vinculos.cl', ver: '0.1.5', dig: 'sha256:9f3a1c', canal: 'demo', mods: ['nucleo', 'fichas', 'agenda', 'equipo', 'match', 'cobros', 'sitio'], estado: 'ACTIVO', cpu: '18%', ram: '402 MB', ramP: 78, resp: 'hoy 03:00', p95: '142 ms', up: '99,9%', cert: 'vence 03 feb' },
+  { id: 'kibou', centro: 'Centro Kibou', dom: 'kibou.vinculos.cl', ver: '0.1.4', dig: 'sha256:4b7e02', canal: 'estable', mods: ['nucleo', 'fichas', 'agenda', 'equipo', 'sitio'], estado: 'ACTIVO', cpu: '11%', ram: '311 MB', ramP: 61, resp: 'hoy 03:04', p95: '118 ms', up: '100%', cert: 'vence 21 ene' },
+  { id: 'prueba2', centro: 'Centro de Prueba 2', dom: 'prueba2.vinculos.cl', ver: '0.1.4', dig: 'sha256:4b7e02', canal: 'beta', mods: ['nucleo', 'fichas', 'agenda', 'equipo'], estado: 'ACTIVO', cpu: '7%', ram: '268 MB', ramP: 52, resp: 'hoy 03:07', p95: '131 ms', up: '99,8%', cert: 'vence 18 ene' },
+  { id: 'aurora', centro: 'Centro Aurora', dom: 'aurora.cl', ver: '0.1.3', dig: 'sha256:1c90d4', canal: 'fija 0.1.3', mods: ['nucleo', 'fichas', 'agenda'], estado: 'EN_SALIDA', cpu: '0%', ram: 'detenido', ramP: 0, resp: 'conservado', p95: '-', up: 'apagado', cert: 'vence 12 dic' },
+  { id: 'brote', centro: 'Centro Brote', dom: 'brote.vinculos.cl', ver: '0.1.4', dig: 'pendiente', canal: 'estable', mods: ['nucleo', 'fichas', 'agenda', 'equipo'], estado: 'APROVISIONANDO', cpu: '-', ram: '-', ramP: 0, resp: '-', p95: '-', up: '-', cert: 'emitiendo' }
+];
+var SOLS = [
+  { id: 'S-014', centro: 'Centro Brote', comuna: 'Ñuñoa, RM', tam: '6 a 15', mods: ['Fichas', 'Agenda', 'Equipo', 'Sitio'], estilo: 'Cuaderno', sitio: 'No, quiero uno nuevo', hoy: 'Encuadrado + planillas', contacto: 'Paula Soto · paula@brote.cl', recibida: 'hace 2 h', estado: 'SOLICITUD', origen: 'Formulario del sitio' },
+  { id: 'S-013', centro: 'Espacio Raíz', comuna: 'Valparaíso', tam: '1 a 5', mods: ['Agenda', 'Equipo', 'Match', 'Sitio'], estilo: 'Uno propio', sitio: 'Sí, integrarlo', hoy: 'Agenda en Google Calendar', contacto: 'Tomás Vera · hola@espacioraiz.cl', recibida: 'ayer', estado: 'REUNION', origen: 'Conversación' },
+  { id: 'S-012', centro: 'Centro Alba', comuna: 'Concepción', tam: '16 a 40', mods: ['Fichas', 'Agenda', 'Equipo', 'Match', 'Cobros', 'Sitio'], estilo: 'Editorial', sitio: 'No, quiero uno nuevo', hoy: 'Fichas en papel, pagos por transferencia', contacto: 'Daniela Fuentes · direccion@alba.cl', recibida: '02 nov', estado: 'DATOS_COMPLETOS', origen: 'Demo agendada' },
+  { id: 'S-011', centro: 'Mente Clara', comuna: 'Temuco', tam: '6 a 15', mods: ['Agenda'], estilo: 'Aún no sé', sitio: 'No necesito sitio', hoy: 'Planillas', contacto: 'contacto@menteclara.cl', recibida: '28 oct', estado: 'DESCARTADO', origen: 'Formulario del sitio' }
+];
+var ETAPAS = ['SOLICITUD', 'CONTACTADO', 'REUNION', 'DATOS_COMPLETOS', 'APROBADO'];
+var ACCIONES = { SOLICITUD: 'Marcar como contactado', CONTACTADO: 'Agendar reunión', REUNION: 'Enviar enlace fase 2 (expira 7 días)' };
+var MODS = [['nucleo', 'Núcleo', []], ['fichas', 'Fichas', []], ['agenda', 'Agenda', []], ['equipo', 'Equipo', []], ['match', 'Match', ['equipo']], ['cobros', 'Cobros', ['agenda']], ['sitio', 'Sitio', ['equipo']]];
+function modPor(id) { for (var i = 0; i < MODS.length; i++) if (MODS[i][0] === id) return MODS[i]; return MODS[0]; }
+function nomM(id) { return modPor(id)[1]; }
+function ordenar(sel) { return MODS.filter(function (m) { return sel.indexOf(m[0]) >= 0; }).map(function (m) { return m[0]; }); }
+function activar(sel, id) { var out = sel.slice(), add = []; (function go(x) { if (out.indexOf(x) < 0) { out.push(x); if (x !== id) add.push(x); } modPor(x)[2].forEach(go); })(id); return { sel: ordenar(out), msg: add.length ? 'Se agregó ' + add.map(nomM).join(' y ') + ' porque ' + nomM(id) + ' lo necesita.' : '' }; }
+function desactivar(sel, id) { if (id === 'nucleo') return { sel: sel, msg: 'El Núcleo no se puede quitar.' }; var out = sel.filter(function (x) { return x !== id; }), rem = [], c = true; while (c) { c = false; out.slice().forEach(function (x) { if (modPor(x)[2].some(function (r) { return out.indexOf(r) < 0; })) { out.splice(out.indexOf(x), 1); rem.push(x); c = true; } }); } return { sel: out, msg: rem.length ? 'También se quitó ' + rem.map(nomM).join(' y ') + ' porque necesita ' + nomM(id) + '.' : '' }; }
+var PASOS = [['P0', 'Validar', 'schema, dependencias, dominio, imagen', '0,4 s'], ['P1', 'Reservar', 'registro de silo y red', '0,1 s'], ['P2', 'Base de datos', 'CREATE DATABASE + rol propio', '1,2 s'], ['P3', 'Secretos', 'JWT, clave de cifrado, token interno', '0,2 s'], ['P4', 'Migraciones', 'prisma migrate deploy', '6,8 s'], ['P5', 'Carga inicial', 'base + plantilla + manifiesto', '2,1 s'], ['P6', 'Compose', 'silo.compose.tpl + labels Traefik', '0,3 s'], ['P7', 'Levantar', 'docker compose up -d + /health', '8,2 s'], ['P8', 'Dominio', 'certificado Let&#39;s Encrypt', '4,5 s'], ['P9', 'Admin inicial', 'invitación de un solo uso (72 h)', '0,6 s'], ['P10', 'Cierre', 'silo ACTIVO + auditoría', '0,1 s']];
+function logsDe(c) { return [
+  ['manifiesto ' + c + ' rev 3 sha 7c21e9', 'schema v1 valido', 'dependencias ok (match -> equipo)', 'dominio ' + c + '.vinculos.cl libre', 'imagen vinculos:0.1.4 en registro (sha256:4b7e02)'],
+  ['silo ' + c + ' registrado · red vinculos_' + c],
+  ['CREATE DATABASE vinculos_' + c, 'CREATE ROLE ' + c + '_app (sin acceso a otras bases)', 'conexion con rol nuevo: ok'],
+  ['secretos -> silos/' + c + '/.env (600)', 'token interno emitido'],
+  ['prisma migrate deploy', '42 migraciones aplicadas'],
+  ['seed base: roles, permisos, catalogos', 'plantilla centro_psicologico', 'manifiesto: 3 servicios, 6 reglas'],
+  ['render silo.compose.tpl', 'limites mem=512m cpus=1', 'docker compose config: ok'],
+  ['docker compose up -d', 'GET /health -> 200 en 8,2 s'],
+  ['traefik: certificado emitido para ' + c + '.vinculos.cl'],
+  ['POST /internal/admin-inicial', 'invitacion enviada a admin@' + c + '.cl (expira 72 h)'],
+  ['silo ' + c + ' ACTIVO', 'evento auditoria: silo.activo']
+]; }
+var RELEASES = [['0.1.5', 'patch', '05 nov', 'beta', '2 aditivas', 'Recordatorios por correo corregidos; importación por planilla'], ['0.1.4', 'patch', '28 oct', 'estable', '1 aditiva', 'Bloqueo temporal de box en reservas'], ['0.1.3', 'patch', '15 oct', 'fija', '0', 'Base de fichas y agenda']];
+var CASCADA = [['demo', 'demo'], ['prueba2', 'beta'], ['kibou', 'estable'], ['brote', 'estable'], ['aurora', 'fija 0.1.3']];
+var SALIDA = [['S1', 'Solicitud de término', 'Fecha de corte 31 oct · registrada'], ['S2', 'Solo lectura', 'Sin nuevas reservas ni pagos desde el 31 oct'], ['S3', 'Exportar', 'Job dentro del silo: PDF + JSON por ficha, CSV y adjuntos'], ['S4', 'Cifrar y entregar', '7z AES-256 · enlace de un solo uso · clave por SMS'], ['S5', 'Verificar', 'Acta de recepción firmada el 04 nov · hashes verificados'], ['S6', 'Gracia', 'Silo apagado, base conservada 30 días (hasta 04 dic)'], ['S7', 'Eliminar', 'Base, volúmenes, secretos y respaldos/aurora/'], ['S8', 'Cierre', 'Certificado de eliminación · quedan solo metadatos']];
+var EVENTOS = [['06 nov 21:14', 'agente@host-b', 'job.paso.ok', 'brote / P5', 'Carga inicial: 3 servicios', 'Jobs'], ['06 nov 21:12', 'agente@host-b', 'job.paso.ok', 'brote / P4', '42 migraciones', 'Jobs'], ['06 nov 20:58', 'charlie', 'manifiesto.aprobado', 'brote rev 2', 'sha 91ab0e', 'Solicitudes'], ['06 nov 18:40', 'sistema', 'solicitud.recibida', 'S-014', 'Formulario del sitio', 'Solicitudes'], ['06 nov 03:07', 'agente@host-b', 'respaldo.ok', 'prueba2', 'pg_dump · age · 84 MB', 'Silos'], ['05 nov 22:31', 'agente@host-b', 'actualizar.ok', 'demo', '0.1.4 -> 0.1.5', 'Silos'], ['05 nov 22:10', 'charlie', 'release.canal', '0.1.5', 'asignado a beta', 'Silos'], ['05 nov 09:12', 'charlie', 'sesion.inicio', 'consola', '2FA por correo', 'Seguridad'], ['04 nov 16:20', 'charlie', 'salida.acta', 'aurora', 'Acta de recepción firmada', 'Silos'], ['03 nov 11:02', 'charlie', 'agente.token.rotado', 'host-b', 'Token anterior revocado', 'Seguridad']];
+var AJUSTES = [
+  ['Agente host-b', [['ID', 'agt-hostb-01'], ['Última conexión', 'hace 12 s'], ['Token', 'rotado hace 4 días'], ['Acciones permitidas', '6 (lista cerrada)']], 'Rotar token'],
+  ['Registro de imágenes', [['URL', 'registry.host-b.lan'], ['Tags inmutables', 'activado'], ['Último push', 'vinculos:0.1.5'], ['Origen', 'Bitbucket Pipelines']], ''],
+  ['Plantilla de silo', [['Archivo', 'silo.compose.tpl rev 4'], ['Límites', '512 MB · 1 vCPU'], ['Red', 'vinculos_silos'], ['Proxy Docker', 'docker-socket-proxy']], 'Ver plantilla'],
+  ['Plazos', [['Gracia en salida', '30 días'], ['Invitación admin', '72 h'], ['Enlace fase 2', '7 días'], ['Respaldo diario', '03:00']], 'Editar plazos'],
+  ['Seguridad de la consola', [['Verificación en dos pasos', 'correo, obligatoria'], ['Sesión inactiva', '30 min'], ['Host', 'A (separado de los silos)']], ''],
+  ['Correo', [['Producción', 'Amazon SES'], ['Local', 'Mailpit'], ['Remitente', '[CORREO DEL PROVEEDOR]']], 'Enviar prueba']
+];
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { vista: 'resumen', fsol: 'Todas', sol: 'S-014', solEst: {}, mTema: 'editorial', mMods: ['nucleo', 'fichas', 'agenda', 'equipo', 'match', 'cobros', 'sitio'], mCanal: 'estable', mLegal: true, mAprob: false, msg: '', jc: 'brote', jn: 118, pj: 6, falla: false, silo: 'kibou', smods: ['nucleo', 'fichas', 'agenda', 'equipo', 'sitio'], scanal: 'estable', rel: 1, prom: false, relMsg: '', sal: 5, fev: 'Todos' }; }
+  renderVals() {
+    var self = this, s = this.state, t = T[this.props.tema] || T.terminal;
+    function set(o) { return function () { self.setState(o); }; }
+    function ir(v, extra) { return function () { self.setState(Object.assign({ vista: v, msg: '' }, extra || {})); }; }
+    function chipOpt(lista, actual, key) { return lista.map(function (l) { var on = actual === l, o = {}; o[key] = l; return { l: l, on: on, f: on ? t.navOn : 'transparent', c: on ? t.navOnC : t.ink, b: on ? '1px solid ' + t.navOnC : '1px solid ' + t.line, pick: set(o) }; }); }
+    var navActiva = s.vista === 'silo' ? 'silos' : s.vista;
+    var badges = { solicitudes: '2', job: '1' };
+    var grupos = NAV.map(function (g) { return { l: g.l, items: g.items.map(function (it) { var on = navActiva === it[0];
+      return { l: it[1], d: it[2], cur: on ? 'page' : 'false', f: on ? t.navOn : 'transparent', c: on ? t.navOnC : t.ink, fw: on ? '700' : '500', hayBadge: !!badges[it[0]], badge: badges[it[0]] || '', pick: ir(it[0]) }; }) }; });
+    var v = {}; Object.keys(TITULOS).forEach(function (k) { v[k] = s.vista === k; });
+
+    var silos = SILOS.map(function (x) { var e = tono(t, x.estado), c = tono(t, x.canal.split(' ')[0]);
+      var est = x.id === 'brote' && s.pj > 10 && s.jc === 'brote' ? 'ACTIVO' : x.estado; if (est !== x.estado) e = tono(t, est);
+      return { id: x.id, centro: x.centro, dom: x.dom, ver: x.ver, dig: x.dig, canal: x.canal, canalF: c[0], canalC: c[1], estado: est, estF: e[0], estC: e[1], cpu: x.cpu, ram: x.ram, ramW: x.ramP + '%', ramColor: x.ramP > 75 ? t.warn : t.accent, resp: x.resp, mods: String(x.mods.length), pick: ir('silo', { silo: x.id, smods: x.mods.slice(), scanal: x.canal.split(' ')[0] }) }; });
+
+    var kpis = [['Silos activos', '3', 'de 5 registrados', t.ink], ['Solicitudes nuevas', '2', 'S-014 · S-013', t.warn], ['Jobs en curso', s.pj > 10 ? '0' : '1', s.pj > 10 ? 'sin jobs activos' : 'aprovisionar ' + s.jc + ' · ' + (PASOS[Math.min(s.pj, 10)][0]), t.info], ['Release en beta', '0.1.5', 'demo ok · 1 silo pendiente', t.ink], ['Agente', 'en línea', 'latido hace 12 s', t.ok]].map(function (k) { return { l: k[0], v: k[1], d: k[2], c: k[3] }; });
+    var recursos = [['RAM', '6,4 / 16 GB', '40%'], ['CPU', '23%', '23%'], ['Disco', '182 / 480 GB', '38%']].map(function (r) { return { l: r[0], v: r[1], w: r[2] }; });
+    var eventosAll = EVENTOS.map(function (e) { return { fecha: e[0], actor: e[1], accion: e[2], objeto: e[3], det: e[4], tipo: e[5] }; });
+
+    // solicitudes
+    function estSol(x) { return s.solEst[x.id] || x.estado; }
+    var mapF = { 'Todas': null, 'Nuevas': ['SOLICITUD', 'CONTACTADO'], 'En reunión': ['REUNION'], 'Datos completos': ['DATOS_COMPLETOS', 'APROBADO'], 'Descartadas': ['DESCARTADO'] };
+    var filtrosSol = Object.keys(mapF).map(function (l) { var on = s.fsol === l; return { l: l, on: on, fondo: on ? t.navOn : 'transparent', color: on ? t.navOnC : t.ink, pick: set({ fsol: l }) }; });
+    var sols = SOLS.filter(function (x) { var f = mapF[s.fsol]; return !f || f.indexOf(estSol(x)) >= 0; }).map(function (x) { var e = estSol(x), c = tono(t, e);
+      return { id: x.id, centro: x.centro, comuna: x.comuna, tam: x.tam, nMods: String(x.mods.length), recibida: x.recibida, estado: e, estF: c[0], estC: c[1], sel: s.sol === x.id, fondo: s.sol === x.id ? t.sel : 'transparent', pick: set({ sol: x.id }) }; });
+    var so = SOLS.filter(function (x) { return x.id === s.sol; })[0] || SOLS[0], se = estSol(so), idx = ETAPAS.indexOf(se);
+    var sol = Object.assign({}, so, {
+      etapas: ETAPAS.map(function (l, i) { var hecho = idx >= 0 && i <= idx; return { l: l.replace('_', ' ').toLowerCase(), barra: hecho ? t.accent : t.line, c: hecho ? t.ink : t.ink2 }; }),
+      puedeAvanzar: !!ACCIONES[se], accion: ACCIONES[se] || '', listo: se === 'DATOS_COMPLETOS' || se === 'APROBADO', descartable: se !== 'DESCARTADO' && se !== 'APROBADO',
+      avanzar: function () { var o = Object.assign({}, s.solEst); o[so.id] = ETAPAS[idx + 1]; self.setState({ solEst: o }); },
+      descartar: function () { var o = Object.assign({}, s.solEst); o[so.id] = 'DESCARTADO'; self.setState({ solEst: o }); },
+      nota: se === 'REUNION' ? 'Al enviar el enlace, el centro completa razón social, dominio y responsables.' : 'La fase 1 no contiene datos sensibles ni de pacientes.' });
+
+    // manifiesto
+    var mEst = s.mAprob ? 'APROBADO' : 'DATOS_COMPLETOS', mc = tono(t, mEst);
+    var yaml = 'schema: 1\ntipo_cliente: centro\ncentro:\n  id: alba\n  nombre: Centro Alba\n  razon_social: Alba Salud Mental SpA\n  admin: admin@alba.cl\n  responsable_datos: direccion@alba.cl\ndominio: { tipo: subdominio, valor: alba.vinculos.cl }\nversion: { canal: ' + s.mCanal + ' }\nestilo:\n  tema: ' + s.mTema + '\nmodulos: [' + s.mMods.join(', ') + ']\nreglas:\n  agenda.duracion_sesion_min: 50\n  agenda.aviso_cancelacion_h: 24\n  derivacion.respuesta_h: 24\n  practicante.consentimiento_h: 48\nlegal:\n  contrato_encargo: { version: "2026-11", aceptado: ' + (s.mLegal ? 'true' : 'false') + ' }';
+    var checks = [['OK', 'Schema v1 válido'], ['OK', 'Dependencias de módulos resueltas'], ['OK', 'Dominio alba.vinculos.cl libre'], ['OK', 'Imagen de ' + s.mCanal + ' disponible en el registro'], [s.mLegal ? 'OK' : 'FALTA', 'Contrato de encargo aceptado']].map(function (c) { var ok = c[0] === 'OK'; return { tag: c[0], l: c[1], f: ok ? t.okS : t.warnS, c: ok ? t.ok : t.warn }; });
+    var man = { estado: mEst, estF: mc[0], estC: mc[1], yaml: yaml, checks: checks, legal: s.mLegal, legalF: s.mLegal ? t.accent : 'transparent', legalMark: s.mLegal ? 'x' : '',
+      toggleLegal: set({ mLegal: !s.mLegal }), bloqueado: !s.mLegal,
+      temas: chipOpt(['moderno', 'cuaderno', 'editorial', 'propio'], s.mTema, 'mTema'), canales: chipOpt(['estable', 'beta', 'fija 0.1.4'], s.mCanal, 'mCanal'),
+      mods: MODS.map(function (m) { var on = s.mMods.indexOf(m[0]) >= 0; return { l: m[1], on: on, check: on ? '[x]' : '[ ]', mark: on ? t.accent : t.ink2, f: on ? t.sel : 'transparent', b: '1px solid ' + (on ? t.accent : t.line), pick: function () { var r = on ? desactivar(s.mMods, m[0]) : activar(s.mMods, m[0]); self.setState({ mMods: r.sel, msg: r.msg }); } }; }),
+      aprobarF: s.mLegal ? t.accent : t.panel2, aprobarC: s.mLegal ? t.onAccent : t.ink2,
+      aprobar: function () { if (!s.mLegal) return; var o = Object.assign({}, s.solEst); o['S-012'] = 'APROBADO'; self.setState({ mAprob: true, solEst: o, vista: 'job', jc: 'alba', jn: 119, pj: 0, falla: false }); } };
+
+    // job
+    var L = logsDe(s.jc), lines = [], hora = 0;
+    PASOS.forEach(function (p, i) { if (i > s.pj) return; L[i].forEach(function (x) { hora++; lines.push({ t: '21:0' + Math.floor(hora / 10) + ':' + String(hora % 10) + '0  ' + p[0] + '  ' + x, c: '#C9D3DF' }); }); if (i < s.pj) lines.push({ t: '         ' + p[0] + '  ok', c: '#3DDC97' }); });
+    if (s.falla && s.pj <= 10) lines.push({ t: '         ' + PASOS[s.pj][0] + '  ERROR: timeout esperando GET /health (60 s) · reintento disponible', c: '#FF7A7A' });
+    else if (s.pj <= 10) lines.push({ t: '         ' + PASOS[s.pj][0] + '  en curso...', c: '#F2C14E' });
+    var jEst = s.pj > 10 ? 'OK' : (s.falla ? 'FALLA' : 'EN CURSO'), jc = tono(t, jEst);
+    var job = { centro: s.jc, num: String(s.jn), estado: jEst, estF: jc[0], estC: jc[1], actual: PASOS[Math.min(s.pj, 10)][0], log: lines,
+      pasos: PASOS.map(function (p, i) { var e = i < s.pj ? 'HECHO' : (i === s.pj ? (s.falla ? 'FALLA' : 'EN CURSO') : 'PENDIENTE'), c = tono(t, e);
+        return { id: p[0], l: p[1], d: p[2].replace('&#39;', "'"), estado: e, f: c[0], c: c[1], dur: i < s.pj ? p[3] : '', fondo: i === s.pj ? t.sel : 'transparent' }; }),
+      siguiente: function () { if (s.falla || s.pj > 10) return; self.setState({ pj: s.pj + 1 }); }, fallar: function () { if (s.pj <= 10) self.setState({ falla: true }); }, reintentar: set({ falla: false }) };
+
+    // silo detalle
+    var sx = SILOS.filter(function (x) { return x.id === s.silo; })[0] || SILOS[1], sxe = tono(t, sx.estado), cambios = 0;
+    var sd = { id: sx.id, centro: sx.centro, dom: sx.dom, ver: sx.ver, dig: sx.dig, estado: sx.estado, estF: sxe[0], estC: sxe[1],
+      mods: MODS.map(function (m) { var on = s.smods.indexOf(m[0]) >= 0, antes = sx.mods.indexOf(m[0]) >= 0, cambio = on !== antes; if (cambio) cambios++;
+        return { l: m[1], on: on, req: m[2].length ? 'necesita ' + m[2].map(nomM).join(', ') : '', cambio: cambio, cambioTxt: on ? '+ agregar' : '- quitar', pista: on ? t.accent : t.line, lado: on ? 'flex-end' : 'flex-start', f: cambio ? t.warnS : 'transparent', pick: function () { var r = on ? desactivar(s.smods, m[0]) : activar(s.smods, m[0]); self.setState({ smods: r.sel, msg: r.msg }); } }; }),
+      canales: chipOpt(['estable', 'beta', 'fija'], s.scanal, 'scanal'),
+      respaldos: [['07 nov 03:04', '91 MB'], ['06 nov 03:04', '90 MB'], ['05 nov 03:03', '90 MB'], ['04 nov 03:04', '89 MB']].map(function (r) { return { f: r[0], t: r[1] }; }) };
+    sd.nCambios = String(cambios); sd.aplicarF = cambios ? t.accent : t.panel2; sd.aplicarC = cambios ? t.onAccent : t.ink2;
+
+    // releases
+    var releases = RELEASES.map(function (r) { var c = tono(t, r[3]); return { v: r[0], tipo: r[1], fecha: r[2], canal: r[3], migr: r[4], notas: r[5], f: c[0], c: c[1] }; });
+    var cascada = CASCADA.map(function (c, i) { var e;
+      if (c[1].indexOf('fija') === 0) e = 'OMITIDO'; else if (i < s.rel) e = 'HECHO'; else if (i === s.rel) e = (c[1] === 'estable' && !s.prom) ? 'BLOQUEADO' : 'SIGUIENTE'; else e = 'PENDIENTE';
+      var k = tono(t, e); return { silo: c[0], canal: c[1], estado: e, f: k[0], c: k[1], fondo: i === s.rel ? t.sel : 'transparent', sub: e === 'HECHO' ? 'respaldo · migrate · swap · health ok' : (e === 'OMITIDO' ? 'canal fijo, no se actualiza' : 'respaldo > migrate > swap > health') }; });
+    var canales = [['demo', ['demo']], ['beta', ['prueba2']], ['estable', ['kibou', 'brote']], ['fija', ['aurora (0.1.3)']]].map(function (c) { return { l: c[0], silos: c[1] }; });
+
+    // monitoreo
+    var hosts = [
+      { l: 'Host A · plano de control', d: 'VM separada · 4 GB', filas: [['web', 'ok'], ['api', 'ok'], ['db control', 'ok'], ['RAM', '1,3 / 4 GB']] },
+      { l: 'Host B · silos', d: 'PC local · i7 4a gen · 16 GB DDR3', filas: [['traefik', 'ok'], ['registry', 'ok'], ['docker-socket-proxy', 'ok'], ['cadvisor', 'ok'], ['RAM', '6,4 / 16 GB']] },
+      { l: 'Agente', d: 'modelo pull · solo conexiones salientes', filas: [['latido', 'hace 12 s'], ['versión', '0.1.0'], ['jobs reclamados hoy', '14'], ['acciones', 'lista cerrada (6)']] }
+    ].map(function (h) { return { l: h.l, d: h.d, filas: h.filas.map(function (f) { return { l: f[0], v: f[1], punto: t.ok }; }) }; });
+    var health = SILOS.map(function (x) { var e = x.estado === 'ACTIVO' ? 'sano' : (x.estado === 'EN_SALIDA' ? 'apagado' : 'pendiente'), c = tono(t, e === 'sano' ? 'sano' : (e === 'apagado' ? 'GRACIA' : 'APROVISIONANDO'));
+      return { id: x.id, estado: e, f: c[0], c: c[1], p95: x.p95, up: x.up, cpu: x.cpu, cert: x.cert }; });
+
+    // salidas
+    var salida = SALIDA.map(function (p, i) { var e = i < s.sal ? 'HECHO' : (i === s.sal ? (i === 5 ? 'EN_GRACIA' : 'EN CURSO') : 'PENDIENTE'), c = tono(t, e);
+      return { id: p[0], l: p[1], d: p[2], estado: e, f: c[0], c: c[1], borde: i === s.sal ? '1px solid ' + c[1] : '1px solid ' + t.line }; });
+
+    // auditoria
+    var filtrosEv = ['Todos', 'Jobs', 'Solicitudes', 'Silos', 'Seguridad'].map(function (l) { var on = s.fev === l; return { l: l, on: on, fondo: on ? t.navOn : 'transparent', color: on ? t.navOnC : t.ink, pick: set({ fev: l }) }; });
+
+    return {
+      t: t, v: v, titulo: TITULOS[s.vista], grupos: grupos, kpis: kpis, recursos: recursos, silos: silos,
+      eventosCortos: eventosAll.slice(0, 5), eventos: eventosAll.filter(function (e) { return s.fev === 'Todos' || e.tipo === s.fev; }), filtrosEv: filtrosEv,
+      filtrosSol: filtrosSol, sols: sols, sol: sol, man: man, job: job, sd: sd, msg: s.msg, hayMsg: !!s.msg,
+      releases: releases, cascada: cascada, canales: canales, relMsg: s.relMsg, hayRelMsg: !!s.relMsg,
+      txtPromover: s.prom ? '0.1.5 promovida a estable' : 'Promover 0.1.5 a estable',
+      promover: set({ prom: true, relMsg: '' }),
+      relSiguiente: function () { var i = s.rel; while (i < CASCADA.length && CASCADA[i][1].indexOf('fija') === 0) i++; if (i >= CASCADA.length) { self.setState({ relMsg: 'Cascada completa.' }); return; } if (CASCADA[i][1] === 'estable' && !s.prom) { self.setState({ relMsg: 'Para seguir con silos estables, primero promueve 0.1.5 a estable.' }); return; } self.setState({ rel: i + 1, relMsg: '' }); },
+      hosts: hosts, health: health, salida: salida, salEstado: s.sal >= 8 ? 'ELIMINADO' : (s.sal >= 5 ? 'GRACIA' : 'EN_SALIDA'), elimOp: s.sal === 6 ? '1' : '0.45',
+      salSiguiente: function () { if (s.sal < 8) self.setState({ sal: s.sal + 1 }); },
+      ajustes: AJUSTES.map(function (a) { return { l: a[0], filas: a[1].map(function (f) { return { k: f[0], v: f[1] }; }), hayBoton: !!a[2], boton: a[2] }; }),
+      irSilos: ir('silos'), irManifiesto: ir('manifiestos'), irSalidas: ir('salidas')
+    };
+  }
+}
+</script>
+</body>
+</html>

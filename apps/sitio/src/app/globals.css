@@ -1,0 +1,256 @@
+/*
+ * Sitio publico de Vinculos. Tokens del sistema de diseno del ERP, estilo
+ * "Moderno A" (SW Proyecto/frontend/src/app/globals.css, data-tema="moderno").
+ * Los componentes usan solo estas variables: ningun color escrito a mano.
+ */
+:root,
+[data-tema='moderno'] {
+  --tinta: #2b2420;
+  --tinta-suave: #5f574b;
+  --arcilla: #8a4b1f;
+  --arcilla-clara: #fff2eb;
+  --oliva: #4f6b2f;
+  --oliva-clara: #f0fae1;
+  --papel: #fffdf9;
+  --lienzo: #f1ebe2;
+  --punto: #d6cbbb;
+  --borde: #e3d7c4;
+  --error: #8c491a;
+  --error-fondo: #ffe1d0;
+  --radio-campo: 14px;
+  --radio-tarjeta: 16px;
+  --radio-panel: 24px;
+  --sombra-suave: 0 14px 40px rgb(43 36 32 / 0.1);
+  --fuente: var(--font-figtree), system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--lienzo);
+  color: var(--tinta);
+  font-family: var(--fuente);
+  font-size: 16px;
+  line-height: 1.55;
+}
+a {
+  color: var(--arcilla);
+}
+:focus-visible {
+  outline: 3px solid var(--arcilla);
+  outline-offset: 2px;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.pagina {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.marca {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.marca span {
+  color: var(--arcilla);
+}
+.titulo {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.bajada {
+  margin: 0;
+  color: var(--tinta-suave);
+  max-width: 60ch;
+}
+.panel {
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel);
+  box-shadow: var(--sombra-suave);
+  padding: 28px;
+}
+@media (max-width: 600px) {
+  .panel {
+    padding: 20px 16px;
+  }
+}
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+legend {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 4px;
+  padding: 0;
+}
+.ayuda {
+  color: var(--tinta-suave);
+  font-size: 14px;
+  margin: -6px 0 0;
+}
+.fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.campo .opcional {
+  font-weight: 400;
+  color: var(--tinta-suave);
+}
+.campo input,
+.campo select,
+.campo textarea {
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: var(--radio-campo);
+  border: 1px solid var(--borde);
+  background: var(--papel);
+  font-weight: 400;
+  font-size: 16px;
+}
+.campo textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.campo [aria-invalid='true'] {
+  border-color: var(--error);
+}
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: var(--papel);
+  cursor: pointer;
+  font-size: 15px;
+}
+.opcion:has(input:checked) {
+  border-color: var(--arcilla);
+  background: var(--arcilla-clara);
+  color: var(--arcilla);
+  font-weight: 600;
+}
+.opcion input {
+  accent-color: var(--arcilla);
+}
+
+/* Bloques de modulos: activos, requeridos por otro (agregados solos) y libres. */
+.bloques {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.bloque {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--radio-tarjeta);
+  border: 1px solid var(--borde);
+  background: var(--papel);
+  cursor: pointer;
+  min-height: 44px;
+}
+.bloque b {
+  font-size: 16px;
+}
+.bloque small {
+  color: var(--tinta-suave);
+  font-size: 13px;
+}
+.bloque[aria-pressed='true'] {
+  border-color: var(--arcilla);
+  background: var(--arcilla-clara);
+}
+.bloque[data-requerido='true'] {
+  border-style: dashed;
+  border-color: var(--oliva);
+  background: var(--oliva-clara);
+}
+.trampa {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.aviso {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--radio-campo);
+  background: var(--error-fondo);
+  color: var(--error);
+  font-weight: 600;
+}
+.enviar {
+  align-self: flex-start;
+  min-height: 52px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--arcilla);
+  color: var(--papel);
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+.enviar:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.nota {
+  color: var(--tinta-suave);
+  font-size: 14px;
+  margin: 0;
+}
+.exito {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.exito h2 {
+  margin: 0;
+  font-size: 26px;
+}

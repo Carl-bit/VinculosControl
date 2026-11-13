@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vinculos versión combinada</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&amp;family=Figtree:wght@400;500;600;700;800&amp;family=Caveat:wght@700&amp;family=Nunito:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700;800&amp;family=Fraunces:opsz,wght@9..144,400;9..144,700&amp;display=swap">
+<style>
+body{margin:0}
+button,input,textarea{font-family:inherit}
+a{color:var(--brand)}a:hover{color:#163F3B}
+[data-tema="cuaderno"] h1,[data-tema="cuaderno"] h2{text-decoration:underline;text-decoration-color:#FCE38A;text-decoration-thickness:.38em;text-underline-offset:-.12em;text-decoration-skip-ink:none}
+[data-tema="cuaderno"] h3{text-decoration:underline wavy #E7A4A4;text-underline-offset:6px;text-decoration-thickness:2px}
+[data-tema="cuaderno"] .hoja{position:relative;transform:rotate(-.4deg)}
+[data-tema="cuaderno"] .hoja::before{content:"";position:absolute;top:-14px;left:50%;width:120px;height:28px;margin-left:-60px;background:rgba(176,196,222,.72);transform:rotate(-3deg);z-index:2}
+[data-tema="cuaderno"] .hoja::after{content:"";position:absolute;bottom:-12px;right:36px;width:90px;height:24px;background:rgba(252,227,138,.8);transform:rotate(4deg);z-index:2}
+[data-tema="cuaderno"] .postit{background:var(--pi)!important;color:#2A2A33!important;border:0!important;transform:rotate(var(--rot));box-shadow:2px 8px 14px rgba(42,42,51,.18)!important;border-radius:2px!important}
+[data-tema="cuaderno"] .postit *{color:#2A2A33!important}
+[data-tema="cuaderno"] .postit[aria-selected="true"],[data-tema="cuaderno"] .postit[aria-checked="true"]{outline:3px solid #2A2A33;outline-offset:4px}
+[data-tema="cuaderno"] .nota{background:#FFF3A8!important;transform:rotate(.6deg);border-radius:2px!important;box-shadow:3px 10px 18px rgba(42,42,51,.2)}
+[data-tema="cuaderno"] .nota,[data-tema="cuaderno"] .nota *{color:#2A2A33!important}
+[data-tema="editorial"] .contenido{counter-reset:sec}
+[data-tema="editorial"] .kicker::before{counter-increment:sec;content:"N.º " counter(sec,decimal-leading-zero) "  ·  "}
+[data-tema="editorial"] h1,[data-tema="editorial"] h2{font-weight:400!important;letter-spacing:-.01em!important}
+[data-tema="editorial"] h2{font-style:italic}
+[data-tema="editorial"] .lead::first-letter{float:left;font-family:'Fraunces',serif;font-size:4.4em;line-height:.8;padding:6px 10px 0 0;color:var(--ink)}
+[data-tema="editorial"] section{border-top:1px solid var(--ink)!important}
+[data-tema="editorial"] .cabecera{border-bottom:1px solid var(--ink)}
+</style>
+</helmet>
+<div data-tema="{{ tema }}" style="position: relative; --ink: {{ t.ink }}; --ink2: {{ t.ink2 }}; --line: {{ t.line }}; --brand: {{ t.brand }}; --display: {{ t.display }}; --rl: {{ t.rl }}; --rm: {{ t.rm }}; --rs: {{ t.rs }}; --shadow: {{ t.shadow }}; --surface: {{ t.surface }}; --surface2: {{ t.surface2 }}; --bg: {{ t.bg }}; background-color: {{ t.bg }}; background-image: {{ t.bgImg }}; background-size: {{ t.bgSize }}; color: {{ t.ink }}; font-family: {{ t.body }}; font-size: 16px; line-height: 1.5">
+<sc-if value="{{ probando }}" hint-placeholder-val="{{ false }}"><div role="status" style="position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 32px; background: var(--ink); color: #FFFFFF; font-size: 15px"><span>Estás viendo esta página con el estilo <strong>{{ temaNombre }}</strong>. Así se vería el sitio de tu centro.</span><button type="button" onClick="{{ volver }}" style="margin-left: auto; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--surface); color: var(--ink); font-weight: 800; cursor: pointer">Volver al original</button></div></sc-if>
+<sc-if value="{{ esCuaderno }}" hint-placeholder-val="{{ false }}"><div aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 14px; width: 28px; background-image: radial-gradient(circle at 14px 14px, #FFFFFF 6px, #BDB4A2 7px, #BDB4A2 8px, transparent 9px); background-size: 28px 44px; pointer-events: none"></div></sc-if>
+<div class="contenido" style="max-width: 1240px; margin: 0 auto; padding: 0 32px 40px">
+<sc-if value="{{ esEditorial }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 3px double var(--ink); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase"><span>Edición N.º 01</span><span style="font-family: var(--display); font-style: italic; text-transform: none; letter-spacing: 0; font-size: 16px">Vinculos, cuaderno de gestión para centros de psicología</span><span>Santiago · Noviembre 2026</span></div></sc-if>
+
+<header class="cabecera" style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 20px 0">
+<a href="#inicio" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 800; font-size: 24px"><span aria-hidden="true" style="display: grid; grid-template-columns: repeat(2, 11px); gap: 3px"><span style="width: 11px; height: 11px; border-radius: 3px; background: var(--brand)"></span><span style="width: 11px; height: 11px; border-radius: 3px; background: #8A4B1F"></span><span style="width: 11px; height: 11px; border-radius: 3px; background: #2F4A6B"></span><span style="width: 11px; height: 11px; border-radius: 3px; background: #4F6B2F"></span></span>Vinculos</a>
+<nav aria-label="Principal" style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 2px; padding: 5px; border-radius: 999px; background: rgba(255,255,255,0.85); border: 1px solid var(--line)">
+<a href="#dia" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Un día en tu centro</a>
+<a href="#bloques" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Bloques</a>
+<a href="#estilos" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Estilos</a>
+<a href="#confianza" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Cómo trabajamos</a>
+<a href="https://demo.vinculos.cl" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Demo</a>
+</nav>
+<a href="#conversemos" style="min-height: 46px; display: inline-flex; align-items: center; padding: 0 22px; border-radius: 999px; background: var(--ink); color: #FFFFFF; text-decoration: none; font-weight: 700">Conversemos</a>
+</header>
+
+<!-- 1. INICIO (V1) -->
+<section id="inicio" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 48px; align-items: center; padding: 48px 0 80px">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Plataforma modular para centros de psicología</span>
+<h1 style="margin: 0; font-family: var(--display); font-weight: 800; font-size: 72px; line-height: 0.95; letter-spacing: -0.02em">Tu plataforma se arma por vínculos.</h1>
+<p class="lead" style="margin: 0; font-size: 19px; color: var(--ink2); max-width: 520px">Fichas, agenda, equipo, match y cobros en un solo lugar. Activa solo los bloques que tu centro necesita: cada uno funciona por sí solo y se conecta con los demás.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="#dia" style="min-height: 52px; display: inline-flex; align-items: center; padding: 0 24px; border-radius: var(--rm); background: var(--brand); color: #FFFFFF; text-decoration: none; font-weight: 800; box-shadow: 0 12px 28px rgba(31,92,87,0.3)">Ver cómo funciona</a>
+<a href="https://demo.vinculos.cl" style="min-height: 52px; display: inline-flex; align-items: center; padding: 0 24px; border-radius: var(--rm); border: 1.5px solid var(--ink); color: var(--ink); text-decoration: none; font-weight: 700">Ver demo en vivo</a>
+</div>
+<sc-if value="{{ esCuaderno }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="align-self: flex-end; display: inline-flex; align-items: center; gap: 8px; font-family: 'Caveat', cursive; font-size: 28px; font-weight: 700; color: #A6442E; transform: rotate(-4deg)">prueba los bloques<svg width="80" height="34" viewBox="0 0 80 34" fill="none" stroke="#A6442E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 24 C 22 4, 46 2, 72 16 M62 7 L73 16 L61 23"></path></svg></span></sc-if>
+<ul style="margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 15px; color: var(--ink2)">
+<li style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: var(--brand)"></span>Cada centro vive en su propio espacio, separado de los demás</li>
+<li style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: var(--brand)"></span>La ficha clínica solo la ve el profesional tratante</li>
+<li style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: var(--brand)"></span>Sin informático en tu centro: nosotros lo mantenemos</li>
+</ul>
+</div>
+<div class="hoja" style="padding: 24px; border-radius: var(--rl); background: rgba(255,255,255,0.88); border: 1px solid var(--line); box-shadow: var(--shadow); backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px"><strong style="font-family: var(--display); font-size: 22px">Arma tu plataforma</strong><span style="font-size: 14px; color: var(--ink2)">{{ nSel }} de 7 bloques activos</span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{ tablero }}" as="m" hint-placeholder-count="7"><button type="button" aria-pressed="{{ m.on }}" onClick="{{ m.pick }}" style="min-height: 136px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 16px; border-radius: var(--rm); border: {{ m.borde }}; background: {{ m.fondo }}; color: {{ m.texto }}; text-align: left; box-shadow: {{ m.sombra }}; cursor: pointer">
+<span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase">{{ m.estadoTxt }}</span>
+<span><strong style="display: block; font-family: var(--display); font-size: 23px; line-height: 1.05">{{ m.n }}</strong><span style="font-size: 13px">{{ m.t }}</span></span>
+<span style="font-size: 12px">{{ m.reqCorto }}</span>
+</button></sc-for>
+<a href="#conversemos" style="min-height: 136px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; border-radius: var(--rm); border: 2px dashed #C9C2B4; color: var(--ink); text-decoration: none"><span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink2)">A medida</span><strong style="font-family: var(--display); font-size: 19px; line-height: 1.1">¿Necesitas otro bloque?</strong><span style="font-size: 12px; color: var(--ink2)">Lo evaluamos para todos los centros</span></a>
+<a href="#conversemos" style="min-height: 136px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; border-radius: var(--rm); background: var(--brand); color: #FFFFFF; text-decoration: none"><span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase">Listo</span><strong style="font-family: var(--display); font-size: 19px; line-height: 1.1">Conversemos con {{ nSel }} bloques</strong><span style="font-size: 12px">Pasan a la conversación</span></a>
+</div>
+<sc-if value="{{ hayMsg }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin: 0; padding: 10px 14px; border-radius: var(--rs); background: #FFF4D6; color: #7A520A; font-size: 14px; font-weight: 700">{{ msg }}</p></sc-if>
+<p style="margin: 0; font-size: 13px; color: var(--ink2)">Toca un bloque para encenderlo o apagarlo. Si un bloque necesita otro, lo agregamos por ti.</p>
+</div>
+</section>
+
+<!-- 2. UN DIA EN TU CENTRO (V2) -->
+<section id="dia" style="padding: 72px 0; border-top: 1px solid var(--line)">
+<div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px">
+<span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Un día en tu centro</span>
+<h2 style="margin: 0; max-width: 900px; font-family: var(--display); font-weight: 800; font-size: 56px; line-height: 0.98; letter-spacing: -0.01em">Sin planillas ni choques de horario.</h2>
+<p style="margin: 0; max-width: 620px; font-size: 18px; color: var(--ink2)">Elige desde qué lado quieres mirarlo y te mostramos cómo cambia la rutina de cada persona.</p>
+</div>
+<div role="tablist" aria-label="Elige un rol" style="margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px">
+<sc-for list="{{ roles }}" as="r" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{ r.on }}" onClick="{{ r.pick }}" class="postit" style="--pi: {{ r.pi }}; --rot: {{ r.rot }}; min-height: 140px; display: flex; flex-direction: column; gap: 10px; padding: 22px; border-radius: var(--rl); border: {{ r.borde }}; background: {{ r.fondo }}; color: {{ r.texto }}; text-align: left; cursor: pointer; box-shadow: {{ r.sombra }}">
+<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ r.icono }}"></path></svg>
+<strong style="font-family: var(--display); font-size: 24px; line-height: 1.05">{{ r.l }}</strong>
+<span style="font-size: 15px">{{ r.d }}</span>
+</button></sc-for>
+</div>
+<h3 style="margin: 40px 0 20px; font-family: var(--display); font-weight: 800; font-size: 32px; line-height: 1">{{ rol.titulo }}</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+<ol style="flex: 1 1 380px; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<sc-for list="{{ momentos }}" as="m" hint-placeholder-count="5"><li style="display: grid; grid-template-columns: 80px 24px minmax(0, 1fr); gap: 12px; align-items: stretch">
+<span style="padding-top: 18px; font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--ink2)">{{ m.hora }}</span>
+<span aria-hidden="true" style="display: flex; flex-direction: column; align-items: center"><span style="width: 2px; height: 22px; background: var(--line)"></span><span style="width: 14px; height: 14px; flex: none; border-radius: 999px; background: {{ m.punto }}; border: 3px solid var(--bg); box-shadow: 0 0 0 1px {{ m.color }}"></span><span style="width: 2px; flex: 1; background: var(--line)"></span></span>
+<button type="button" aria-pressed="{{ m.on }}" onClick="{{ m.pick }}" style="margin: 6px 0; min-height: 64px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 16px; border-radius: var(--rm); border: {{ m.borde }}; background: {{ m.fondo }}; color: var(--ink); text-align: left; cursor: pointer"><span style="font-size: 16px; font-weight: 600">{{ m.l }}</span><span style="padding: 2px 10px; border-radius: 999px; background: {{ m.soft }}; color: {{ m.color }}; font-size: 12px; font-weight: 800">{{ m.bloque }}</span></button>
+</li></sc-for>
+</ol>
+<div style="flex: 1 1 520px; min-width: 0; border-radius: var(--rl); background: var(--surface); border: 1px solid var(--line); overflow: hidden; box-shadow: var(--shadow)">
+<div style="display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: {{ vista.color }}; color: #FFFFFF"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase">{{ vista.n }}</span><strong style="margin-left: auto; font-size: 14px">{{ vista.cap.t }}</strong></div>
+<div style="padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{ vista.cap.filas }}" as="f" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px; border-radius: var(--rs); border: 1px solid #EEE9DF; background: var(--surface2)"><strong style="font-size: 14px">{{ f.a }}</strong><span style="font-size: 14px; color: var(--ink2)">{{ f.b }}</span><span style="padding: 3px 10px; border-radius: 999px; background: {{ f.f }}; color: {{ f.cc }}; font-size: 12px; font-weight: 800">{{ f.c }}</span></div></sc-for>
+</div>
+<div style="padding: 18px 20px; border-top: 1px solid #EEE9DF; display: flex; flex-wrap: wrap; gap: 12px; align-items: center"><span style="font-size: 15px">Lo hace posible el bloque <strong>{{ vista.t }}</strong>.</span><button type="button" onClick="{{ vista.verBloque }}" style="margin-left: auto; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--brand); font-weight: 800; font-size: 15px; cursor: pointer">Ver cómo funciona</button></div>
+</div>
+</div>
+</section>
+
+<sc-if value="{{ esEditorial }}" hint-placeholder-val="{{ false }}"><blockquote style="margin: 24px auto 48px; max-width: 880px; padding: 36px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); text-align: center; font-family: var(--display); font-style: italic; font-size: 40px; line-height: 1.2">Cada persona ve solo lo que le corresponde. Lo clínico, solo su tratante.<footer style="margin-top: 14px; font-family: var(--body); font-style: normal; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase">Principio de diseño de Vinculos</footer></blockquote></sc-if>
+
+<!-- 3. CADA BLOQUE, EXPLICADO (V1) -->
+<section id="bloques" style="padding: 72px 0; border-top: 1px solid var(--line)">
+<div style="display: flex; flex-wrap: wrap; align-items: end; gap: 24px; margin-bottom: 32px">
+<div style="flex: 1 1 520px"><span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Cada bloque, explicado</span><h2 style="margin: 8px 0 0; font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 1">Mira cómo funciona cada pieza antes de decidir.</h2></div>
+<p style="flex: 1 1 320px; margin: 0; color: var(--ink2)">Qué problema resuelve, quién lo usa, el flujo paso a paso y cómo se ve en la plataforma.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+<div role="tablist" aria-orientation="vertical" aria-label="Bloques" style="flex: 1 1 240px; max-width: 280px; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{ lista }}" as="m" hint-placeholder-count="7"><button type="button" role="tab" aria-selected="{{ m.sel }}" onClick="{{ m.ver }}" style="min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: var(--rs); border: {{ m.tabBorde }}; background: {{ m.tabFondo }}; color: var(--ink); text-align: left; font-size: 15px; font-weight: {{ m.tabPeso }}; cursor: pointer"><span aria-hidden="true" style="width: 14px; height: 14px; flex: none; border-radius: 4px; background: {{ m.color }}"></span><span style="flex: 1">{{ m.t }}</span><span style="font-size: 12px; font-weight: 700; color: var(--brand)">{{ m.estadoCorto }}</span></button></sc-for>
+</div>
+<article class="hoja" style="flex: 999 1 640px; min-width: 0; box-sizing: border-box; background: var(--surface); border: 1px solid var(--line); border-radius: var(--rl); padding: 32px; display: flex; flex-direction: column; gap: 28px; box-shadow: var(--shadow)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
+<span aria-hidden="true" style="width: 52px; height: 52px; border-radius: var(--rs); background: {{ d.color }}"></span>
+<div style="flex: 1 1 260px"><h3 style="margin: 0; font-family: var(--display); font-size: 32px; line-height: 1.05">{{ d.t }}</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px"><sc-for list="{{ d.quien }}" as="q" hint-placeholder-count="2"><span style="padding: 3px 10px; border-radius: 999px; background: {{ d.soft }}; color: var(--ink); font-size: 13px; font-weight: 700">{{ q }}</span></sc-for></div></div>
+<button type="button" onClick="{{ d.pick }}" style="min-height: 48px; padding: 0 20px; border-radius: var(--rs); border: 0; background: {{ d.btnFondo }}; color: {{ d.btnTexto }}; font-weight: 800; font-size: 15px; cursor: pointer">{{ d.accion }}</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px">
+<div style="padding: 20px; border-radius: var(--rm); background: var(--surface2)"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink2)">El problema hoy</span><p style="margin: 6px 0 0; font-size: 16px">{{ d.problema }}</p></div>
+<div style="padding: 20px; border-radius: var(--rm); background: {{ d.soft }}"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase">Con Vinculos</span><p style="margin: 6px 0 0; font-size: 16px">{{ d.corto }}</p><p style="margin: 8px 0 0; font-size: 14px; font-weight: 700">{{ d.reqTxt }}</p><sc-if value="{{ d.tieneOpc }}" hint-placeholder-val="{{ false }}"><p style="margin: 2px 0 0; font-size: 14px">{{ d.opcTxt }}</p></sc-if><sc-if value="{{ d.tieneNota }}" hint-placeholder-val="{{ false }}"><p style="margin: 6px 0 0; font-size: 14px; font-style: italic">{{ d.nota }}</p></sc-if></div>
+</div>
+<div>
+<h4 style="margin: 0 0 14px; font-size: 16px; font-weight: 800">El flujo</h4>
+<ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
+<sc-for list="{{ d.pasos }}" as="p" hint-placeholder-count="5"><li style="padding: 16px; border-radius: var(--rm); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px"><span style="width: 30px; height: 30px; border-radius: 999px; background: {{ d.color }}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px">{{ p.n }}</span><span style="font-size: 14px; line-height: 1.35">{{ p.l }}</span></li></sc-for>
+</ol>
+</div>
+<div>
+<h4 style="margin: 0 0 14px; font-size: 16px; font-weight: 800">Así se ve</h4>
+<div style="border-radius: var(--rm); border: 1px solid var(--line); overflow: hidden; background: var(--surface2)">
+<div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line)"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--line)"></span><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--line)"></span><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--line)"></span><strong style="margin-left: 8px; font-size: 14px">{{ d.cap.t }}</strong></div>
+<div style="padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ d.cap.filas }}" as="f" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; border-radius: var(--rs); background: var(--surface); border: 1px solid #EEE9DF"><strong style="font-size: 14px">{{ f.a }}</strong><span style="font-size: 14px; color: var(--ink2)">{{ f.b }}</span><span style="padding: 3px 10px; border-radius: 999px; background: {{ f.f }}; color: {{ f.cc }}; font-size: 12px; font-weight: 800">{{ f.c }}</span></div></sc-for>
+</div>
+</div>
+</div>
+</article>
+</div>
+</section>
+
+<!-- 4. SELECCION DE BLOQUES -->
+<section id="seleccion" style="padding: 72px 0; border-top: 1px solid var(--line)">
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: end; margin-bottom: 24px">
+<h2 style="flex: 1 1 520px; margin: 0; font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 1">Cada uno funciona solo. Juntos, se potencian.</h2>
+<div style="padding: 12px 18px; border-radius: var(--rm); background: var(--ink); color: #FFFFFF; font-weight: 700">Te interesan {{ nSel }} de 7 bloques</div>
+</div>
+<sc-if value="{{ hayMsg }}" hint-placeholder-val="{{ false }}"><p role="status" style="margin: 0 0 16px; padding: 10px 14px; border-radius: var(--rs); background: #FFF4D6; color: #7A520A; font-size: 14px; font-weight: 700">{{ msg }}</p></sc-if>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px">
+<sc-for list="{{ selector }}" as="m" hint-placeholder-count="7"><button type="button" role="switch" aria-checked="{{ m.on }}" onClick="{{ m.pick }}" class="postit" style="--pi: {{ m.pi }}; --rot: {{ m.rot }}; min-height: 84px; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: var(--rl); border: {{ m.borde }}; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: var(--rs); background: {{ m.color }}"></span>
+<span style="flex: 1"><strong style="display: block; font-size: 17px; line-height: 1.2">{{ m.t }}</strong><span style="font-size: 13px; color: var(--ink2)">{{ m.reqCorto }}</span></span>
+<span style="width: 52px; height: 30px; flex: none; box-sizing: border-box; padding: 3px; border-radius: 999px; background: {{ m.pista }}; display: flex; justify-content: {{ m.lado }}"><span style="width: 24px; height: 24px; border-radius: 999px; background: var(--surface)"></span></span>
+</button></sc-for>
+</div>
+<div style="margin-top: 20px; display: flex; justify-content: flex-end"><a href="#conversemos" style="min-height: 52px; display: inline-flex; align-items: center; padding: 0 24px; border-radius: var(--rm); background: var(--brand); color: #FFFFFF; text-decoration: none; font-weight: 800">Conversemos con esta selección</a></div>
+</section>
+
+<!-- 5. CON LA CARA DE TU CENTRO (V1, ajustado) -->
+<section id="estilos" style="padding: 72px 0; border-top: 1px solid var(--line)">
+<div style="display: flex; flex-wrap: wrap; align-items: end; gap: 24px; margin-bottom: 28px">
+<div style="flex: 1 1 520px"><span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Con la cara de tu centro</span><h2 style="margin: 8px 0 0; font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 1">Nos adaptamos a tu centro, no al revés.</h2></div>
+<p style="flex: 1 1 340px; margin: 0; color: var(--ink2)">Estos son tres ejemplos de lo que podemos hacer. Tomamos los colores, la tipografía, el logo y el tono de tu centro, y la plataforma funciona igual.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px">
+<sc-for list="{{ estilos }}" as="e" hint-placeholder-count="3"><div style="display: flex; flex-direction: column; gap: 12px">
+<div style="height: 220px; box-sizing: border-box; padding: 22px; border-radius: var(--rl); background-color: {{ e.bg }}; background-image: {{ e.img }}; background-size: {{ e.sz }}; color: {{ e.ink }}; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--line); overflow: hidden">
+<strong style="font-family: {{ e.ff }}; font-weight: {{ e.fw }}; font-size: {{ e.ts }}; line-height: 1">Hola de nuevo.</strong>
+<div style="padding: 12px; border-radius: {{ e.r }}; background: {{ e.card }}; border: {{ e.b }}; box-shadow: {{ e.sh }}; display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 34px; height: 34px; border-radius: 999px; background: {{ e.sec }}"></span><span style="font-size: 13px; line-height: 1.3"><strong style="display: block">Ps. Camila Rojas</strong>Ansiedad · adultos</span></div>
+<span style="align-self: flex-start; padding: 8px 14px; border-radius: {{ e.r }}; background: {{ e.sec }}; color: #FFFFFF; font-size: 13px; font-weight: 700">Pedir una hora</span>
+</div>
+<span><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink2)">Ejemplo</span><strong style="display: block; font-size: 17px">{{ e.n }}</strong><span style="font-size: 14px; color: var(--ink2)">{{ e.d }}</span></span>
+<button type="button" aria-pressed="{{ e.on }}" onClick="{{ e.pick }}" style="align-self: flex-start; min-height: 44px; padding: 0 16px; border-radius: var(--rs); border: {{ e.btnBorde }}; background: {{ e.btnFondo }}; color: {{ e.btnTexto }}; font-weight: 800; font-size: 14px; cursor: pointer">{{ e.btnTxt }}</button>
+</div></sc-for>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="height: 220px; box-sizing: border-box; padding: 22px; border-radius: var(--rl); border: {{ propio.marco }}; background: rgba(255,255,255,0.7); display: flex; flex-direction: column; justify-content: center; gap: 12px">
+<strong style="font-family: var(--display); font-size: 26px; line-height: 1.05">El estilo de tu centro</strong>
+<span style="font-size: 14px; color: var(--ink2)">Prueba con un color propio. En la reunión definimos tu logo, tus colores y tu tipografía.</span>
+<div role="group" aria-label="Color de ejemplo para tu centro" style="display: flex; gap: 8px"><sc-for list="{{ swatches }}" as="w" hint-placeholder-count="3"><button type="button" aria-pressed="{{ w.on }}" aria-label="{{ w.l }}" onClick="{{ w.pick }}" style="width: 44px; height: 44px; border-radius: var(--rs); border: {{ w.borde }}; background: {{ w.c }}; cursor: pointer"></button></sc-for></div>
+</div>
+<span><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand)">A medida</span><strong style="display: block; font-size: 17px">Cuéntanos cómo es tu centro</strong><span style="font-size: 14px; color: var(--ink2)">Si ya tienen web, la integramos.</span></span>
+<a href="#conversemos" style="align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; font-weight: 800">Conversemos sobre tu estilo</a>
+</div>
+</div>
+</section>
+
+<!-- 6. COMO TRABAJAMOS (V2) -->
+<section id="confianza" style="padding: 72px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 40px">
+<div>
+<span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Cómo trabajamos</span>
+<h2 style="margin: 8px 0 24px; font-family: var(--display); font-weight: 800; font-size: 40px; line-height: 1">Te acompañamos de principio a fin.</h2>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{ proceso }}" as="p" hint-placeholder-count="5"><li class="postit" style="--pi: {{ p.pi }}; --rot: {{ p.rot }}; display: flex; gap: 14px; padding: 12px 14px; border-radius: var(--rs)"><span style="font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--brand); min-width: 36px">{{ p.n }}</span><span><strong style="display: block">{{ p.l }}</strong><span style="font-size: 15px; color: var(--ink2)">{{ p.d }}</span></span></li></sc-for>
+</ol>
+</div>
+<div class="nota" style="padding: 36px; border-radius: var(--rl); background: var(--ink); color: #FFFFFF">
+<span style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #9FD3CC">Seguridad</span>
+<h2 style="margin: 8px 0 20px; font-family: var(--display); font-weight: 800; font-size: 34px; line-height: 1.05">Lo clínico se queda donde corresponde.</h2>
+<div style="display: flex; flex-direction: column; gap: 16px"><sc-for list="{{ seg }}" as="x" hint-placeholder-count="4"><div><strong style="display: block">{{ x.l }}</strong><span style="font-size: 15px; color: #D5D9E2">{{ x.d }}</span></div></sc-for></div>
+</div>
+</section>
+
+<!-- 7. CONVERSEMOS (V2) -->
+<section id="conversemos" style="padding: 72px 0; border-top: 1px solid var(--line)">
+<div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start">
+<div style="flex: 1 1 340px">
+<span class="kicker" style="font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand)">Conversemos</span>
+<h2 style="margin: 8px 0 12px; font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 1">Una conversación, no un formulario largo.</h2>
+<p style="margin: 0 0 16px; color: var(--ink2)">Responde unas pocas preguntas y preparamos la reunión con lo justo. Los bloques que activaste arriba ya están marcados.</p>
+<div style="padding: 16px; border-radius: var(--rm); background: #FFF4D6; color: #7A520A; font-size: 14px"><strong>No escribas datos de pacientes aquí.</strong> Si traes fichas de otro sistema, las migramos después por un canal seguro.</div>
+<div style="margin-top: 12px; padding: 16px; border-radius: var(--rm); background: rgba(255,255,255,0.85); border: 1px solid var(--line); font-size: 14px"><strong style="display: block">¿Prefieres escribirnos?</strong>[CORREO DE CONTACTO] · [WHATSAPP]</div>
+</div>
+<div class="hoja" style="flex: 999 1 600px; min-width: 0; border-radius: var(--rl); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid #EEE9DF"><span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 999px; background: var(--brand)"></span><strong>Vinculos</strong><span style="font-size: 13px; color: var(--ink2)">Respondemos en horario hábil</span></div>
+<div role="log" aria-live="polite" style="padding: 20px; display: flex; flex-direction: column; gap: 10px; min-height: 360px">
+<sc-for list="{{ hist }}" as="h" hint-placeholder-count="3"><div style="display: flex; justify-content: {{ h.lado }}"><span style="max-width: 78%; padding: 12px 16px; border-radius: {{ h.radio }}; background: {{ h.fondo }}; color: {{ h.color }}; font-size: 15px">{{ h.t }}</span></div></sc-for>
+</div>
+<div style="padding: 18px 20px; border-top: 1px solid #EEE9DF; background: var(--surface2); border-radius: 0 0 28px 28px; display: flex; flex-direction: column; gap: 12px">
+<sc-if value="{{ hayOpts }}" hint-placeholder-val="{{ true }}"><div style="display: flex; flex-wrap: wrap; gap: 8px"><sc-for list="{{ opts }}" as="o" hint-placeholder-count="3"><button type="button" onClick="{{ o.pick }}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--brand); background: var(--surface); color: var(--brand); font-weight: 700; font-size: 14px; cursor: pointer">{{ o.l }}</button></sc-for></div></sc-if>
+<sc-if value="{{ esBloques }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-wrap: wrap; gap: 8px"><sc-for list="{{ multi }}" as="b" hint-placeholder-count="6"><button type="button" aria-pressed="{{ b.on }}" onClick="{{ b.pick }}" style="min-height: 44px; padding: 0 14px; border-radius: 999px; border: {{ b.b }}; background: {{ b.f }}; color: var(--ink); font-weight: 700; font-size: 14px; cursor: pointer">{{ b.l }}</button></sc-for><button type="button" onClick="{{ listoBloques }}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--brand); color: #FFFFFF; font-weight: 800; cursor: pointer">Listo</button></div>
+<sc-if value="{{ hayMsg }}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 13px; font-weight: 700; color: #7A520A">{{ msg }}</span></sc-if></sc-if>
+<sc-if value="{{ esDatos }}" hint-placeholder-val="{{ false }}"><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Tu nombre<input type="text" style="min-height: 46px; padding: 0 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Centro<input type="text" style="min-height: 46px; padding: 0 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Correo<input type="email" style="min-height: 46px; padding: 0 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Teléfono<input type="tel" style="min-height: 46px; padding: 0 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px"></label>
+</div><button type="button" onClick="{{ enviarDatos }}" style="align-self: flex-end; min-height: 46px; padding: 0 20px; border-radius: var(--rs); border: 0; background: var(--brand); color: #FFFFFF; font-weight: 800; cursor: pointer">{{ txtEnviar }}</button></sc-if>
+<sc-if value="{{ esPreg }}" hint-placeholder-val="{{ false }}"><label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Correo<input type="email" style="min-height: 46px; padding: 0 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px"></label><label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700">Tu pregunta<textarea rows="3" style="padding: 10px 12px; border-radius: var(--rs); border: 1px solid var(--line); font-size: 15px; resize: vertical"></textarea></label><button type="button" onClick="{{ enviarPreg }}" style="align-self: flex-end; min-height: 46px; padding: 0 20px; border-radius: var(--rs); border: 0; background: var(--brand); color: #FFFFFF; font-weight: 800; cursor: pointer">Enviar pregunta</button></sc-if>
+<sc-if value="{{ esFin }}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ finSol }}" hint-placeholder-val="{{ true }}"><ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px"><sc-for list="{{ timeline }}" as="t" hint-placeholder-count="4"><li style="padding: 12px; border-radius: var(--rs); background: {{ t.f }}; color: {{ t.c }}; border: 1px solid var(--brand)"><strong style="display: block; font-size: 14px">{{ t.n }}. {{ t.l }}</strong><span style="font-size: 12px">{{ t.est }}</span></li></sc-for></ol></sc-if>
+<button type="button" onClick="{{ reiniciar }}" style="align-self: flex-start; min-height: 44px; padding: 0 18px; border-radius: var(--rs); border: 1.5px solid var(--ink); background: transparent; color: var(--ink); font-weight: 700; cursor: pointer">Empezar de nuevo</button>
+</sc-if>
+</div>
+</div>
+</div>
+</section>
+
+<footer style="display: flex; flex-wrap: wrap; gap: 16px; padding: 24px 0; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink2)"><strong style="color: var(--ink)">Vinculos</strong><span>Tu plataforma se arma por vínculos</span><span style="margin-left: auto">Privacidad</span><span>Términos</span><span>Tratamiento de datos</span></footer>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":6400}}'>
+var MODS = [
+  { id: 'nucleo', n: 'Núcleo', t: 'Seguridad y accesos', color: 'var(--ink)', soft: '#E6E8EE', fijo: true, corto: 'Cuentas, roles y verificación en dos pasos. Siempre incluido.', problema: 'Claves compartidas, planillas que circulan por correo y nadie sabe quién vio qué.', quien: ['Todo el equipo', 'Pacientes'], pasos: ['El admin invita al equipo por correo', 'Cada persona crea su contraseña', 'Verificación en dos pasos con código', 'Cada rol ve solo lo que le corresponde'], cap: { t: 'Equipo y accesos', filas: [['Ana Pérez', 'Admin', 'Activo'], ['Ps. Camila Rojas', 'Profesional', 'Activo'], ['Diego Muñoz', 'Practicante', 'Invitado']] }, req: [], opc: [] },
+  { id: 'fichas', n: 'Fichas', t: 'Fichas y pacientes', color: '#8A4B1F', soft: '#F3E1D2', corto: 'Ficha clínica que solo ve el profesional tratante.', problema: 'Fichas en papel o en documentos sueltos, sin control de acceso ni respaldo.', quien: ['Profesionales', 'Practicantes supervisados'], pasos: ['El paciente llega por reserva o derivación', 'Se abre su ficha con el tratante asignado', 'Evolución cualitativa por sesión', 'Derivación o segunda opinión con acceso temporal', 'Se conserva al menos 15 años'], cap: { t: 'Mis pacientes', filas: [['F-0142', 'Evolución pendiente', 'Hoy'], ['F-0137', 'Derivación recibida', 'Nuevo'], ['F-0121', 'Al día', 'Ok']] }, req: [], opc: [] },
+  { id: 'agenda', n: 'Agenda', t: 'Agenda y boxes', color: '#2F4A6B', soft: '#DCE6F2', corto: 'Horarios y boxes sin choques, presencial y online.', problema: 'Boxes reservados dos veces y horarios cruzados entre profesionales.', quien: ['Admin', 'Profesionales', 'Pacientes'], pasos: ['El centro configura boxes y horario de atención', 'Cada profesional publica su disponibilidad', 'La reserva bloquea el box mientras se confirma', 'Recordatorio por correo', 'Sesión presencial u online'], cap: { t: 'Jueves 12 nov', filas: [['10:00', 'Box 2 · Ps. Rojas', 'Confirmada'], ['11:00', 'Online · Ps. Soto', 'Por confirmar'], ['12:00', 'Box 1 · Ps. Lagos', 'Confirmada']] }, req: [], opc: [] },
+  { id: 'equipo', n: 'Equipo', t: 'Equipo y perfiles', color: '#4F6B2F', soft: '#E1E8CF', corto: 'Validación de profesionales y practicantes con su supervisor.', problema: 'Títulos y registros que nadie revisa, practicantes sin seguimiento.', quien: ['Admin', 'Profesionales', 'Practicantes'], pasos: ['El admin invita a un profesional', 'El profesional sube su registro RNPI y título', 'El admin valida los documentos', 'El profesional edita su propio perfil público', 'Practicantes con supervisor y certificado vigente'], cap: { t: 'Validaciones', filas: [['Ps. Camila Rojas', 'RNPI verificado', 'Ok'], ['Ps. Tomás Soto', 'Título por revisar', 'Pendiente'], ['Diego Muñoz', 'Certificado vence en 5 días', 'Aviso']] }, req: [], opc: [] },
+  { id: 'match', n: 'Match', t: 'Match terapéutico', color: '#6B3F5A', soft: '#EBDDE6', corto: 'Ayuda al paciente a elegir con quién atenderse.', problema: 'El paciente no sabe con quién atenderse y escribe a todos por WhatsApp.', quien: ['Pacientes'], pasos: ['El paciente responde un cuestionario breve', 'Se ordena por motivo, horario y preferencia de pago', 'Ve perfiles con su primera hora disponible', 'Elige y reserva'], cap: { t: 'Tu match', filas: [['Ps. Camila Rojas', 'Ansiedad · adultos', 'Mar 10:00'], ['Ps. Tomás Soto', 'Duelo · online', 'Mié 18:00'], ['Ps. Inés Lagos', 'Pareja', 'Jue 12:00']] }, req: ['equipo'], opc: ['agenda'] },
+  { id: 'cobros', n: 'Cobros', t: 'Cobros y liquidaciones', color: '#7A520A', soft: '#FFF4D6', corto: 'Pago al confirmar, boleta y liquidación al profesional.', problema: 'Transferencias que se validan a mano y cuentas por cuadrar a fin de mes.', quien: ['Admin', 'Profesionales', 'Pacientes'], pasos: ['El precio queda fijo al confirmar la hora', 'Pago con la pasarela del centro, transferencia o en el lugar', 'Boleta al completar el pago', 'Liquidación mensual a cada profesional'], cap: { t: 'Pagos de noviembre', filas: [['F-0142 · 05 nov', '$35.000', 'Pagado'], ['F-0137 · 06 nov', '$30.000', 'Por validar'], ['Liquidación Ps. Rojas', 'Mes de octubre', 'Lista']] }, req: ['agenda'], opc: ['match'], nota: 'Vinculos no recibe dinero: cada centro conecta su propia cuenta.' },
+  { id: 'sitio', n: 'Sitio', t: 'Sitio público del centro', color: '#2E6E6E', soft: '#D6EAEA', corto: 'La web del centro con su equipo y reserva en línea.', problema: 'Sin página web, o una que no está conectada con la agenda real.', quien: ['Pacientes', 'Admin'], pasos: ['El centro define su estilo con nosotros', 'El equipo aparece desde sus perfiles', 'Los pacientes piden hora sin crear cuenta', 'Se integra a una web existente o funciona como sitio nuevo'], cap: { t: 'tucentro.vinculos.cl', filas: [['Inicio', 'Equipo y servicios', 'Publicado'], ['Pedir una hora', 'Agenda en vivo', 'Activo'], ['Match terapéutico', 'Cuestionario', 'Activo']] }, req: ['equipo'], opc: ['agenda', 'match'] }
+];
+var ROLES = {
+  admin: { l: 'Dirección del centro', d: 'Administra el centro, valida al equipo y revisa los pagos.', titulo: 'Un día de la dirección del centro', icono: 'M3 21h18 M5 21V8l7-5 7 5v13 M9 21v-6h6v6', momentos: [['08:30', 'Revisa la agenda del día y la ocupación de boxes', 'agenda'], ['09:15', 'Valida el título y el RNPI de un profesional nuevo', 'equipo'], ['11:00', 'Reasigna una derivación viendo solo el código de ficha', 'fichas'], ['13:00', 'Revisa los pagos por validar', 'cobros'], ['17:30', 'Publica un nuevo servicio en el sitio del centro', 'sitio']] },
+  pro: { l: 'Profesional', d: 'Atiende, registra cada sesión y deriva cuando corresponde.', titulo: 'Un día de una profesional', icono: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-4 4-6 8-6s8 2 8 6', momentos: [['08:45', 'Ve sus pacientes del día y sus boxes', 'agenda'], ['10:00', 'Escribe la evolución después de la sesión', 'fichas'], ['12:30', 'Recibe una derivación y la acepta', 'fichas'], ['15:00', 'Revisa el trabajo de su practicante', 'equipo'], ['19:00', 'Actualiza su perfil público', 'sitio']] },
+  pac: { l: 'Paciente', d: 'Busca ayuda, elige con quién atenderse y reserva.', titulo: 'El camino de un paciente', icono: 'M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z', momentos: [['21:10', 'Busca ayuda desde el celular', 'sitio'], ['21:15', 'Responde el match y ve tres opciones', 'match'], ['21:20', 'Reserva su primera hora sin crear cuenta', 'agenda'], ['21:22', 'Paga y recibe la confirmación', 'cobros'], ['Jueves', 'Entra a su sesión online', 'agenda']] }
+};
+var ESTILOS = [
+  { id: 'moderno', n: 'Moderno', d: 'Superficies translúcidas, trama de puntos y colores tierra.', bg: '#F1EBE2', img: 'radial-gradient(#D9CEBF 1px, transparent 1px)', sz: '12px 12px', ff: "'Bricolage Grotesque',sans-serif", fw: '800', ts: '30px', sec: '#4F6B2F', card: 'rgba(255,253,249,0.95)', r: '14px', sh: '0 8px 20px rgba(43,36,32,0.10)', b: '1px solid #EBE2D5', ink: '#2B2420' },
+  { id: 'cuaderno', n: 'Cuaderno', d: 'Hojas con líneas, notas y cada profesional como una tapa.', bg: '#FBF8EF', img: 'linear-gradient(#DCE4EF 1px, transparent 1px)', sz: '100% 18px', ff: "'Caveat', cursive", fw: '700', ts: '40px', sec: '#2F4A6B', card: '#FFFFFF', r: '3px', sh: '3px 3px 0 #2A2A33', b: '2px solid #2A2A33', ink: '#2A2A33' },
+  { id: 'editorial', n: 'Editorial', d: 'Tipografía serif, reglas finas y mucho aire.', bg: '#F6F3EC', img: 'none', sz: 'auto', ff: "'Fraunces', serif", fw: '400', ts: '32px', sec: '#1F4D3A', card: 'transparent', r: '0', sh: 'none', b: '1px solid #141414', ink: '#141414' }
+];
+var PROCESO = [['Solicitud', 'Nos cuentas lo básico de tu centro en la conversación.'], ['Reunión', '45 minutos para entender cómo trabajan, qué bloques necesitan y cómo es la identidad de tu centro.'], ['Datos formales', 'Un enlace privado para razón social, dominio y responsables.'], ['Tu plataforma lista', 'Creamos tu centro con su estilo e invitas a tu equipo.'], ['Crece o se va contigo', 'Agregas bloques cuando quieras. Si te vas, te llevas todo exportado y cifrado.']];
+var SEG = [['La ficha es del tratante', 'Ni el admin ni Vinculos ven su contenido.'], ['Tu centro, tu espacio', 'Servidor y base de datos propios para cada centro.'], ['Cumple la ley', 'Ley 21.719 y retención de fichas por 15 años.'], ['Respaldos cifrados', 'Copias diarias y exporte completo si decides irte.']];
+var TAM = ['1 a 5', '6 a 15', '16 a 40', 'Más de 40'], SITIO = ['Sí, integrarlo', 'No, quiero uno nuevo', 'No necesito sitio'], ESTOPS = ['Moderno', 'Cuaderno', 'Editorial', 'Uno propio del centro', 'Aún no sé'];
+var DIAS = ['Lun 9 nov', 'Mar 10 nov', 'Mié 11 nov', 'Jue 12 nov', 'Vie 13 nov'], HORAS = ['10:00', '12:00', '16:00', '18:00'];
+var OKW = ['Ok', 'Activo', 'Confirmada', 'Pagado', 'Lista', 'Publicado'], AVW = ['Pendiente', 'Por confirmar', 'Por validar', 'Invitado', 'Aviso', 'Nuevo', 'Hoy'];
+var SALUDO = [{ q: 'v', t: 'Hola, soy del equipo de Vinculos. ¿Qué te trae por aquí?' }];
+
+var BASE = { bg: '#f4f1ea', bgImg: 'radial-gradient(#DDD6C8 1px, transparent 1px)', bgSize: '20px 20px', ink: '#1c2230', ink2: '#4b5262', line: '#e4ded2', brand: '#1f5c57', display: "'Bricolage Grotesque',sans-serif", body: "'Figtree',system-ui,sans-serif", rl: '28px', rm: '18px', rs: '14px', shadow: 'var(--shadow)', surface: '#ffffff', surface2: '#fbfaf6' };
+var TEMAS = {
+  vinculos: { n: 'Vinculos' },
+  moderno: { n: 'Moderno', bg: '#F1EBE2', bgImg: 'radial-gradient(#D9CEBF 1px, transparent 1px)', bgSize: '18px 18px', ink: '#2B2420', ink2: '#4A3F36', line: '#E3D7C4', brand: '#8A4B1F', rl: '24px', rm: '16px', rs: '12px', shadow: '0 18px 50px rgba(43,36,32,0.10)', surface: 'rgba(255,253,249,0.94)', surface2: '#F7F1E8' },
+  cuaderno: { n: 'Cuaderno', bg: '#FBF8EF', bgImg: 'linear-gradient(90deg, transparent 64px, #E7A4A4 64px, #E7A4A4 66px, transparent 66px), linear-gradient(#DCE4EF 1px, transparent 1px)', bgSize: '100% 100%, 100% 32px', ink: '#2A2A33', ink2: '#4A4A55', line: '#2A2A33', brand: '#2F4A6B', display: "'Caveat',cursive", body: "'Nunito',system-ui,sans-serif", rl: '4px', rm: '4px', rs: '4px', shadow: '6px 6px 0 #2A2A33', surface: '#ffffff', surface2: '#FBF8EF' },
+  editorial: { n: 'Editorial', bg: '#F6F3EC', bgImg: 'none', bgSize: 'auto', ink: '#141414', ink2: '#4A4A45', line: '#C9C3B5', brand: '#1F4D3A', display: "'Fraunces',serif", body: "'Inter',system-ui,sans-serif", rl: '0', rm: '0', rs: '0', shadow: 'none', surface: '#F6F3EC', surface2: '#ECE7DC' },
+  propio: { n: 'de tu centro (ejemplo)', bg: '#F7F4F2', bgImg: 'none', bgSize: 'auto', ink: '#2A1F2D', ink2: '#5A4E5C', line: '#E6DCE3', display: "'Fraunces',serif", rl: '20px', rm: '14px', rs: '10px', shadow: '0 18px 40px rgba(42,31,45,0.10)', surface: '#ffffff', surface2: '#FBF8F7' }
+};
+var PI = ['#FFF3A8', '#FFD6E0', '#CDEFD8', '#D4E6FF', '#FFE0B8'], ROT = ['-1.6deg', '1.2deg', '-0.8deg', '1.8deg', '-1.2deg'];
+var ACENTOS = [['Coral', '#B4532A'], ['Ciruela', '#6B3F5A'], ['Azul', '#2F5D8A']];
+function porId(id) { for (var i = 0; i < MODS.length; i++) if (MODS[i].id === id) return MODS[i]; return MODS[0]; }
+function nom(id) { return porId(id).n; }
+function ordenar(sel) { return MODS.filter(function (m) { return sel.indexOf(m.id) >= 0; }).map(function (m) { return m.id; }); }
+function activar(sel, id) { var out = sel.slice(), add = []; (function go(x) { if (out.indexOf(x) < 0) { out.push(x); if (x !== id) add.push(x); } porId(x).req.forEach(go); })(id); return { sel: ordenar(out), msg: add.length ? 'Agregamos ' + add.map(nom).join(' y ') + ' porque ' + nom(id) + ' lo necesita.' : '' }; }
+function desactivar(sel, id) { if (porId(id).fijo) return { sel: sel, msg: 'El Núcleo siempre está incluido: es la base de seguridad.' }; var out = sel.filter(function (x) { return x !== id; }), rem = [], c = true; while (c) { c = false; out.slice().forEach(function (x) { if (porId(x).req.some(function (r) { return out.indexOf(r) < 0; })) { out.splice(out.indexOf(x), 1); rem.push(x); c = true; } }); } return { sel: out, msg: rem.length ? 'También quitamos ' + rem.map(nom).join(' y ') + ' porque necesita ' + nom(id) + '.' : '' }; }
+function tog(self, id) { var s = self.state; var r = s.sel.indexOf(id) >= 0 ? desactivar(s.sel, id) : activar(s.sel, id); self.setState({ sel: r.sel, msg: r.msg }); }
+function chip(t) { if (OKW.indexOf(t) >= 0) return ['#E1E8CF', '#3E5A22']; if (AVW.indexOf(t) >= 0) return ['#FFF4D6', '#7A520A']; return ['#EEF0F4', 'var(--ink)']; }
+function capVals(m) { return { t: m.cap.t, filas: m.cap.filas.map(function (f) { var c = chip(f[2]); return { a: f[0], b: f[1], c: f[2], f: c[0], cc: c[1] }; }) }; }
+function modVals(m, sel) {
+  var on = sel.indexOf(m.id) >= 0;
+  return { id: m.id, n: m.n, t: m.t, color: m.color, soft: m.soft, corto: m.corto, problema: m.problema, quien: m.quien, on: on, fijo: !!m.fijo,
+    pasos: m.pasos.map(function (l, i) { return { n: String(i + 1), l: l }; }), cap: capVals(m),
+    reqTxt: m.fijo ? 'Es la base de todos los bloques.' : (m.req.length ? 'Necesita: ' + m.req.map(nom).join(', ') + '.' : 'Funciona solo, con el Núcleo.'),
+    reqCorto: m.fijo ? 'Base de todo, siempre incluido' : (m.req.length ? 'Necesita ' + m.req.map(nom).join(', ') : 'Funciona solo'),
+    tieneOpc: m.opc.length > 0, opcTxt: 'Se potencia con: ' + m.opc.map(nom).join(', ') + '.', tieneNota: !!m.nota, nota: m.nota || '',
+    fondo: on ? m.color : '#FFFFFF', texto: on ? '#FFFFFF' : 'var(--ink)', borde: on ? '2px solid ' + m.color : '2px dashed #C9C2B4', sombra: on ? '0 10px 24px rgba(28,34,48,0.16)' : 'none',
+    estadoTxt: m.fijo ? 'Siempre incluido' : (on ? 'Incluido' : 'Agregar'),
+    accion: m.fijo ? 'Incluido siempre' : (on ? 'Quitar de mi plataforma' : 'Agregar a mi plataforma'),
+    btnFondo: on ? '#EEF0F4' : 'var(--brand)', btnTexto: on ? 'var(--ink)' : '#FFFFFF' };
+}
+function decir(self, usuario, bot, paso, extra) {
+  var h = self.state.hist.slice(); if (usuario) h.push({ q: 'u', t: usuario });
+  bot.forEach(function (b) { h.push({ q: 'v', t: b }); });
+  self.setState(Object.assign({ hist: h, paso: paso, msg: '' }, extra || {}));
+}
+
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: ['nucleo', 'fichas', 'agenda', 'equipo'], msg: '', ver: 'agenda', rol: 'admin', mom: 0, hist: SALUDO, paso: 'inicio', flujo: '', cdia: '', chora: '', tema: 'vinculos', acento: '#B4532A' }; }
+  renderVals() {
+    var self = this, s = this.state, r = ROLES[s.rol];
+    var t = Object.assign({}, BASE, TEMAS[s.tema] || {});
+    if (s.tema === 'propio') t.brand = s.acento;
+    var estilos = ESTILOS.map(function (e) { var on = s.tema === e.id;
+      return Object.assign({}, e, { on: on, btnTxt: on ? 'Viendo este estilo' : 'Ver la página así', btnFondo: on ? '#1c2230' : 'transparent', btnTexto: on ? '#ffffff' : '#1c2230', btnBorde: on ? '0' : '1.5px solid #1c2230', pick: function () { self.setState({ tema: on ? 'vinculos' : e.id }); } }); });
+    var swatches = ACENTOS.map(function (a) { var on = s.tema === 'propio' && s.acento === a[1];
+      return { l: 'Probar con color ' + a[0], c: a[1], on: on, borde: on ? '3px solid #1c2230' : '3px solid #ffffff', pick: function () { self.setState({ tema: 'propio', acento: a[1] }); } }; });
+    var tablero = ['fichas', 'agenda', 'equipo', 'match', 'nucleo', 'cobros', 'sitio'].map(function (id) { var m = modVals(porId(id), s.sel); m.pick = function () { tog(self, id); }; return m; });
+    var roles = Object.keys(ROLES).map(function (k, i) { var on = s.rol === k, x = ROLES[k];
+      return { l: x.l, d: x.d, icono: x.icono, on: on, pi: PI[i % 5], rot: ROT[i % 5], fondo: on ? 'var(--ink)' : '#FFFFFF', texto: on ? '#FFFFFF' : 'var(--ink)', borde: on ? '2px solid var(--ink)' : '1px solid var(--line)', sombra: on ? '0 18px 40px rgba(28,34,48,0.2)' : 'none', pick: function () { self.setState({ rol: k, mom: 0 }); } }; });
+    var momentos = r.momentos.map(function (m, i) { var mod = porId(m[2]), on = s.mom === i;
+      return { hora: m[0], l: m[1], bloque: mod.t, color: mod.color, soft: mod.soft, punto: on ? mod.color : '#FFFFFF', on: on, fondo: on ? '#FFFFFF' : 'transparent', borde: on ? '1px solid ' + mod.color : '1px solid transparent', pick: function () { self.setState({ mom: i }); } }; });
+    var vmId = r.momentos[s.mom][2], vm = porId(vmId);
+    var vista = { n: vm.n, t: vm.t, color: vm.color, cap: capVals(vm), verBloque: function () { self.setState({ ver: vmId }); } };
+    var lista = MODS.map(function (m) { var v = modVals(m, s.sel), sel = s.ver === m.id;
+      v.sel = sel; v.tabFondo = sel ? '#FFFFFF' : 'transparent'; v.tabBorde = sel ? '1px solid var(--line)' : '1px solid transparent'; v.tabPeso = sel ? '800' : '600'; v.estadoCorto = v.on ? 'Incluido' : '';
+      v.ver = function () { self.setState({ ver: m.id }); }; return v; });
+    var d = modVals(porId(s.ver), s.sel); d.pick = function () { tog(self, s.ver); };
+    var selector = MODS.map(function (m, i) { var v = modVals(m, s.sel); v.pi = PI[i % 5]; v.rot = ROT[(i + 2) % 5];
+      v.pista = v.on ? 'var(--brand)' : '#C9C2B4'; v.lado = v.on ? 'flex-end' : 'flex-start'; v.borde = v.on ? '2px solid ' + m.color : '1px solid var(--line)';
+      v.pick = function () { tog(self, m.id); }; return v; });
+    var hist = s.hist.map(function (h) { var u = h.q === 'u'; return { t: h.t, lado: u ? 'flex-end' : 'flex-start', fondo: u ? 'var(--brand)' : '#F1EEE6', color: u ? '#FFFFFF' : 'var(--ink)', radio: u ? '18px 18px 4px 18px' : '18px 18px 18px 4px' }; });
+    var p = s.paso, opts = [];
+    function op(l, fn) { opts.push({ l: l, pick: fn }); }
+    if (p === 'inicio') {
+      op('Quiero Vinculos para mi centro', function () { decir(self, 'Quiero Vinculos para mi centro', ['Genial. Para preparar la reunión necesito cuatro datos rápidos.', '¿Cuántas personas atienden en tu centro?'], 'tam', { flujo: 'sol' }); });
+      op('Agendar una demo guiada', function () { decir(self, 'Agendar una demo guiada', ['Perfecto, son 30 minutos por videollamada.', '¿Qué día te acomoda?'], 'dia', { flujo: 'demo' }); });
+      op('Tengo una pregunta', function () { decir(self, 'Tengo una pregunta', ['Claro. Escríbela abajo con tu correo y te respondemos en menos de 2 días hábiles.'], 'preg', { flujo: 'preg' }); });
+    }
+    if (p === 'tam') TAM.forEach(function (t) { op(t, function () { decir(self, t, ['¿Qué bloques te interesan? Ya marqué los que activaste en la página; ajusta y toca Listo.'], 'bloques'); }); });
+    if (p === 'sitio') SITIO.forEach(function (t) { op(t, function () { decir(self, t, ['¿Cómo te imaginas el estilo? Puede ser uno de los ejemplos o uno propio de tu centro.'], 'estilo'); }); });
+    if (p === 'estilo') ESTOPS.forEach(function (t) { op(t, function () { decir(self, t, ['Último paso: ¿cómo te contactamos?'], 'datos'); }); });
+    if (p === 'dia') DIAS.forEach(function (t) { op(t, function () { decir(self, t, ['¿A qué hora?'], 'hora', { cdia: t }); }); });
+    if (p === 'hora') HORAS.forEach(function (t) { op(t, function () { decir(self, t, ['¿A nombre de quién la agendamos?'], 'datos', { chora: t }); }); });
+    var multi = MODS.filter(function (m) { return !m.fijo; }).map(function (m) { var on = s.sel.indexOf(m.id) >= 0;
+      return { l: m.n, on: on, f: on ? m.soft : '#FFFFFF', b: on ? '2px solid ' + m.color : '1px solid var(--line)', pick: function () { tog(self, m.id); } }; });
+    var demo = s.flujo === 'demo';
+    return {
+      t: t, tema: s.tema, esCuaderno: s.tema === 'cuaderno', esEditorial: s.tema === 'editorial', probando: s.tema !== 'vinculos', temaNombre: (TEMAS[s.tema] || TEMAS.vinculos).n, volver: function () { self.setState({ tema: 'vinculos' }); },
+      swatches: swatches, propio: { marco: s.tema === 'propio' ? '2px solid ' + s.acento : '2px dashed #1f5c57' },
+      tablero: tablero, nSel: String(s.sel.length), msg: s.msg, hayMsg: !!s.msg,
+      roles: roles, rol: r, momentos: momentos, vista: vista,
+      lista: lista, d: d, selector: selector, estilos: estilos,
+      proceso: PROCESO.map(function (x, i) { return { n: '0' + (i + 1), l: x[0], d: x[1], pi: PI[(i + 1) % 5], rot: ROT[(i + 3) % 5] }; }), seg: SEG.map(function (x) { return { l: x[0], d: x[1] }; }),
+      hist: hist, opts: opts, hayOpts: opts.length > 0, esBloques: p === 'bloques', multi: multi,
+      listoBloques: function () { decir(self, 'Me interesan: ' + s.sel.map(nom).join(', '), ['¿Tu centro ya tiene sitio web?'], 'sitio'); },
+      esDatos: p === 'datos', txtEnviar: demo ? 'Confirmar demo' : 'Enviar solicitud',
+      enviarDatos: function () { decir(self, 'Te dejé mis datos', demo ? ['Tu demo quedó agendada para el ' + s.cdia + ' a las ' + s.chora + '.', 'Te llega la invitación con el enlace a tu correo.'] : ['Listo, recibimos tu solicitud.', 'Te escribimos en un máximo de 2 días hábiles para coordinar la reunión. Esto es lo que sigue:'], 'fin'); },
+      esPreg: p === 'preg', enviarPreg: function () { decir(self, 'Envié mi pregunta', ['Recibido. Te respondemos por correo en menos de 2 días hábiles.'], 'fin'); },
+      esFin: p === 'fin', finSol: s.flujo === 'sol',
+      timeline: PROCESO.slice(0, 4).map(function (x, i) { return { n: String(i + 1), l: x[0], est: i === 0 ? 'Hecho' : (i === 1 ? 'Siguiente' : 'Después'), f: i === 0 ? 'var(--brand)' : '#FFFFFF', c: i === 0 ? '#FFFFFF' : 'var(--brand)' }; }),
+      reiniciar: function () { self.setState({ hist: SALUDO, paso: 'inicio', flujo: '', msg: '' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

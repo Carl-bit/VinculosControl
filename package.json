@@ -1,0 +1,14 @@
+{
+  "name": "vinculos-control",
+  "private": true,
+  "description": "Plano de control de Vinculos: consola, API y agente del host de silos.",
+  "scripts": {
+    "api": "pnpm --filter @vc/api",
+    "agente": "pnpm --filter @vc/agente",
+    "web": "pnpm --filter @vc/web",
+    "sitio": "pnpm --filter @vc/sitio",
+    "manifest": "pnpm --filter @vinculos/manifest",
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@10.12.1"
+}

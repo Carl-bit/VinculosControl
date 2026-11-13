@@ -1,0 +1,45 @@
+# Dependencias y builds
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secretos: token del agente, contrasenas de la BD control, secretos de la
+# consola y del sitio. Nunca se suben: solo los .env.example.
+.env
+.env.*
+!.env.example
+
+# Red de seguridad: material que nunca debe salir del host (llaves, tokens
+# internos de los silos, certificados, respaldos). Este repo no los genera,
+# pero el operador trabaja al lado del repo del ERP.
+*.token
+infra/host-b/internos/
+*.pem
+*.key
+*.p12
+*.pfx
+*.shamir
+kek
+kek.*
+*.dump
+*.backup
+*.sql.gz
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Configuracion personal de herramientas y editores
+.claude/settings.local.json
+.vscode/*
+!.vscode/tasks.json
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

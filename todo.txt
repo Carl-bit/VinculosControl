@@ -1,0 +1,2 @@
+Si algún día hay varias réplicas: guardar el contador del rate limit en la BD y registrar
+    qué instancia corre la exportación.

@@ -1,0 +1,100 @@
+# Host B (silos): agente del plano de control. Corre una vez por host, junto a
+# Traefik y Mailpit, y nunca dentro de un silo.
+#
+#   cp infra/host-b/.env.example infra/host-b/.env   # CONTROL_URL, AGENTE_TOKEN, RESPALDOS_HOST
+#   docker compose -f infra/host-b/docker-compose.yml --env-file infra/host-b/.env up -d --build
+#
+# docker-socket-proxy: el agente solo puede LEER /containers (lista, inspect,
+# stats y logs) y /networks (el job VERIFICAR revisa la red proxy de Traefik).
+# Crear, borrar, exec o tocar imagenes queda bloqueado en el proxy (POST: 0).
+#
+# Redes de borde (R11): cada silo tiene erp-<slug>_borde. El ejecutor une ahi a
+# Traefik y al agente (EJECUTOR_UNIR_BORDE); por esa red el agente llama a
+# http://erp-<slug>-backend-1:3001/api/internal/* con el token de ese silo
+# (TOKENS_INTERNOS_HOST/<slug>.token). Nunca por el tunel ni por Traefik.
+
+name: vinculos-agente
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    mem_limit: 32m
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - agente
+
+  agente:
+    build:
+      context: ../..
+      dockerfile: apps/agente/Dockerfile
+    restart: unless-stopped
+    mem_limit: 64m
+    depends_on:
+      - socket-proxy
+    environment:
+      CONTROL_URL: ${CONTROL_URL:?CONTROL_URL es obligatoria}
+      AGENTE_TOKEN: ${AGENTE_TOKEN:?AGENTE_TOKEN es obligatoria}
+      DOCKER_HOST_URL: http://socket-proxy:2375
+      RESPALDOS_DIR: /respaldos
+      # Ejecutor de silos (opcion C): el agente le pide verbos; nunca escribe en Docker.
+      EJECUTOR_URL: http://ejecutor:7070
+      EJECUTOR_TOKEN: ${EJECUTOR_TOKEN:?EJECUTOR_TOKEN es obligatoria}
+      # Tokens de /api/internal/* por silo (uno por archivo, <slug>.token). Sin la
+      # carpeta, el agente no sincroniza solicitudes de modulos (R2/R3).
+      TOKENS_INTERNOS_DIR: /tokens
+      # Solo desarrollo local: /api/internal de la API del ERP fuera de Docker
+      # (http://host.docker.internal:3001/api/internal). Vacio = red de borde.
+      SILO_INTERNO_URL: ${SILO_INTERNO_URL:-}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      # infra/respaldos del repo del ERP: el agente solo lee nombre, fecha, tamaño y .sha256.
+      - ${RESPALDOS_HOST:?RESPALDOS_HOST es obligatoria}:/respaldos:ro
+      # Tokens internos por silo (solo lectura). Los escribe servidor.sh del ERP
+      # en pruebas (infra/servidor/internos/) y el job aprovisionar en P2. Sin
+      # TOKENS_INTERNOS_HOST: infra/host-b/internos/ (ignorada por git).
+      - ${TOKENS_INTERNOS_HOST:-./internos}:/tokens:ro
+    networks:
+      - agente
+      - ejecutor
+
+  # Ejecutor de silos (docs/propuesta-escritura-docker.md, opcion C, aprobada 2026-11-12).
+  # Unico contenedor con el socket de Docker. Solo verbos cerrados (apps/ejecutor/src/verbos.ts):
+  # estado, reiniciar (backend y frontend de erp-<slug>), conectar_borde, soltar_borde y
+  # reconectar_bordes (R11). Sin borrado, sin llaves, sin puertos publicados: solo lo
+  # alcanza el agente por la red interna "ejecutor", con token propio.
+  ejecutor:
+    build:
+      context: ../..
+      dockerfile: apps/ejecutor/Dockerfile
+    restart: unless-stopped
+    mem_limit: 64m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      EJECUTOR_TOKEN: ${EJECUTOR_TOKEN}
+      EJECUTOR_LOG: /var/log/ejecutor/verbos.jsonl
+      # Contenedores del plano del host que entran a cada erp-<slug>_borde (lista fija).
+      EJECUTOR_UNIR_BORDE: ${EJECUTOR_UNIR_BORDE:-vinculos-servidor-traefik-1,vinculos-agente-agente-1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Auditoria local de cada verbo (JSON por linea, solo agregar).
+      - ejecutor_log:/var/log/ejecutor
+    networks:
+      - ejecutor
+
+networks:
+  agente:
+  # Solo agente <-> ejecutor. internal: sin salida a internet ni al host.
+  ejecutor:
+    internal: true
+
+volumes:
+  ejecutor_log:

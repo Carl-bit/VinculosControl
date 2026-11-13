@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+.git
+system-reference
+*.md
+
+# Red de seguridad: nunca dentro de una imagen.
+*.token
+*.pem
+*.key
+*.log

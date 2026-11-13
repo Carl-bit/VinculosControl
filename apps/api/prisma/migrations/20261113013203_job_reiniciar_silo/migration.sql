@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "tipo_job" ADD VALUE 'REINICIAR_SILO';
