@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { useConfirmacion } from '@/componentes/dialogo';
 import { claseJob, Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type DetalleJob, type Resumen } from '@/lib/api';
 
@@ -22,6 +23,7 @@ export default function Job() {
   const { datos: j, error, recargar } = useDatos<DetalleJob>(`consola/jobs/${id}`, 3_000);
   const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<string>();
+  const [confirmar, dialogo] = useConfirmacion();
 
   const hacer = async (ruta: string) => {
     if (ocupado) return;
@@ -86,8 +88,15 @@ export default function Job() {
                 type="button"
                 className="boton"
                 disabled={ocupado}
-                onClick={() => {
-                  if (window.confirm('Cancelar el job. VERIFICAR no creo nada; los jobs que crean cosas deshacen solo lo propio. ¿Cancelar?')) void hacer('cancelar');
+                onClick={async () => {
+                  const ok = await confirmar({
+                    etiqueta: `Job #${j.id}`,
+                    titulo: 'Cancelar el job',
+                    texto: 'Los pasos pendientes no se ejecutan. VERIFICAR no creo nada; los jobs que crean cosas deshacen solo lo propio, nunca datos del centro.',
+                    boton: 'Cancelar job',
+                    peligro: true,
+                  });
+                  if (ok !== null) void hacer('cancelar');
                 }}
               >
                 Cancelar (deshace solo lo creado por este job)
@@ -131,6 +140,7 @@ export default function Job() {
           </div>
         </>
       )}
+      {dialogo}
     </Shell>
   );
 }

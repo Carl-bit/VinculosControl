@@ -13,6 +13,8 @@ import {
 } from '@vinculos/manifest';
 import { useState, type FormEvent } from 'react';
 
+import { Selector } from '../selector';
+
 /*
  * Formulario de fase 1 (CONTEXTO.md seccion 3): pide poco, para llegar a una
  * reunion. Sin datos sensibles. Lo valida el mismo schema que usa la API
@@ -149,16 +151,7 @@ export function Formulario({ precarga, via }: { precarga: Modulo[]; via: 'formul
         </div>
         <label className="campo">
           Tamano del equipo
-          <select name="tamano_equipo" required defaultValue="" aria-invalid={mal('tamano_equipo')}>
-            <option value="" disabled>
-              Elige una opcion
-            </option>
-            {TAMANOS_EQUIPO.map((t) => (
-              <option key={t} value={t}>
-                {t} profesionales
-              </option>
-            ))}
-          </select>
+          <Selector name="tamano_equipo" required invalido={mal('tamano_equipo')} opciones={TAMANOS_EQUIPO.map((t) => ({ valor: t, etiqueta: `${t} profesionales` }))} />
         </label>
       </fieldset>
 

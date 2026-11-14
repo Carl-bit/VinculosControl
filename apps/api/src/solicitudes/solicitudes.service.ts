@@ -1,12 +1,13 @@
-import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { manifiestoSchema } from '@vinculos/manifest';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { guardarRevision } from '../centros/borrador';
 import { PrismaService } from '../comun/prisma.service';
+import { ACTIVOS } from '../jobs/pasos';
 import { JobsService } from '../jobs/jobs.service';
-import { type Decision, type EstadoSolicitud, fusionar, porEntregar, siguienteEntrega, transicionValida } from './reglas';
+import { type Decision, type EstadoSolicitud, fusionar, porEntregar, type Registrada, revertirRechazo, siguienteEntrega, transicionValida } from './reglas';
 
 export interface SolicitudDelSilo {
   id: string;
@@ -40,21 +41,40 @@ export class SolicitudesService {
     const existentes = new Map(
       (await this.prisma.solicitudModulo.findMany({ where: { siloSlug: slug, id: { in: solicitudes.map((s) => s.id) } } })).map((s) => [s.id, s]),
     );
+    const tras = new Map<string, Registrada>();
+    const revertidas: { id: string; modulo: string; accion: string; error: string }[] = [];
     await this.prisma.$transaction([
       ...solicitudes.map((s) => {
         const previa = existentes.get(s.id);
         const r = fusionar(previa ? { estado: previa.estado as EstadoSolicitud, estadoSilo: previa.estadoSilo as EstadoSolicitud } : null, s.estado);
+        tras.set(s.id, r);
         const base = { modulo: s.modulo, accion: s.accion, pedidaPorRol: s.pedidaPorRol, pedidaEn: new Date(s.pedidaEn), vistaEn: ahora };
+        // El error de entrega se limpia cuando el silo confirma un estado nuevo
+        // (no en cada ciclo: un rechazo revertido debe seguir a la vista).
+        const confirmoNuevo = !!previa && previa.estadoSilo !== s.estado;
         return this.prisma.solicitudModulo.upsert({
           where: { siloSlug_id: { siloSlug: slug, id: s.id } },
           create: { siloSlug: slug, id: s.id, ...base, ...r },
-          update: { ...base, ...r, ...(r.estado === r.estadoSilo ? { errorEntrega: null } : {}) },
+          update: { ...base, ...r, ...(confirmoNuevo ? { errorEntrega: null } : {}) },
         });
       }),
-      ...fallidas.map((f) =>
-        this.prisma.solicitudModulo.updateMany({ where: { siloSlug: slug, id: f.id }, data: { errorEntrega: f.error.slice(0, 300) } }),
-      ),
+      ...fallidas.map((f) => {
+        const r = tras.get(f.id);
+        const vuelve = r ? revertirRechazo(r, f.error) : null;
+        if (vuelve) {
+          const s = solicitudes.find((x) => x.id === f.id)!;
+          revertidas.push({ id: f.id, modulo: s.modulo, accion: s.accion, error: f.error });
+          tras.set(f.id, { estado: vuelve, estadoSilo: r!.estadoSilo });
+        }
+        return this.prisma.solicitudModulo.updateMany({
+          where: { siloSlug: slug, id: f.id },
+          data: vuelve ? { estado: vuelve, errorEntrega: `El silo rechazo APLICADA: ${f.error}`.slice(0, 300) } : { errorEntrega: f.error.slice(0, 300) },
+        });
+      }),
     ]);
+    for (const v of revertidas) {
+      await this.auditoria.registrar('control', 'modulo.solicitud_revertida', `${slug}/${v.modulo}`, `${v.accion} APLICADA -> APROBADA: ${v.error.slice(0, 200)}`);
+    }
     const abiertas = await this.prisma.solicitudModulo.findMany({ where: { siloSlug: slug, estado: { not: 'PENDIENTE' } } });
     return {
       respuestas: abiertas
@@ -63,12 +83,40 @@ export class SolicitudesService {
     };
   }
 
-  listar(silo?: string) {
-    return this.prisma.solicitudModulo.findMany({
+  /**
+   * Bandeja de la consola. Cada fila dice si el silo aplica los cambios solo
+   * (`automatica`: hay centro con manifiesto aprobado -> RECONFIGURAR) y si ya
+   * hay un job activo sobre ese silo.
+   */
+  async listar(silo?: string) {
+    const filas = await this.prisma.solicitudModulo.findMany({
       where: silo ? { siloSlug: silo } : {},
       orderBy: [{ pedidaEn: 'desc' }],
       take: 200,
     });
+    const slugs = [...new Set(filas.map((f) => f.siloSlug))];
+    const centros = await this.prisma.centro.findMany({ where: { slug: { in: slugs } }, select: { slug: true, revisionAprobada: true, hashAprobado: true } });
+    const auto = new Set(centros.filter((c) => c.revisionAprobada && c.hashAprobado).map((c) => c.slug));
+    const jobs = await this.prisma.job.findMany({ where: { siloSlug: { in: slugs }, estado: { in: [...ACTIVOS] } }, select: { id: true, siloSlug: true } });
+    const activo = new Map(jobs.map((j) => [j.siloSlug, j.id]));
+    return filas.map((f) => ({ ...f, automatica: auto.has(f.siloSlug), jobActivo: activo.get(f.siloSlug) ?? null }));
+  }
+
+  /**
+   * Consola: aplicar una solicitud APROBADA con RECONFIGURAR (R4). Sirve para
+   * aprobaciones que quedaron sin job (el centro se aprobo despues, o el job
+   * fallo o se cancelo). Idempotente: si la revision aprobada ya refleja el
+   * cambio, solo encola el job.
+   */
+  async aplicar(slug: string, id: string, o: OperadorSesion) {
+    const s = await this.prisma.solicitudModulo.findUnique({ where: { siloSlug_id: { siloSlug: slug, id } } });
+    if (!s) throw new NotFoundException('solicitud inexistente');
+    if (s.estado !== 'APROBADA' || s.estadoSilo !== 'APROBADA') {
+      throw new ConflictException({ mensaje: `Solo se aplica una solicitud APROBADA y confirmada por el silo (esta en ${s.estado}, el silo dice ${s.estadoSilo})` });
+    }
+    const r = await this.reconfigurar(slug, s.modulo, s.accion, o);
+    if (r.jobId === null) throw new UnprocessableEntityException({ mensaje: r.motivo });
+    return { reconfigurar: r };
   }
 
   /** Consola: decision del operador. Valida la transicion; la entrega la hace el agente (R3). */
@@ -81,6 +129,12 @@ export class SolicitudesService {
     }
     if (s.estadoSilo !== s.estado) {
       throw new BadRequestException({ mensaje: `La decision anterior (${s.estado}) aun no llega al silo: espera el siguiente ciclo del agente` });
+    }
+    if (estado === 'APLICADA') {
+      const centro = await this.prisma.centro.findFirst({ where: { slug }, select: { revisionAprobada: true, hashAprobado: true } });
+      if (centro?.revisionAprobada && centro.hashAprobado) {
+        throw new ConflictException({ mensaje: 'Este silo tiene manifiesto aprobado: la solicitud la marca APLICADA el job RECONFIGURAR. Usa "Aplicar con RECONFIGURAR".' });
+      }
     }
     const texto = respuesta?.trim() || null;
     const r = await this.prisma.solicitudModulo.update({
@@ -108,15 +162,22 @@ export class SolicitudesService {
     const modulos = new Set(actual.modulos ?? []);
     if (accion === 'ACTIVAR') modulos.add(modulo);
     else modulos.delete(modulo);
-    const nuevo = { ...actual, modulos: [...modulos].sort() };
-    const p = manifiestoSchema.safeParse(nuevo);
-    if (!p.success) return { jobId: null, motivo: `La revision nueva no pasa el schema: ${p.error.issues.map((i) => i.message).join('; ')}` };
-    const r = await this.prisma.$transaction(async (tx) => {
-      const g = await guardarRevision(tx, centro.id, 3, p.data, o.correo);
-      await tx.centro.update({ where: { id: centro.id }, data: { revisionAprobada: g.numero, hashAprobado: g.hash } });
-      return g;
-    });
-    await this.auditoria.registrar(o.correo, 'manifiesto.revision_por_solicitud', `centro:${centro.id}`, `rev ${r.numero} ${accion} ${modulo}`);
+    const yaRefleja = (actual.modulos ?? []).includes(modulo) === (accion === 'ACTIVAR');
+    let r: { numero: number };
+    if (yaRefleja) {
+      // Reintento: la revision aprobada ya tiene el cambio; no se crea otra.
+      r = { numero: centro.revisionAprobada };
+    } else {
+      const nuevo = { ...actual, modulos: [...modulos].sort() };
+      const p = manifiestoSchema.safeParse(nuevo);
+      if (!p.success) return { jobId: null, motivo: `La revision nueva no pasa el schema: ${p.error.issues.map((i) => i.message).join('; ')}` };
+      r = await this.prisma.$transaction(async (tx) => {
+        const g = await guardarRevision(tx, centro.id, 3, p.data, o.correo);
+        await tx.centro.update({ where: { id: centro.id }, data: { revisionAprobada: g.numero, hashAprobado: g.hash } });
+        return g;
+      });
+      await this.auditoria.registrar(o.correo, 'manifiesto.revision_por_solicitud', `centro:${centro.id}`, `rev ${r.numero} ${accion} ${modulo}`);
+    }
     try {
       const job = await this.jobs.crear('RECONFIGURAR', { centroId: centro.id }, o, null);
       return { jobId: job.id, motivo: `rev ${r.numero} aprobada y job RECONFIGURAR #${job.id} encolado` };

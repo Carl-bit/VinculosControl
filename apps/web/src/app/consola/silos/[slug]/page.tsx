@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { useConfirmacion } from '@/componentes/dialogo';
 import { ChipSalud, claseJob, claseSeveridad, Grafico, Medidor, Shell } from '@/componentes/piezas';
 import { SolicitudesModulo } from '@/componentes/solicitudes-modulo';
 import { enviarConSesion, gib, hace, mensajeDe, mib, useDatos, type DetalleJob, type Detalle, type Incidente, type Resumen } from '@/lib/api';
@@ -24,17 +25,31 @@ export default function Silo() {
     }));
   const router = useRouter();
   const [msg, setMsg] = useState<string>();
+  const [confirmar, dialogo] = useConfirmacion();
   /** Acciones del boceto (Silos / detalle): reiniciar (ejecutor) y abrir un incidente del silo. */
   const reiniciar = async () => {
-    if (!window.confirm(`Reiniciar backend y frontend de erp-${slug}? La base de datos no se toca.`)) return;
+    const ok = await confirmar({
+      etiqueta: `Silo · erp-${slug}`,
+      titulo: 'Reiniciar contenedores',
+      texto: 'Reinicia backend y frontend por el ejecutor del host B (job REINICIAR_SILO). La base de datos no se toca. Las sesiones abiertas del centro pueden cortarse.',
+      boton: 'Reiniciar',
+      peligro: true,
+    });
+    if (ok === null) return;
     const r = await enviarConSesion<DetalleJob>('consola/jobs', { tipo: 'REINICIAR_SILO', siloSlug: slug });
     if (r.ok) router.push(`/consola/jobs/${r.datos.id}`);
     else setMsg(mensajeDe(r.datos, `HTTP ${r.status}`));
   };
   const incidente = async () => {
-    const titulo = window.prompt('Que paso (hecho tecnico, sin datos personales):');
-    if (!titulo || titulo.trim().length < 4) return;
-    const r = await enviarConSesion<Incidente>('consola/incidentes', { severidad: 'S2', titulo: titulo.trim(), siloSlug: slug });
+    const titulo = await confirmar({
+      etiqueta: `Silo · erp-${slug}`,
+      titulo: 'Abrir incidente S2',
+      texto: 'Queda abierto con severidad S2 y sus plazos; la severidad se ajusta en Incidentes.',
+      boton: 'Abrir incidente',
+      campo: { etiqueta: 'Que paso (hecho tecnico, sin datos personales)', minimo: 4, maximo: 200 },
+    });
+    if (!titulo) return;
+    const r = await enviarConSesion<Incidente>('consola/incidentes', { severidad: 'S2', titulo, siloSlug: slug });
     if (r.ok) router.push(`/consola/incidentes?id=${r.datos.id}`);
     else setMsg(mensajeDe(r.datos, `HTTP ${r.status}`));
   };
@@ -192,6 +207,7 @@ export default function Silo() {
           </section>
         </>
       )}
+      {dialogo}
     </Shell>
   );
 }

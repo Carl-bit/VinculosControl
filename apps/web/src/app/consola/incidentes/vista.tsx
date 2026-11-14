@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { CampoFechaHora, CampoNumero, Selector } from '@/componentes/controles';
 import { claseSeveridad, Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type Incidente, type Resumen, type SolicitudSoporte } from '@/lib/api';
 
@@ -141,11 +142,7 @@ function NuevoIncidente({ alCrear }: { alCrear: (id: number) => void }) {
     >
       <label className="campo-consola" style={{ flex: '0 1 90px' }}>
         Severidad
-        <select className="campo-texto" value={sev} onChange={(e) => setSev(e.target.value)}>
-          <option>S1</option>
-          <option>S2</option>
-          <option>S3</option>
-        </select>
+        <Selector valor={sev} onCambio={setSev} opciones={['S1', 'S2', 'S3'].map((s) => ({ valor: s, etiqueta: s }))} />
       </label>
       <label className="campo-consola" style={{ flex: '3 1 300px' }}>
         Que paso (hecho tecnico)
@@ -203,18 +200,22 @@ function Soporte() {
         </label>
         <label className="campo-consola" style={{ flex: '0 1 160px' }}>
           Alcance autorizado
-          <select className="campo-texto" value={alcance} onChange={(e) => setAlcance(e.target.value)}>
-            <option value="DIAGNOSTICO">diagnostico</option>
-            <option value="CONFIGURACION">configuracion</option>
-          </select>
+          <Selector
+            valor={alcance}
+            onCambio={setAlcance}
+            opciones={[
+              { valor: 'DIAGNOSTICO', etiqueta: 'diagnostico' },
+              { valor: 'CONFIGURACION', etiqueta: 'configuracion' },
+            ]}
+          />
         </label>
         <label className="campo-consola" style={{ flex: '0 1 200px' }}>
           Autorizada por el ADMIN
-          <input className="campo-texto" type="datetime-local" required value={autorizadaEn} onChange={(e) => setAutorizadaEn(e.target.value)} />
+          <CampoFechaHora requerido valor={autorizadaEn} onCambio={setAutorizadaEn} />
         </label>
-        <label className="campo-consola" style={{ flex: '0 1 90px' }}>
+        <label className="campo-consola" style={{ flex: '0 0 116px' }}>
           Horas
-          <input className="campo-texto" type="number" min={1} max={72} value={horas} onChange={(e) => setHoras(Number(e.target.value))} />
+          <CampoNumero requerido min={1} max={72} valor={horas} onCambio={(n) => setHoras(n ?? 1)} />
         </label>
         <button type="submit" className="boton primario">
           Registrar

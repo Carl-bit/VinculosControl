@@ -4,7 +4,7 @@ Guia para dejar funcionando, en un PC nuevo, todo lo necesario para desarrollar
 y probar: el ERP (repo `SW Proyecto`) y el plano de control (este repo). Sirve
 tambien para revisar que nada vital quedo fuera de git.
 
-Ultima revision: 2026-11-13. Si un paso choca con el ERP, manda el ERP
+Ultima revision: 2026-11-13 (corrida completa en un PC que ya tenia el ERP). Si un paso choca con el ERP, manda el ERP
 (`SW Proyecto/README.md` y `SW Proyecto/docs/operacion/servidor_pruebas.md`).
 
 ## 0. Que queda corriendo
@@ -32,6 +32,9 @@ opcionales en local: seccion 8.
 - Docker Desktop corriendo.
 - Node 22: `winget install OpenJS.NodeJS.22` (terminal nueva despues).
 - pnpm 10 (plano de control): `corepack enable` y luego `corepack prepare pnpm@10.12.1 --activate`.
+  Sin terminal de administrador, `corepack enable` falla con `EPERM ... C:\Program Files\nodejs\pnpx.CMD`;
+  instalarlo en la carpeta del usuario (ya esta en el PATH) y abrir una terminal nueva:
+  `corepack enable --install-directory "$env:APPDATA\npm" pnpm` (PowerShell).
 - PostgreSQL 18 (solo las herramientas: `initdb`, `pg_ctl`, `psql` en el PATH)
   para los tests de BD y e2e del ERP. Si se instala el servicio de Windows,
   detenerlo: el 5432 lo usa la BD de desarrollo en Docker.
@@ -39,12 +42,20 @@ opcionales en local: seccion 8.
 
 ## 2. Clonar
 
-Los dos repos lado a lado (las rutas de los ejemplos asumen el Escritorio):
+Los dos repos lado a lado. Los ejemplos usan `SW Proyecto` (ERP) y
+`Vinculos Control`; si se clonaron con otro nombre o en otra carpeta (por
+ejemplo `Repositorios/Vinculos/Vinculos` y `Repositorios/control`), ajustar
+las rutas de todos los comandos y de `infra/host-b/.env`.
 
 ```sh
 git clone <repo del ERP>              "SW Proyecto"
 git clone <repo de vinculos-control>  "Vinculos Control"
 ```
+
+**Si ya estaban clonados:** `git pull` en los dos antes de seguir. El paso 7
+necesita el ERP al dia (`prisma/scripts/identidad_silo.js`, `/api/internal` y
+sus migraciones); con un ERP atrasado, `identidad_silo.js` falla con
+`MODULE_NOT_FOUND`.
 
 ## 3. Lo que NO viaja con git (y como se regenera)
 
@@ -80,6 +91,22 @@ powershell -ExecutionPolicy Bypass -File infra\scripts\dev\instalar_mailpit.ps1 
 npm run dev                                   # mailpit + API (:3001) + front (:3000)
 ```
 
+**PC que ya tenia el ERP andando** (existen `infra/.env`, `backend/.env`,
+`infra/secrets/` y el contenedor `erp-centro-prueba-db-1`): NO correr
+`reset_dev.sh --si` (borra la BD de desarrollo y sus datos). Basta con:
+
+```sh
+cd "SW Proyecto"
+git pull
+docker start erp-centro-prueba-db-1
+npm --prefix backend install                  # solo si cambio backend/package-lock.json
+cd backend && npx prisma migrate deploy && npx prisma generate && cd ..
+npm run dev
+```
+
+`prisma generate` falla con `EPERM` si `npm run dev` sigue corriendo
+(seccion 10): detenerlo antes.
+
 El slug de la BD de desarrollo es el `CLIENTE_SLUG` de `infra/.env`
 (`centro-prueba`); el agente la ve como el silo `centro-prueba` (su contenedor
 `erp-centro-prueba-db-1`).
@@ -95,6 +122,11 @@ docker exec vinculos-control-api-1 node dist/cli/crear-operador.js tu@correo.cl 
 docker exec vinculos-control-api-1 node dist/cli/crear-agente.js host-b                       # token del agente: UNA vez
 ```
 
+- Los tres secretos del `.env` pueden ser `openssl rand -hex 32` (uno distinto
+  cada uno); no hace falta recordarlos, quedan en ese archivo.
+- `crear-agente` con un nombre que ya existe ROTA el token: el anterior deja de
+  servir. Si se perdio el token, correrlo de nuevo y actualizar `AGENTE_TOKEN`
+  en `infra/host-b/.env` (luego `up -d agente` en host B).
 - Consola: http://127.0.0.1:3100. Ingreso: correo + contrasena, luego el codigo
   de 6 digitos que llega a http://127.0.0.1:8026.
 - Las migraciones de la BD `control` corren solas al arrancar la API
@@ -113,7 +145,7 @@ Valores para local:
 |---|---|
 | `CONTROL_URL` | `http://host.docker.internal:4000` |
 | `AGENTE_TOKEN` | el que mostro `crear-agente` |
-| `RESPALDOS_HOST` | ruta a `SW Proyecto/infra/respaldos` (puede estar vacia) |
+| `RESPALDOS_HOST` | ruta absoluta a `SW Proyecto/infra/respaldos`, con `/` (ej. `C:/Users/<usuario>/.../infra/respaldos`). Puede estar vacia, pero debe existir: `mkdir -p` si no hay respaldos aun |
 | `EJECUTOR_TOKEN` | `openssl rand -hex 32` |
 | `TOKENS_INTERNOS_HOST` | vacio (usa `infra/host-b/internos/`) |
 | `SILO_INTERNO_URL` | `http://host.docker.internal:3001/api/internal` (la API del ERP corre fuera de Docker) |
@@ -264,6 +296,8 @@ cd ../frontend && npx vitest run && npx tsc --noEmit
 - **El agente dice "no resuelve: el agente no esta en erp-<slug>_borde".**
   Con silos completos falta `conectar_borde` (seccion 8). En desarrollo, falta
   `SILO_INTERNO_URL`.
+- **`identidad_silo.js` da `MODULE_NOT_FOUND`.** El ERP esta atrasado:
+  `git pull`, `npx prisma migrate deploy` y `npx prisma generate` (seccion 4).
 - **R2 da 401.** El hash del token no esta en el silo (`identidad_silo.js` con
   `INTERNO_TOKEN_SHA256`) o el archivo `<slug>.token` no coincide.
 - **R2 da 400 sin cuerpo (o el agente dice "fetch failed").** El archivo del

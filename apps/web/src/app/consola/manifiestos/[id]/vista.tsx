@@ -16,6 +16,8 @@ import {
 } from '@vinculos/manifest';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { CampoFecha, CampoNumero, Selector } from '@/componentes/controles';
+import { useConfirmacion } from '@/componentes/dialogo';
 import { enviarConSesion, mensajeDe } from '@/lib/api';
 
 /*
@@ -92,6 +94,7 @@ export function VistaManifiesto({
   const [sucio, setSucio] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok: boolean }>();
   const [ocupado, setOcupado] = useState(false);
+  const [confirmar, dialogo] = useConfirmacion();
 
   // Si el centro guardo por su enlace y aqui no hay cambios locales, se toma lo nuevo.
   useEffect(() => {
@@ -163,29 +166,32 @@ export function VistaManifiesto({
       <label key={k} className="campo-consola" title={r.l}>
         {k}
         {r.tipo === 'bool' ? (
-          <select className="campo-texto" disabled={!editable} value={v === undefined ? '' : String(v)} onChange={(e) => set(e.target.value === '' ? undefined : e.target.value === 'true')}>
-            <option value="">default ({r.def ? 'si' : 'no'})</option>
-            <option value="true">si</option>
-            <option value="false">no</option>
-          </select>
+          <Selector
+            disabled={!editable}
+            valor={v === undefined ? '' : String(v)}
+            onCambio={(x) => set(x === '' ? undefined : x === 'true')}
+            opciones={[
+              { valor: '', etiqueta: `default (${r.def ? 'si' : 'no'})` },
+              { valor: 'true', etiqueta: 'si' },
+              { valor: 'false', etiqueta: 'no' },
+            ]}
+          />
         ) : r.tipo === 'enum' ? (
-          <select className="campo-texto" disabled={!editable} value={v === undefined ? '' : String(v)} onChange={(e) => set(e.target.value || undefined)}>
-            <option value="">default ({r.def})</option>
-            {r.opciones.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
+          <Selector
+            disabled={!editable}
+            valor={v === undefined ? '' : String(v)}
+            onCambio={(x) => set(x || undefined)}
+            opciones={[{ valor: '', etiqueta: `default (${r.def})` }, ...r.opciones.map((o) => ({ valor: o, etiqueta: o }))]}
+          />
         ) : (
-          <input
-            className="campo-texto"
-            type="number"
+          <CampoNumero
             disabled={!editable}
             min={r.min}
             max={r.max}
-            step={r.tipo === 'decimal' ? '0.01' : '1'}
+            paso={r.tipo === 'decimal' ? 0.01 : 1}
             placeholder={String(r.def)}
-            value={v === undefined ? '' : String(v)}
-            onChange={(e) => set(e.target.value === '' ? undefined : Number(e.target.value))}
+            valor={v === undefined ? undefined : Number(v)}
+            onCambio={(n) => set(n)}
           />
         )}
       </label>
@@ -202,17 +208,12 @@ export function VistaManifiesto({
           {campo('RUT', c.rut, (s) => cambiar((x) => void ((x.centro ??= {}).rut = s)), { max: 14, ph: '76.123.456-7' })}
           <label className="campo-consola">
             Tipo de entidad
-            <select
-              className="campo-texto"
+            <Selector
               disabled={!editable}
-              value={c.tipo_entidad ?? ''}
-              onChange={(e) => cambiar((x) => void ((x.centro ??= {}).tipo_entidad = (e.target.value || undefined) as (typeof TIPOS_ENTIDAD)[number]))}
-            >
-              <option value="">-</option>
-              {TIPOS_ENTIDAD.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
+              valor={c.tipo_entidad ?? ''}
+              onCambio={(t) => cambiar((x) => void ((x.centro ??= {}).tipo_entidad = (t || undefined) as (typeof TIPOS_ENTIDAD)[number]))}
+              opciones={[{ valor: '', etiqueta: '-' }, ...TIPOS_ENTIDAD.map((t) => ({ valor: t, etiqueta: t }))]}
+            />
           </label>
           {campo('Admin inicial', c.admin?.correo, (s) => cambiar((x) => void (((x.centro ??= {}).admin ??= {}).correo = s)), { tipo: 'email', ph: 'correo' })}
           {campo('Nombre del admin', c.admin?.nombre, (s) => cambiar((x) => void (((x.centro ??= {}).admin ??= {}).nombre = s)), { max: 120 })}
@@ -235,10 +236,15 @@ export function VistaManifiesto({
             {campo('Rol del custodio', c.custodio?.rol, (s) => cambiar((x) => void (((x.centro ??= {}).custodio ??= {}).rol = s)), { max: 80 })}
             <label className="campo-consola">
               Tipo de dominio
-              <select className="campo-texto" disabled={!editable} value={b.dominio?.tipo ?? 'subdominio'} onChange={(e) => cambiar((x) => void ((x.dominio ??= {}).tipo = e.target.value as 'subdominio' | 'propio'))}>
-                <option value="subdominio">subdominio</option>
-                <option value="propio">propio (custom hostname o DNS delegado)</option>
-              </select>
+              <Selector
+                disabled={!editable}
+                valor={b.dominio?.tipo ?? 'subdominio'}
+                onCambio={(t) => cambiar((x) => void ((x.dominio ??= {}).tipo = t as 'subdominio' | 'propio'))}
+                opciones={[
+                  { valor: 'subdominio', etiqueta: 'subdominio' },
+                  { valor: 'propio', etiqueta: 'propio (custom hostname o DNS delegado)' },
+                ]}
+              />
             </label>
           </div>
         </details>
@@ -349,13 +355,11 @@ export function VistaManifiesto({
             value={contrato?.version ?? ''}
             onChange={(e) => cambiar((x) => void (((x.legal ??= {}).contrato_encargo ??= {}).version = e.target.value))}
           />
-          <input
-            className="campo-texto"
-            type="date"
-            aria-label="Fecha de firma"
+          <CampoFecha
+            etiqueta="Fecha de firma"
             disabled={!editable}
-            value={contrato?.firmado_en ?? ''}
-            onChange={(e) => cambiar((x) => void (((x.legal ??= {}).contrato_encargo ??= {}).firmado_en = e.target.value))}
+            valor={contrato?.firmado_en ?? ''}
+            onCambio={(f) => cambiar((x) => void (((x.legal ??= {}).contrato_encargo ??= {}).firmado_en = f))}
           />
         </div>
       </section>
@@ -392,8 +396,14 @@ export function VistaManifiesto({
                 className="boton primario"
                 disabled={ocupado || !p0.ok || estado !== 'DATOS_COMPLETOS'}
                 title={estado !== 'DATOS_COMPLETOS' ? 'Se aprueba con los datos del centro completos (DATOS_COMPLETOS)' : undefined}
-                onClick={() => {
-                  if (window.confirm('Aprobar congela el manifiesto (revision fase 3 con hash) y el slug. ¿Aprobar?')) void guardar('aprobar');
+                onClick={async () => {
+                  const ok = await confirmar({
+                    etiqueta: `Manifiesto · ${slug ?? 'centro'}`,
+                    titulo: 'Aprobar el manifiesto',
+                    texto: 'Aprobar congela el manifiesto (revision fase 3 con hash) y el slug. Despues, los cambios nacen de una revision nueva.',
+                    boton: 'Aprobar',
+                  });
+                  if (ok !== null) void guardar('aprobar');
                 }}
               >
                 Aprobar
@@ -413,6 +423,7 @@ export function VistaManifiesto({
           )}
         </section>
       </div>
+      {dialogo}
     </div>
   );
 }

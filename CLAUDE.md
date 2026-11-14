@@ -20,6 +20,8 @@ Plano de control de Vinculos: sitio publico, consola del proveedor y worker que 
 - Quitar un modulo oculta la UI y bloquea la escritura; no borra datos.
 - Consola protegida con verificacion en dos pasos por correo.
 - Textos de UI, docs y commits en espanol. Formato ASCII en docs (sin rayas largas ni comillas tipograficas).
+- Todo popup (confirmacion, aviso, pedido de texto) y todo selector (opciones, numeros, fechas, horas) usa los componentes propios con el estilo de la plataforma, nunca los nativos del navegador (`window.confirm/prompt/alert`, `<select>`, `type="date|datetime-local|time|number"`). Consola: `Dialogo`/`useConfirmacion` (`apps/web/src/componentes/dialogo.tsx`) y `Selector`, `CampoNumero`, `CampoFecha`, `CampoFechaHora` (`controles.tsx`); sitio: `apps/sitio/src/app/selector.tsx`.
+- Espacios pensados para notebooks de 13 a 16" (1920x1200 a 150/125/100 %: 1280, 1536 y 1920 px CSS): revisar las vistas nuevas en esos tres anchos, sin desborde horizontal.
 
 ## Stack
 - Monorepo pnpm: `apps/web` (Next.js: solo la consola, tras Cloudflare Access + login), `apps/sitio` (Next.js publico: landing SSG, formulario fase 1, enlace fase 2), `apps/api` (NestJS + Prisma, incluye endpoints `/agente/*`), `apps/agente` (Node, corre en el host B), `packages/manifest` (schema zod + tipos, compartido con el repo `vinculos`), `packages/canonico` (formato canonico de import/export).

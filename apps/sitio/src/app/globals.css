@@ -254,3 +254,78 @@ legend {
   margin: 0;
   font-size: 26px;
 }
+
+/* Selector propio (selector.tsx): nunca el popup nativo de <select>. */
+.selector {
+  position: relative;
+}
+.selector-boton {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: var(--radio-campo);
+  border: 1px solid var(--borde);
+  background: var(--papel);
+  font-weight: 400;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.selector-boton > span:first-child {
+  flex: 1;
+}
+.selector-boton[aria-invalid='true'] {
+  border-color: var(--error);
+}
+.selector-boton[aria-expanded='true'] {
+  border-color: var(--arcilla);
+}
+.selector-vacio {
+  color: var(--tinta-suave);
+}
+.selector-flecha {
+  color: var(--tinta-suave);
+  font-size: 12px;
+}
+.selector-oculto {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.selector-lista {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: min(300px, 50dvh);
+  overflow-y: auto;
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra-suave);
+  outline: none;
+  font-weight: 400;
+}
+.selector-lista li {
+  padding: 10px 12px;
+  border-radius: calc(var(--radio-campo) - 4px);
+  cursor: pointer;
+}
+.selector-lista li[data-activa='true'] {
+  background: var(--lienzo);
+}
+.selector-lista li[aria-selected='true'] {
+  color: var(--arcilla);
+  font-weight: 700;
+}

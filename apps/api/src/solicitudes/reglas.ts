@@ -60,3 +60,15 @@ export function siguienteEntrega(s: Registrada): EstadoSolicitud {
   if (s.estado === 'APLICADA' && s.estadoSilo === 'PENDIENTE') return 'APROBADA';
   return s.estado;
 }
+
+/**
+ * El silo rechazo de forma definitiva (HTTP 4xx) la entrega de APLICADA: por
+ * ejemplo 422 "Los modulos activos del centro aun no reflejan la solicitud".
+ * La decision vuelve a APROBADA (lo que el silo tiene) para que el operador
+ * aplique el cambio y no se reintente cada minuto. Errores de red o 5xx son
+ * transitorios: se reintenta. Devuelve el estado al que vuelve, o null.
+ */
+export function revertirRechazo(s: Registrada, error: string): EstadoSolicitud | null {
+  if (s.estado !== 'APLICADA' || s.estadoSilo !== 'APROBADA') return null;
+  return /^HTTP 4\d\d\b/.test(error) ? 'APROBADA' : null;
+}

@@ -1,4 +1,4 @@
-import { fusionar, porEntregar, siguienteEntrega, transicionValida } from './reglas';
+import { fusionar, porEntregar, type Registrada, revertirRechazo, siguienteEntrega, transicionValida } from './reglas';
 
 describe('solicitudes de modulos (tarea 31)', () => {
   it('mismas transiciones que la BD del silo', () => {
@@ -40,5 +40,24 @@ describe('solicitudes de modulos (tarea 31)', () => {
 
   it('pendiente nunca se entrega (no hay decision)', () => {
     expect(porEntregar({ estado: 'PENDIENTE', estadoSilo: 'PENDIENTE' })).toBe(false);
+  });
+});
+
+describe('APLICADA rechazada por el silo', () => {
+  it('4xx definitivo: vuelve a APROBADA y no queda nada por entregar', () => {
+    const r: Registrada = { estado: 'APLICADA', estadoSilo: 'APROBADA' };
+    expect(revertirRechazo(r, 'HTTP 422 Los modulos activos del centro aun no reflejan la solicitud')).toBe('APROBADA');
+    expect(porEntregar({ estado: 'APROBADA', estadoSilo: 'APROBADA' })).toBe(false);
+  });
+
+  it('red o 5xx: se reintenta', () => {
+    const r: Registrada = { estado: 'APLICADA', estadoSilo: 'APROBADA' };
+    expect(revertirRechazo(r, 'TypeError: fetch failed')).toBeNull();
+    expect(revertirRechazo(r, 'HTTP 503 no disponible')).toBeNull();
+  });
+
+  it('solo aplica a APLICADA sobre APROBADA', () => {
+    expect(revertirRechazo({ estado: 'APROBADA', estadoSilo: 'PENDIENTE' }, 'HTTP 409 x')).toBeNull();
+    expect(revertirRechazo({ estado: 'APLICADA', estadoSilo: 'PENDIENTE' }, 'HTTP 422 x')).toBeNull();
   });
 });

@@ -12,6 +12,8 @@ import {
 } from '@vinculos/manifest';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
+import { Selector } from '../../selector';
+
 /*
  * Fase 2 por el enlace privado: entidad, responsables, dominio, modulos y color
  * de marca. Se guarda a medias cuantas veces se quiera; "Enviar" valida que
@@ -167,14 +169,12 @@ export function DatosFormales({ token }: { token: string }) {
             </label>
             <label className="campo">
               Tipo de entidad
-              <select name="tipo_entidad" defaultValue={b.centro?.tipo_entidad ?? ''} aria-invalid={mal('centro.tipo_entidad')}>
-                <option value="">Elige una opcion</option>
-                {TIPOS_ENTIDAD.map((t) => (
-                  <option key={t} value={t}>
-                    {ENTIDAD[t]}
-                  </option>
-                ))}
-              </select>
+              <Selector
+                name="tipo_entidad"
+                defaultValue={b.centro?.tipo_entidad ?? ''}
+                invalido={mal('centro.tipo_entidad')}
+                opciones={TIPOS_ENTIDAD.map((t) => ({ valor: t, etiqueta: ENTIDAD[t] }))}
+              />
             </label>
           </div>
           <label className="campo">

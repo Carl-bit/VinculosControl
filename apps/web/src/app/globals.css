@@ -25,8 +25,22 @@
   --hondo: #080b10;
   --cuadricula: rgb(36 48 64 / 0.35);
   --nav-on: rgb(61 220 151 / 0.12);
+  /* Barras de desplazamiento, autocompletado y cualquier resto nativo en oscuro. */
+  color-scheme: dark;
   --r: 6px;
   --rs: 4px;
+  --sombra: 0 18px 60px rgb(0 0 0 / 0.55);
+  --velo: rgb(4 6 9 / 0.72);
+  /* Espaciado fluido para notebooks de 13 a 16" (1920x1200 con escala 150/125/100%
+     = 1280x800, 1536x960 y 1920x1200 en CSS). */
+  --lateral: clamp(240px, 17vw, 280px);
+  --margen: clamp(16px, 1.8vw, 36px);
+  --separacion: clamp(12px, 1vw, 20px);
+}
+@media (min-width: 1680px) {
+  html {
+    --texto: 14px;
+  }
 }
 
 * {
@@ -38,7 +52,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 13px;
+  font-size: var(--texto, 13px);
   line-height: 1.5;
 }
 a {
@@ -58,16 +72,29 @@ button {
 
 .shell {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: var(--lateral) minmax(0, 1fr);
   min-height: 100dvh;
 }
 .lateral {
   background: var(--side);
   border-right: 1px solid var(--line);
   padding: 18px 14px;
+  /* Fija al alto de la pantalla: en notebooks (800-960 px de alto) la nav y el
+     estado del agente quedan a la vista al bajar por paginas largas. */
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+/* El icono no se encoge con etiquetas largas ("Aprovisionamiento"). */
+.nav svg,
+.compartir-lateral svg {
+  flex: none;
 }
 .marca {
   font-weight: 700;
@@ -132,10 +159,10 @@ button {
   color: var(--ink2);
 }
 .principal {
-  padding: 18px 24px 40px;
+  padding: 18px var(--margen) 40px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--separacion);
   min-width: 0;
 }
 .barra {
@@ -175,7 +202,7 @@ h2 {
 .kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
+  gap: var(--separacion);
 }
 .kpi .v {
   font-size: 24px;
@@ -187,13 +214,52 @@ h2 {
 }
 .rejilla {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 12px;
+  /* Columna lateral de ancho acotado: en 1280 px la tabla principal necesita ~700 px. */
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 22vw);
+  gap: var(--separacion);
 }
-@media (max-width: 1000px) {
-  .rejilla,
+/* 1920x1200 a 100%: la columna lateral gana aire. */
+@media (min-width: 1680px) {
+  .rejilla {
+    grid-template-columns: minmax(0, 5fr) minmax(360px, 2fr);
+  }
+}
+@media (max-width: 1100px) {
+  .rejilla {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 860px) {
   .shell {
     grid-template-columns: 1fr;
+  }
+  .lateral {
+    position: static;
+    height: auto;
+  }
+}
+/* Pantallas bajas (notebook a 150%: 800 px de alto): menos aire vertical. */
+@media (max-height: 860px) {
+  .principal {
+    padding-top: 12px;
+    padding-bottom: 24px;
+    gap: 12px;
+  }
+  .lateral {
+    padding-top: 14px;
+    padding-bottom: 14px;
+    gap: 12px;
+  }
+  .nav {
+    gap: 8px;
+  }
+  .nav a,
+  .nav-pronto {
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+  h1 {
+    font-size: 19px;
   }
 }
 table {
@@ -207,11 +273,11 @@ th {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 6px 8px;
+  padding: 6px;
   border-bottom: 1px solid var(--line);
 }
 td {
-  padding: 8px;
+  padding: 8px 6px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
@@ -221,6 +287,7 @@ tr:last-child td {
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .chip {
   display: inline-block;
@@ -258,7 +325,7 @@ tr:last-child td {
   white-space: nowrap;
 }
 .medidor .pista {
-  width: 70px;
+  width: 56px;
   height: 6px;
   background: var(--panel2);
   border-radius: 3px;
@@ -298,6 +365,12 @@ tr:last-child td {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.acciones-celda {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 .lista li {
   display: flex;
@@ -669,7 +742,7 @@ tr:last-child td {
 .dos-columnas {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--separacion);
   align-items: flex-start;
 }
 .maestro {
@@ -685,6 +758,14 @@ tr:last-child td {
   gap: 12px;
   position: sticky;
   top: 12px;
+  /* No mas alto que la pantalla: en 800 px de alto se desplaza por dentro. */
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+@media (min-width: 1680px) {
+  .detalle-lateral {
+    max-width: 540px;
+  }
 }
 tr[aria-selected='true'] td {
   background: var(--nav-on);
@@ -889,7 +970,7 @@ tr[aria-selected='true'] td {
   font: inherit;
   font-size: 12px;
   line-height: 1.55;
-  max-height: 340px;
+  max-height: clamp(260px, 45dvh, 560px);
   overflow: auto;
   white-space: pre;
 }
@@ -1016,4 +1097,251 @@ tr[aria-selected='true'] td {
 }
 .form-fila .campo-consola {
   flex: 1 1 180px;
+}
+
+/* ---------- Dialogo (modal de la consola; reemplaza confirm/prompt del navegador) ---------- */
+.dialogo {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  max-width: none;
+  max-height: none;
+}
+.dialogo::backdrop {
+  background: var(--velo);
+  backdrop-filter: blur(2px);
+}
+.dialogo-caja {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+}
+.dialogo-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.dialogo-cabecera .etiqueta-paso {
+  font-size: 11px;
+}
+.dialogo-cuerpo {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dialogo-cuerpo p {
+  margin: 0;
+}
+.dialogo-cuerpo textarea.campo-texto {
+  resize: vertical;
+  min-height: 72px;
+}
+.dialogo-pie {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--line);
+}
+.boton.peligro {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-s);
+  font-weight: 700;
+}
+
+/* ---------- Controles propios (componentes/controles.tsx): sin popups nativos ---------- */
+.control {
+  position: relative;
+  min-width: 0;
+}
+.control-boton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 400;
+}
+.control-boton:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.control-boton:disabled {
+  cursor: not-allowed;
+}
+.control-valor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-vacio {
+  color: var(--ink2);
+  opacity: 0.7;
+}
+.control-flecha {
+  color: var(--ink2);
+  font-size: 11px;
+}
+.control-requerido {
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--sombra);
+  padding: 6px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.lista-opciones {
+  list-style: none;
+  margin: 0;
+  max-height: min(280px, 50dvh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  outline: none;
+}
+.lista-opciones li {
+  padding: 6px 10px;
+  border-radius: var(--rs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lista-opciones li[data-activa='true'] {
+  background: var(--nav-on);
+}
+.lista-opciones li[aria-selected='true'] {
+  color: var(--accent);
+  font-weight: 700;
+}
+.lista-opciones li[aria-selected='true']::before {
+  content: '> ';
+}
+.campo-numero {
+  display: flex;
+  align-items: stretch;
+}
+.campo-numero .campo-texto {
+  order: 2;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border-radius: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.paso-numero {
+  order: 3;
+  flex: none;
+  width: 30px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 0 var(--rs) var(--rs) 0;
+}
+.paso-numero.restar {
+  order: 1;
+  border-radius: var(--rs) 0 0 var(--rs);
+}
+.campo-numero .paso-numero.restar {
+  border-right: 0;
+}
+.campo-numero .paso-numero:not(.restar) {
+  border-left: 0;
+}
+.paso-numero:hover:not(:disabled) {
+  color: var(--accent);
+}
+.paso-numero:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.calendario {
+  width: 252px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.calendario-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+}
+.calendario-cabecera .boton {
+  padding: 2px 9px;
+}
+.calendario-rejilla {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendario-dia-semana {
+  text-align: center;
+  font-size: 10px;
+  color: var(--ink2);
+  text-transform: uppercase;
+  padding: 2px 0;
+}
+.calendario-dia {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  border-radius: var(--rs);
+  padding: 5px 0;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.calendario-dia:hover {
+  border-color: var(--accent);
+}
+.calendario-dia[data-hoy='true'] {
+  color: var(--accent);
+  font-weight: 700;
+}
+.calendario-dia[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.calendario .enlace {
+  align-self: flex-start;
+}
+.calendario-hora {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.calendario-hora .control {
+  flex: 0 0 72px;
+}
+.calendario-hora .boton {
+  margin-left: auto;
 }

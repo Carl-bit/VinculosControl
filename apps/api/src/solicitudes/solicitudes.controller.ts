@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength, ValidateNested } from 'class-validator';
 
@@ -99,5 +99,13 @@ export class SolicitudesConsolaController {
   @HttpCode(200)
   decidir(@Param('slug') slug: string, @Param('id') id: string, @Body() b: DecisionDto, @Operador() o: OperadorSesion) {
     return this.solicitudes.decidir(slug, id, b.estado, b.respuesta, o);
+  }
+
+  /** Aplicar una solicitud APROBADA con una revision nueva + job RECONFIGURAR (R4). */
+  @Post(':slug/:id/aplicar')
+  @HttpCode(200)
+  aplicar(@Param('slug') slug: string, @Param('id') id: string, @Operador() o: OperadorSesion) {
+    if (!SLUG.test(slug)) throw new BadRequestException({ mensaje: 'Slug de silo invalido' });
+    return this.solicitudes.aplicar(slug, id, o);
   }
 }

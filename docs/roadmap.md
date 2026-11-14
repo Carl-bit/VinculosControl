@@ -87,15 +87,18 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | APROBADO: P0 ok + contrato; congela el manifiesto en una revision fase 3; guarda `hashAprobado` | Hecho | Probado de punta a punta en Docker (2026-11-12) |
 | Aviso por correo al operador cuando llega una solicitud | Pendiente | Hoy solo el contador en la consola |
 
-## Fase 3. Modulos por solicitud del centro (tarea 31) (Pendiente)
+## Fase 3. Modulos por solicitud del centro (tarea 31) (Hecho 2026-11-14)
 
 | Pieza | Estado | Nota |
 |---|---|---|
-| Agente: leer `/api/internal/solicitudes` de cada silo y reportarlas | Bloqueado (ERP) | Requisito R2 |
-| API: modelo `SolicitudModulo` (silo, modulo, accion, pedido por rol, fecha, estado) | Pendiente | Sin datos personales: rol, no nombre |
-| Consola: bandeja de solicitudes por silo, validar dependencias, aprobar o rechazar | Pendiente | No quitar un modulo del que dependa otro activo |
-| Aprobar crea revision del manifiesto + job `reconfigurar` | Pendiente | Depende de fase 4 |
-| Respuesta al silo (estado de la solicitud visible para el ADMIN) | Bloqueado (ERP) | Requisito R3 |
+| Agente: leer `/api/internal/solicitudes` de cada silo y reportarlas | Hecho | R2 del ERP |
+| API: modelo `SolicitudModulo` (silo, modulo, accion, pedido por rol, fecha, estado) | Hecho | Sin datos personales: rol, no nombre |
+| Consola: bandeja de solicitudes por silo, aprobar o rechazar en un modal (sin `window.prompt`) | Hecho | 2026-11-14. Cada solicitud dice si es automatica (centro con manifiesto aprobado) o manual |
+| Aprobar crea revision del manifiesto + job `reconfigurar` | Hecho | Probado 2026-11-14: desactivar MATCH en `centro-prueba` (rev 2, job #3 OK, APLICADA en los dos lados, Match fuera del lateral y de la pagina publica) |
+| "Aplicar con RECONFIGURAR" para aprobaciones que quedaron sin job | Hecho | 2026-11-14. `POST /consola/solicitudes-modulo/:slug/:id/aplicar`; no repite la revision si ya tiene el cambio. Con centro aprobado, "marcar aplicada" a mano se rechaza (409) |
+| Si el silo rechaza APLICADA con 4xx, la solicitud vuelve a APROBADA con el motivo | Hecho | 2026-11-14. Antes se reintentaba cada minuto para siempre. Red o 5xx se siguen reintentando |
+| Respuesta al silo (estado visible para el ADMIN) | Hecho | R3. En el ERP: "Desactivacion solicitada / en proceso" en amarillo (tono `pendiente`), luego "Desactivado" y se puede volver a pedir |
+| ERP: paginas de un modulo apagado abiertas por URL directa (`/admin/match`, agenda, fichas, cobros) muestran la vista vacia en vez de "modulo no contratado" | Pendiente (ERP) | El backend ya bloquea la API; es solo experiencia |
 
 ## Fase 4. Cola de jobs y agente ejecutor (base Hecha 2026-11-12; jobs que escriben, Bloqueados)
 
@@ -112,7 +115,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Job REINICIAR_SILO: P0 en el plano de control (silo reportado, sin job activo, fuera de la ventana de respaldo) + E1 estado, E2 reiniciar backend y frontend, E3 en marcha; boton "Reiniciar" en Silos | Hecho | Migracion `20261113013203_job_reiniciar_silo`. Probado con un stack de prueba (db no se reinicio) |
 | Job `reiniciar_demo` | Bloqueado (ERP) | Decidido 2026-11-13, enfoque B: resembrar los datos ficticios conservando llaves (sin borrar volumenes, sin P5 en cada reinicio). Requiere R10. Precauciones: doble marca de demo (BD + `EJECUTOR_DEMOS` del host B), fuera de la ventana de respaldo, confirmacion escribiendo el slug, uno por hora, auditoria doble, comprobar salud y conteos |
 | Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | R1, R4, R5; el ejecutor necesita los verbos `preparar` y `levantar` (sin build: imagenes por digest) |
-| Job `reconfigurar` | Bloqueado (ERP) | R4 |
+| Job `reconfigurar` (P0, C1 aplicar y C2 confirmar por `/api/internal/config`) | Hecho | R4 del ERP. Probado 2026-11-14 en local (job #3) |
 
 Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 falla (umbral 80 %, el mismo de la alerta S2). Es correcto: hay que liberar disco antes de aprovisionar otro silo.
 
@@ -124,6 +127,8 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 | Compartir solicitud desde la barra lateral (enlace con modulos precargados) | Hecho | `GET /api/sitio` de la web entrega `SITIO_URL` |
 | Consola alineada al boceto: navegacion agrupada (Operacion, Versiones, Salud, Ciclo de vida, Ajustes; lo que falta aparece apagado), Solicitudes en maestro-detalle, Manifiesto en dos columnas (formulario compacto; YAML y P0 en vivo al lado), vista Silos | Hecho | 2026-11-12, pedido del usuario: menos scroll, seguir el boceto salvo choque con reglas |
 | Resumen: KPIs (silos, alertas, solicitudes nuevas, jobs activos, incidentes abiertos, host) y eventos recientes | Hecho | 2026-11-13 |
+| Espacios para notebooks de 13 a 16" (1920x1200 a 150/125/100 % = 1280, 1536 y 1920 px CSS): lateral fijo de 240 a 280 px, margenes fluidos, columna lateral acotada, texto 14 px desde 1680 px, menos aire vertical en pantallas bajas | Hecho | 2026-11-14. Revisado en Resumen, Silo, Manifiesto y Job a 1280, 1536 y 1920: sin desborde horizontal. `Dialogo` reutilizable para modales |
+| Pasar a `Dialogo` los otros `window.confirm`/`prompt` (reiniciar silo x2, cancelar job, aprobar manifiesto, abrir incidente) | Pendiente | |
 | Silo detalle: centro y manifiesto aprobado, jobs recientes, acciones (reiniciar contenedores, abrir incidente) | Hecho | 2026-11-13. Faltan version/digest (R1), suspender e iniciar salida (salidas) |
 | Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. Bloqueado por R1 |
 | Salidas: S3 a S7, gracia 30 dias, actas, `eliminar` | Pendiente | Seccion 8 |

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { useConfirmacion } from '@/componentes/dialogo';
 import { ChipSalud, Medidor } from '@/componentes/piezas';
 import { accion, enviarConSesion, hace, mensajeDe, mib, type DetalleJob, type Resumen } from '@/lib/api';
 
@@ -12,9 +13,17 @@ export function TablaSilos({ resumen: r, recargar }: { resumen?: Resumen; recarg
   const [ocupado, setOcupado] = useState<string>();
   const router = useRouter();
   const [error, setError] = useState<string>();
+  const [confirmar, dialogo] = useConfirmacion();
   /** Reinicio de backend y frontend por el ejecutor del host B (job REINICIAR_SILO). db no se toca. */
   const reiniciar = async (slug: string) => {
-    if (!window.confirm(`Reiniciar backend y frontend de erp-${slug}? La base de datos no se toca. Las sesiones abiertas del centro pueden cortarse.`)) return;
+    const ok = await confirmar({
+      etiqueta: `Silo · erp-${slug}`,
+      titulo: 'Reiniciar contenedores',
+      texto: 'Reinicia backend y frontend por el ejecutor del host B (job REINICIAR_SILO). La base de datos no se toca. Las sesiones abiertas del centro pueden cortarse.',
+      boton: 'Reiniciar',
+      peligro: true,
+    });
+    if (ok === null) return;
     setOcupado(slug);
     setError(undefined);
     try {
@@ -36,6 +45,7 @@ export function TablaSilos({ resumen: r, recargar }: { resumen?: Resumen; recarg
   };
   return (
     <>
+      {dialogo}
       {error && (
         <p role="alert" className="chip danger" style={{ whiteSpace: 'normal' }}>
           {error}
@@ -62,7 +72,7 @@ export function TablaSilos({ resumen: r, recargar }: { resumen?: Resumen; recarg
           <tbody>
             {r.silos.map((s) => (
               <tr key={s.slug}>
-                <td>
+                <td className="nowrap">
                   {s.adoptado ? <Link href={`/consola/silos/${s.slug}`}>{s.slug}</Link> : s.slug}
                   <div className="sub">{s.dominio ?? 'sin dominio'}</div>
                 </td>
@@ -83,17 +93,19 @@ export function TablaSilos({ resumen: r, recargar }: { resumen?: Resumen; recarg
                 <td className="num">{s.p95Max === null ? '-' : `${s.p95Max} ms`}</td>
                 <td>{s.respaldo ? hace(s.respaldo.fecha) : <span className="chip warn">sin respaldo</span>}</td>
                 <td>
-                  <button
-                    type="button"
-                    className={`boton ${s.adoptado ? '' : 'primario'}`}
-                    disabled={ocupado === s.slug}
-                    onClick={() => void cambiar(s.slug, s.adoptado ? 'soltar' : 'adoptar')}
-                  >
-                    {s.adoptado ? 'Soltar' : 'Adoptar'}
-                  </button>{' '}
-                  <button type="button" className="boton" disabled={ocupado === s.slug} title="Reinicia backend y frontend por el ejecutor del host B" onClick={() => void reiniciar(s.slug)}>
-                    Reiniciar
-                  </button>
+                  <div className="acciones-celda">
+                    <button
+                      type="button"
+                      className={`boton ${s.adoptado ? '' : 'primario'}`}
+                      disabled={ocupado === s.slug}
+                      onClick={() => void cambiar(s.slug, s.adoptado ? 'soltar' : 'adoptar')}
+                    >
+                      {s.adoptado ? 'Soltar' : 'Adoptar'}
+                    </button>
+                    <button type="button" className="boton" disabled={ocupado === s.slug} title="Reinicia backend y frontend por el ejecutor del host B" onClick={() => void reiniciar(s.slug)}>
+                      Reiniciar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
