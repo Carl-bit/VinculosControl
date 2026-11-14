@@ -1,4 +1,4 @@
-# Roadmap de vinculos-control (actualizado 2026-11-12)
+# Roadmap de vinculos-control (actualizado 2026-11-14)
 
 Memoria de avance del plano de control: que esta hecho, que falta y que
 depende del ERP. Se actualiza al cerrar cada pieza (estado + fecha + nota).
@@ -64,7 +64,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Vista Auditoria con filtros (Todos, Acceso, Operadores, Silos) | Hecho | |
 | Tests de reglas de acceso (bloqueo, codigo, sesion, contrasenas) | Hecho | 21 tests puros en `apps/api/src/acceso/reglas.spec.ts`. Flujo completo probado a mano contra la API y el proxy |
 | Revocar sesiones y rotar contrasena desde la consola | Hecho | 2026-11-13, vista Configuracion |
-| Tests de integracion contra Postgres efimero | Pendiente | Conviene montarlos con la fase 4 (jobs) |
+| Tests de integracion contra Postgres efimero | Hecho | 2026-11-14. Ver "Tests de integracion de la API" |
 | Cloudflare Access delante de la consola | Pendiente | Configuracion de infra, no codigo |
 
 ## Fase 2. Solicitudes y manifiestos (Hecha 2026-11-12)
@@ -110,14 +110,33 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Agente: lista cerrada de pasos (un codigo desconocido se reporta FALLIDO sin ejecutar), un job a la vez, se detiene con 409 (cancelado) | Hecho | `apps/agente/src/jobs.ts`, version 0.2.0 |
 | Job VERIFICAR (solo lectura): integridad del manifiesto, red proxy, nombre libre, imagen (omitido por R1) y capacidad del host | Hecho | El proxy sigue en solo lectura: se agrego `NETWORKS: 1` con `POST: 0` |
 | Consola: vista Aprovisionamiento (lista con pasos) y job (pasos + log, reintentar desde el paso fallido, cancelar); boton "Verificar en el host B" en el manifiesto aprobado | Hecho | Probado con el agente real (2026-11-12): reintento solo repite el paso fallido; cancelar un pendiente |
-| Tests: reglas de la cola (API) y ejecutor del agente (hash compartido, lista cerrada, 409, no repetir pasos OK) | Hecho | Sin tests de integracion contra Postgres efimero todavia |
+| Tests: reglas de la cola (API) y ejecutor del agente (hash compartido, lista cerrada, 409, no repetir pasos OK) | Hecho | Integracion contra Postgres efimero: hecha 2026-11-14 (seccion propia) |
 | Ejecutor de silos (`apps/ejecutor`, opcion C): unico con el socket de Docker, verbos cerrados `estado` y `reiniciar`, red interna con el agente, token propio, sin puertos, filesystem de solo lectura, auditoria local en JSON | Hecho | 5 tests. Sin verbo de borrado. Respeta la ventana de respaldo (01:45 a 02:30 Chile) |
 | Job REINICIAR_SILO: P0 en el plano de control (silo reportado, sin job activo, fuera de la ventana de respaldo) + E1 estado, E2 reiniciar backend y frontend, E3 en marcha; boton "Reiniciar" en Silos | Hecho | Migracion `20261113013203_job_reiniciar_silo`. Probado con un stack de prueba (db no se reinicio) |
 | Job `reiniciar_demo` | Bloqueado (ERP) | Decidido 2026-11-13, enfoque B: resembrar los datos ficticios conservando llaves (sin borrar volumenes, sin P5 en cada reinicio). Requiere R10. Precauciones: doble marca de demo (BD + `EJECUTOR_DEMOS` del host B), fuera de la ventana de respaldo, confirmacion escribiendo el slug, uno por hora, auditoria doble, comprobar salud y conteos |
-| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | R1, R4, R5; el ejecutor necesita los verbos `preparar` y `levantar` (sin build: imagenes por digest) |
+| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | Solo falta R1 (R4 y R5 hechos en el ERP 2026-11-13); el ejecutor necesita los verbos `preparar` y `levantar` (sin build: imagenes por digest) |
 | Job `reconfigurar` (P0, C1 aplicar y C2 confirmar por `/api/internal/config`) | Hecho | R4 del ERP. Probado 2026-11-14 en local (job #3) |
 
 Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 falla (umbral 80 %, el mismo de la alerta S2). Es correcto: hay que liberar disco antes de aprovisionar otro silo.
+
+## Tests de integracion de la API (Hecho 2026-11-14)
+
+Plan aprobado 2026-11-14, antes de los jobs que escriben (`aprovisionar`,
+`eliminar`). 51 tests en 4 archivos, unos 15 s; estables en 3 corridas
+seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
+
+| Pieza | Estado | Nota |
+|---|---|---|
+| Infra: `globalSetup` levanta `postgres:18-alpine` desechable (tmpfs, puerto libre, etiqueta `vc.test=api`), `prisma migrate deploy` desde cero, teardown lo borra; `TEST_DATABASE_URL` para CI | Hecho | `*.int-spec.ts`, `jest.int.config.js`, `pnpm api test:int`. `pnpm api test` sigue sin Docker (65 unitarios). No toca la BD `control` (5440) ni la del ERP (5432) |
+| Services reales de Nest con Prisma real; `CorreoFalso`; `TRUNCATE ... RESTART IDENTITY` por test; en serie; ventana de respaldo fijada con un spy | Hecho | `test/integracion/entorno.ts` |
+| Migraciones: todas aplican desde cero | Hecho | Lo prueba cada corrida |
+| Acceso (13): flujo completo, bloqueo tras 5, correo inexistente igual, codigo un uso (tambien con dos peticiones juntas) / 10 min / 5 intentos, reenvio 45 s y max 3, sesion 30 min y 12 h, operador desactivado, correo caido no deja desafio vivo | Hecho | |
+| Cola (22): P0 sin aprobado, schema y hash alterado, 409 con job activo, silo sin reporte y ventana de respaldo, `SKIP LOCKED` con dos reclamos paralelos, retoma con reserva vencida, agente ajeno 403, cancelado 409 `detener`, reintento desde el paso fallido, idempotencia | Hecho | |
+| Solicitudes de modulo + RECONFIGURAR (8): punta a punta, entrega de a un paso, `aplicar` no repite revision ni job, APLICADA a mano con centro aprobado 409, rechazo 4xx revierte y 5xx se reintenta, camino manual | Hecho | |
+| Centros (8): fase 1 crea SOLICITUD + revision 1 + auditoria + aviso, transiciones invalidas sin rastro, descartar con motivo, carrera entre dos operadores | Hecho | |
+| BUG: dos reportes finales simultaneos del mismo paso cierran el job dos veces (`job.ok` x2; en RECONFIGURAR, `cerrarSolicitudes` x2) | Hecho | Encontrado y corregido 2026-11-14 (fallaba 10 de 10). El cierre del job ahora es `updateMany({ where: { id, estado: 'EN_CURSO' } })` y solo sigue (auditoria, `cerrarSolicitudes`) si `count === 1`. Test en `jobs.int-spec.ts` |
+| Pipeline de Bitbucket con Postgres como servicio | Pendiente | Aun no hay `bitbucket-pipelines.yml` |
+| Siguientes coberturas: fase 2 (enlace, guardar, aprobar), incidentes y soporte, reporte del agente (`/agente/reporte`) | Pendiente | |
 
 ## Fase 5. Resto de la consola (Pendiente)
 
@@ -128,14 +147,16 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 | Consola alineada al boceto: navegacion agrupada (Operacion, Versiones, Salud, Ciclo de vida, Ajustes; lo que falta aparece apagado), Solicitudes en maestro-detalle, Manifiesto en dos columnas (formulario compacto; YAML y P0 en vivo al lado), vista Silos | Hecho | 2026-11-12, pedido del usuario: menos scroll, seguir el boceto salvo choque con reglas |
 | Resumen: KPIs (silos, alertas, solicitudes nuevas, jobs activos, incidentes abiertos, host) y eventos recientes | Hecho | 2026-11-13 |
 | Espacios para notebooks de 13 a 16" (1920x1200 a 150/125/100 % = 1280, 1536 y 1920 px CSS): lateral fijo de 240 a 280 px, margenes fluidos, columna lateral acotada, texto 14 px desde 1680 px, menos aire vertical en pantallas bajas | Hecho | 2026-11-14. Revisado en Resumen, Silo, Manifiesto y Job a 1280, 1536 y 1920: sin desborde horizontal. `Dialogo` reutilizable para modales |
-| Pasar a `Dialogo` los otros `window.confirm`/`prompt` (reiniciar silo x2, cancelar job, aprobar manifiesto, abrir incidente) | Pendiente | |
+| Pasar a `Dialogo` los otros `window.confirm`/`prompt` (reiniciar silo x2, cancelar job, aprobar manifiesto, abrir incidente) | Hecho | Revisado 2026-11-14: en `apps/` no queda ningun `window.confirm/prompt/alert`, `<select>` ni input de fecha/numero nativo |
 | Silo detalle: centro y manifiesto aprobado, jobs recientes, acciones (reiniciar contenedores, abrir incidente) | Hecho | 2026-11-13. Faltan version/digest (R1), suspender e iniciar salida (salidas) |
 | Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. Bloqueado por R1 |
 | Salidas: S3 a S7, gracia 30 dias, actas, `eliminar` | Pendiente | Seccion 8 |
 | Incidentes S1/S2/S3: hitos (contencion, aviso al centro, actualizaciones, informe final, cierre) con plazos en horas y dias habiles, semaforo, bitacora; abrir desde una alerta del monitoreo o desde el silo | Hecho | 2026-11-13. Migracion `20261113035502_incidentes_y_soporte`. Dias habiles sin feriados (pendiente) |
 | Soporte: ticket con la autorizacion del ADMIN (alcance, 1 a 72 h), vencimiento y resultado sin datos del centro | Hecho | La autorizacion la declara el operador: verificarla contra el silo requiere `/api/internal/*` |
 | Configuracion: plazos, seguridad, correo (con prueba), sesiones abiertas (revocar), operadores, cambio de la propia contrasena | Hecho | 2026-11-13. Cierra el pendiente de la fase 1 (revocar y rotar desde la consola) |
-| `reiniciar_demo` | Pendiente | |
+| `reiniciar_demo` | Bloqueado (ERP) | R10. Ver fase 4 |
+| Aviso por correo al operador cuando llega una solicitud | Pendiente | Hoy solo el contador en la consola (ver fase 2) |
+| Dias habiles con feriados de Chile en los plazos de incidentes | Pendiente | Hoy cuenta lunes a viernes |
 
 ## Fase 6. Landing (Pendiente)
 
@@ -156,16 +177,17 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 
 | ID | Requisito | Bloquea |
 |---|---|---|
-| R1 | Imagenes unicas (`vinculos-api`, `vinculos-web`) con nombre del centro en runtime, no build arg | Aprovisionar, releases |
-| R2 | `/api/internal/solicitudes`: solicitudes de modulo del ADMIN (modulo, accion, rol, fecha), token por silo | Tarea 31 |
-| R3 | `/api/internal/solicitudes/:id` para devolver el estado (aprobada, rechazada, aplicada) | Tarea 31 |
-| R4 | `/api/internal/config` con funciones SECURITY DEFINER para `modulos_activos` y reglas | Reconfigurar, aprovisionar |
-| R5 | `/api/internal/admin-inicial` (invitacion del ADMIN) | Aprovisionar P9 |
-| R6 | Notas de version en el panel del ADMIN | Releases 
+| R1 | Imagenes unicas (`vinculos-api`, `vinculos-web`): falta CI que publique en el registro del host B y compose con `image: ...@sha256:` sin `build` | Aprovisionar, releases |
+| R2 | `/api/internal/solicitudes`: solicitudes de modulo del ADMIN (modulo, accion, rol, fecha), token por silo | Hecho 2026-11-13 |
+| R3 | `/api/internal/solicitudes/:id` para devolver el estado (aprobada, rechazada, aplicada) | Hecho 2026-11-13 |
+| R4 | `/api/internal/config` con funciones SECURITY DEFINER para `modulos_activos` y reglas | Hecho 2026-11-13 (tema y marca aun no se aplican por aqui) |
+| R5 | `/api/internal/admin-inicial` (invitacion del ADMIN) | Hecho 2026-11-13 |
+| R6 | Notas de version en el panel del ADMIN | Releases |
 | R7 | Agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion) | Resumen, soporte |
 | R8 | Implementar el tema "editorial" (ya disenado en el boceto del landing) en `frontend/src/app/temas/` | Aprobar centros que lo eligieron |
 | R10 | `demo:resembrar`: vaciar los datos ficticios del demo y volver a sembrar, conservando llaves y configuracion; marca `es_demo` en la BD (spec en `docs/requisitos-erp.md`) | `reiniciar_demo` |
-| R9 | Tema y nombre del centro en runtime (hoy build args `NEXT_PUBLIC_TEMA`, `NEXT_PUBLIC_CENTRO_NOMBRE`): parte de R1 | Imagen unica |
+| R9 | Tema y nombre del centro en runtime | Hecho 2026-11-13 (con R11) |
+| R11 | Identidad del silo y redes propias (`identidad_silo`, `_interna`/`_silo`/`_borde`) | Hecho 2026-11-13 |
 
 ## Bocetos de `system-reference/` contra lo construido
 
@@ -189,15 +211,17 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 - Temas: el ERP tiene "Moderno A" y "Cuaderno"; los docs decian solo Moderno (corregido 2026-11-12). "editorial" esta disenado (boceto del landing) pero no implementado en el ERP: requisito R8.
 - `CLAUDE.md` dice que el default de `modulos_activos` es "todos menos WHATSAPP"; en el ERP hoy (MVP 2026-11-11) COBROS tambien viene apagado. El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
 
-## Siguiente paso
+## Siguiente paso (2026-11-14)
 
-1. Implementar en el ERP R10 (demo), R2/R3 (tarea 31) y R1/R9 segun `docs/requisitos-erp.md`, previa confirmacion.
-2. R1 en el ERP (imagen unica por digest + nombre y tema en runtime, R9): habilita los verbos `preparar` y `levantar` del ejecutor y el job `aprovisionar`.
-3. Tarea 31 de punta a punta: R2 y R3 en el ERP y la bandeja por silo en la consola.
-
------
-Siguiente
-
-  Las dos piezas sin bloqueos que siguen por esfuerzo:
-  - R10 (demo), con plan corto antes de codificar.
-  - Tests de integración de la API de control.
+1. Hecho: tests de integracion de la API (y arreglo de la carrera de
+   reportes finales simultaneos).
+2. Sin bloqueos, en el control: Salidas S3 a S7 (consola, estados y actas; el
+   job `eliminar` necesita un verbo de borrado en el ejecutor: decision de
+   seguridad a confirmar antes), landing (fase 6), aviso por correo de
+   solicitudes nuevas, feriados en los plazos de incidentes.
+3. En el ERP: R1 (CI + compose por digest) habilita `preparar`/`levantar` del
+   ejecutor, `aprovisionar` y releases. R10 habilita `reiniciar_demo`. R6
+   (notas de version) y R8 (tema editorial).
+4. Infra: Cloudflare Access delante de la consola.
+5. Pendiente del ERP (experiencia): paginas de un modulo apagado abiertas por
+   URL directa muestran la vista vacia en vez de "modulo no contratado".

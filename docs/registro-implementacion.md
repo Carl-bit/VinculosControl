@@ -5,7 +5,7 @@ pruebas. Pensado para integrarlo a la memoria del proyecto. El estado vivo
 (que falta, que esta bloqueado) esta en `docs/roadmap.md`; el diseno completo,
 en `CONTEXTO.md`; el estado del ERP, en `ERP_REGLAS_Y_DESPLIEGUE.md`.
 
-Ultima actualizacion: 2026-11-12.
+Ultima actualizacion: 2026-11-14.
 
 ## 1. Que es y como se separa
 
@@ -271,3 +271,21 @@ Fallos encontrados y corregidos:
 2. El job cerraba la solicitud en APLICADA antes de que el silo recibiera
    APROBADA, y el silo no acepta PENDIENTE -> APLICADA (quedaba trabada). Ahora
    la entrega va de a un paso (`siguienteEntrega`, con test).
+
+### Tests de integracion de la API (2026-11-14)
+
+`pnpm api test:int`: services reales de Nest con Prisma real contra un
+Postgres efimero (`postgres:18-alpine` en tmpfs, puerto libre, borrado al
+terminar; `TEST_DATABASE_URL` para CI). Aplica todas las migraciones desde
+cero en cada corrida. 51 tests en 4 archivos (acceso, cola de jobs, solicitudes
+de modulo con RECONFIGURAR, centros), unos 15 s, estables en 3 corridas. El
+correo se reemplaza por `CorreoFalso`; la ventana de respaldo, con un spy.
+Detalle y como correrlos: `apps/api/test/integracion/README.md`.
+
+Hallazgo: dos reportes finales simultaneos del mismo paso cierran el job dos
+veces (`job.ok` auditado dos veces; en RECONFIGURAR, `cerrarSolicitudes` dos
+veces). `reportarPaso` lee, decide y escribe sin condicionar la escritura al
+estado. Hoy no ocurre (el agente reporta en serie), pero con `aprovisionar` el
+cierre movera el centro de estado. Corregido el mismo dia: el
+cierre es un `updateMany` condicionado a `estado = EN_CURSO` y solo el reporte
+que lo cierra audita y cierra solicitudes. Lo cubre `jobs.int-spec.ts`.

@@ -9,7 +9,8 @@
     "agente:crear": "ts-node src/cli/crear-agente.ts",
     "operador:crear": "ts-node src/cli/crear-operador.ts",
     "bd:migrar": "prisma migrate deploy",
-    "bd:nueva": "prisma migrate dev"
+    "bd:nueva": "prisma migrate dev",
+    "test:int": "jest -c jest.int.config.js --runInBand"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -40,6 +41,10 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "rootDir": "src"
+    "rootDir": "src",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      ".int-spec.ts$"
+    ]
   }
 }

@@ -254,7 +254,13 @@ export class JobsService {
     const pasos = job.pasos.map((p) => (p.id === paso.id ? { ...p, estado } : p));
     const nuevo = estadoTrasPasos(pasos);
     if (nuevo !== 'EN_CURSO') {
-      await this.prisma.job.update({ where: { id: jobId }, data: { estado: nuevo, terminadoEn: ahora, error: nuevo === 'FALLIDO' ? `${codigo}: ${error ?? 'fallo'}`.slice(0, 500) : null } });
+      // Cierre condicionado al estado: si dos reportes finales llegan juntos, solo uno cierra el job
+      // (una sola auditoria y un solo cerrarSolicitudes).
+      const cerrado = await this.prisma.job.updateMany({
+        where: { id: jobId, estado: 'EN_CURSO' },
+        data: { estado: nuevo, terminadoEn: ahora, error: nuevo === 'FALLIDO' ? `${codigo}: ${error ?? 'fallo'}`.slice(0, 500) : null },
+      });
+      if (cerrado.count !== 1) return { seguir: false };
       await this.auditoria.registrar(`agente:${agenteId}`, nuevo === 'OK' ? 'job.ok' : 'job.fallido', `job:${jobId}`, nuevo === 'FALLIDO' ? `${codigo}: ${error ?? ''}` : job.siloSlug);
       if (nuevo === 'OK') await this.cerrarSolicitudes(jobId);
     }
