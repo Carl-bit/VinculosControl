@@ -184,6 +184,81 @@ export interface SolicitudSoporte {
   creadoPor: string;
   creadoEn: string;
 }
+/* Salidas (apps/api/src/salidas): expediente y actas, sin contenido del exporte. */
+export type ExpedienteSalida = 'abierta' | 'reversion_pendiente' | 'revertida' | 'eliminada';
+export interface FilaSalida {
+  id: number;
+  expediente: ExpedienteSalida;
+  revertidaEn: string | null;
+  centroId: number;
+  siloSlug: string;
+  nombre: string;
+  estado: EstadoCentro;
+  fechaCorte: string;
+  iniciadaEn: string;
+  graciaHasta: string | null;
+  diasGracia: number | null;
+  eliminadoEn: string | null;
+}
+export interface DetalleSalida {
+  id: number;
+  expediente: ExpedienteSalida;
+  puedeRevertir: boolean;
+  detencionJobId: number | null;
+  eliminacionJobId: number | null;
+  /** Items del checklist S7 que probo el job ELIMINAR. */
+  porJob: string[];
+  evidenciaEliminacion: string[];
+  jobs: { id: number; tipo: string; estado: EstadoJob; creadoEn: string; error: string | null }[];
+  reversionMotivo: string | null;
+  reversionSolicitudEn: string | null;
+  reversionMedio: string | null;
+  reversionRef: string | null;
+  reversionPedidaPor: string | null;
+  reversionPedidaEn: string | null;
+  reversionJobId: number | null;
+  actaReversion: { texto: string; vuelveA: string; siloReanudado: string } | null;
+  actaReversionHash: string | null;
+  revertidaEn: string | null;
+  centroId: number;
+  siloSlug: string;
+  nombre: string;
+  estado: EstadoCentro;
+  fechaCorte: string;
+  motivo: string;
+  desde: EstadoCentro;
+  iniciadaPor: string;
+  iniciadaEn: string;
+  exporteEn: string | null;
+  exporteBytes: number | null;
+  exporteHuella: string | null;
+  actaRecepcionFirmadaEn: string | null;
+  recibeNombre: string | null;
+  recibeCargo: string | null;
+  conteoPacientes: number | null;
+  conteoFichas: number | null;
+  actaRecepcionHash: string | null;
+  actaRecepcionPor: string | null;
+  graciaDias: number;
+  graciaHasta: string | null;
+  diasGracia: number | null;
+  siloDetenidoEn: string | null;
+  siloDetenidoPor: string | null;
+  confirmacionEn: string | null;
+  confirmacionMedio: 'CORREO' | 'DOCUMENTO' | 'OTRO' | null;
+  confirmacionRef: string | null;
+  confirmacionPor: string | null;
+  actaEliminacion: { texto: string; items: Record<string, string | boolean>; nota: string | null; eliminadoPor: string; evidencia?: string[] | null } | null;
+  actaEliminacionHash: string | null;
+  eliminadoEn: string | null;
+  eliminadoPor: string | null;
+  pasos: { codigo: string; l: string; estado: 'hecho' | 'actual' | 'pendiente' }[];
+  bloqueosEliminar: string[];
+  checklist: { clave: string; l: string }[];
+  /** Copias de actas (eliminacion o reversion) enviadas al centro (de la auditoria). */
+  envios: { en: string; ok: boolean; tipo: string; para: string | null }[];
+}
+
 export interface Configuracion {
   plazos: { k: string; v: string }[];
   seguridad: { k: string; v: string }[];

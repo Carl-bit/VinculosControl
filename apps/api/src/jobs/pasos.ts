@@ -49,6 +49,28 @@ const RECONFIGURAR: DefPaso[] = [
   { codigo: 'C2', nombre: 'Confirmar', detalle: 'GET /api/internal/config: el silo tiene esa revision y ese hash', ejecutor: 'agente' },
 ];
 
+/**
+ * Salida (opciones B y C, decididas 2026-11-14). Nacen de una salida abierta,
+ * nunca a mano desde la vista de jobs. El P0 lee el estado de la salida.
+ */
+const DETENER_SILO: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'salida con acta de recepcion (EXPORTADO), silo reportado, fuera de la ventana de respaldo', ejecutor: 'control' },
+  { codigo: 'D1', nombre: 'Estado previo', detalle: 'contenedores de erp-<slug> (ejecutor)', ejecutor: 'agente' },
+  { codigo: 'D2', nombre: 'Detener', detalle: 'suelta el borde y para frontend, backend y db; no borra nada (ejecutor)', ejecutor: 'agente' },
+  { codigo: 'D3', nombre: 'Comprobar', detalle: 'ningun contenedor en marcha', ejecutor: 'agente' },
+];
+const REANUDAR_SILO: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'reversion pedida con el silo detenido, silo reportado, fuera de la ventana de respaldo', ejecutor: 'control' },
+  { codigo: 'A1', nombre: 'Reanudar', detalle: 'arranca db (espera sana), backend y frontend; une el borde (ejecutor)', ejecutor: 'agente' },
+  { codigo: 'A2', nombre: 'Comprobar', detalle: 'db, backend y frontend en marcha y sanos', ejecutor: 'agente' },
+];
+const ELIMINAR: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'GRACIA vencida, confirmacion escrita, silo detenido, sin reversion, hash del acta de recepcion', ejecutor: 'control' },
+  { codigo: 'X1', nombre: 'Detenido', detalle: 'ningun contenedor de erp-<slug> en marcha', ejecutor: 'agente' },
+  { codigo: 'X2', nombre: 'Eliminar', detalle: 'contenedores, volumenes, redes y respaldos/<slug>/ (ejecutor; exige bajas/<slug> en el host B)', ejecutor: 'agente' },
+  { codigo: 'X3', nombre: 'Comprobar', detalle: 'sin contenedores de erp-<slug>', ejecutor: 'agente' },
+];
+
 /** Pasos de aprovisionar (para mostrarlos y documentar el bloqueo; aun no se encolan). */
 export const PASOS_APROVISIONAR: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'schema, dependencias, dominio, imagen', ejecutor: 'control' },
@@ -65,10 +87,13 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
 ];
 
 /** Tipos que hoy se pueden encolar, con sus pasos. El resto responde por que no. */
-export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR };
+export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR, DETENER_SILO, REANUDAR_SILO, ELIMINAR };
 
 /** Jobs sobre un silo existente (no nacen de un manifiesto aprobado). */
 export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO'];
+
+/** Jobs que nacen de una salida (Salidas en la consola), con su propio P0. */
+export const DE_SALIDA: readonly TipoJob[] = ['DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'];
 
 /** Ventana del respaldo diario (02:00 Chile): no se tocan silos entre 01:45 y 02:30. Igual que el ejecutor. */
 export function enVentanaRespaldo(ahora: Date): boolean {
@@ -84,8 +109,7 @@ export const BLOQUEO: Partial<Record<TipoJob, string>> = {
   APROVISIONAR: 'Bloqueado: requiere imagenes unicas (R1), /api/internal/* (R4, R5) y escritura en el docker-socket-proxy',
   ACTUALIZAR: 'Bloqueado: requiere imagenes unicas y registro de releases (R1)',
   REINICIAR_DEMO: 'Bloqueado: requiere demo:resembrar en el ERP (R10: resembrar datos ficticios conservando llaves). Para reiniciar contenedores sin tocar datos: REINICIAR_SILO',
-  EXPORTAR: 'Pendiente: fase 5 (salidas)',
-  ELIMINAR: 'Pendiente: fase 5 (salidas)',
+  EXPORTAR: 'No aplica como job: el exporte lo genera el ADMIN en su silo (S3-S4) y la consola registra el acta en Salidas. Traer la huella sola requiere R13 en el ERP',
 };
 
 export const ACTIVOS: readonly EstadoJob[] = ['PENDIENTE', 'EN_CURSO', 'ESPERANDO_LLAVES'];

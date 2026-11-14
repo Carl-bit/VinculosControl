@@ -66,9 +66,11 @@ services:
 
   # Ejecutor de silos (docs/propuesta-escritura-docker.md, opcion C, aprobada 2026-11-12).
   # Unico contenedor con el socket de Docker. Solo verbos cerrados (apps/ejecutor/src/verbos.ts):
-  # estado, reiniciar (backend y frontend de erp-<slug>), conectar_borde, soltar_borde y
-  # reconectar_bordes (R11). Sin borrado, sin llaves, sin puertos publicados: solo lo
-  # alcanza el agente por la red interna "ejecutor", con token propio.
+  # estado, reiniciar (backend y frontend de erp-<slug>), conectar_borde, soltar_borde,
+  # reconectar_bordes (R11), detener y reanudar (salida, opcion B: no borran) y eliminar
+  # (opcion C, 2026-11-14: unico verbo que borra; exige bajas/<slug> con el hash del acta de
+  # recepcion y el silo detenido; no toca llaves). Sin puertos publicados: solo lo alcanza el
+  # agente por la red interna "ejecutor", con token propio.
   ejecutor:
     build:
       context: ../..
@@ -83,10 +85,18 @@ services:
       EJECUTOR_LOG: /var/log/ejecutor/verbos.jsonl
       # Contenedores del plano del host que entran a cada erp-<slug>_borde (lista fija).
       EJECUTOR_UNIR_BORDE: ${EJECUTOR_UNIR_BORDE:-vinculos-servidor-traefik-1,vinculos-agente-agente-1}
+      # Verbo eliminar (opcion C, 2026-11-14): sin estas dos rutas queda deshabilitado.
+      EJECUTOR_BAJAS_DIR: /bajas
+      EJECUTOR_RESPALDOS_DIR: /respaldos
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Auditoria local de cada verbo (JSON por linea, solo agregar).
       - ejecutor_log:/var/log/ejecutor
+      # Consentimiento local de bajas: bajas/<slug> con el hash del acta de recepcion.
+      # Lo crea el operador a mano en el host B; el ejecutor solo lo lee.
+      - ${BAJAS_HOST:-./bajas}:/bajas:ro
+      # respaldos/<slug>/ del ERP: eliminar borra solo la carpeta del silo dado de baja.
+      - ${RESPALDOS_HOST:?RESPALDOS_HOST es obligatoria}:/respaldos
     networks:
       - ejecutor
 

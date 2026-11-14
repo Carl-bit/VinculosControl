@@ -85,7 +85,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Editor del manifiesto en la consola: borrador completo (centro + version + reglas + contrato), revisiones fase 2 con hash, idempotente | Hecho | Formulario de reglas generado desde `CAMPOS_REGLAS` (defaults del ERP); reglas de cobros ocultas |
 | Validacion P0 (`validarP0` del paquete): schema completo, dependencias, rangos del ERP, modulos del MVP, contrato | Hecho | La misma funcion usara el job aprovisionar |
 | APROBADO: P0 ok + contrato; congela el manifiesto en una revision fase 3; guarda `hashAprobado` | Hecho | Probado de punta a punta en Docker (2026-11-12) |
-| Aviso por correo al operador cuando llega una solicitud | Pendiente | Hoy solo el contador en la consola |
+| Aviso por correo al operador cuando llega una solicitud | Hecho | `avisarOperadores` en `centros.service.ts`: correo a cada operador activo con nombre, tamano y modulos; si falla, la solicitud queda igual. Verificado 2026-11-14 en `centros.int-spec.ts` |
 
 ## Fase 3. Modulos por solicitud del centro (tarea 31) (Hecho 2026-11-14)
 
@@ -148,15 +148,35 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | Resumen: KPIs (silos, alertas, solicitudes nuevas, jobs activos, incidentes abiertos, host) y eventos recientes | Hecho | 2026-11-13 |
 | Espacios para notebooks de 13 a 16" (1920x1200 a 150/125/100 % = 1280, 1536 y 1920 px CSS): lateral fijo de 240 a 280 px, margenes fluidos, columna lateral acotada, texto 14 px desde 1680 px, menos aire vertical en pantallas bajas | Hecho | 2026-11-14. Revisado en Resumen, Silo, Manifiesto y Job a 1280, 1536 y 1920: sin desborde horizontal. `Dialogo` reutilizable para modales |
 | Pasar a `Dialogo` los otros `window.confirm`/`prompt` (reiniciar silo x2, cancelar job, aprobar manifiesto, abrir incidente) | Hecho | Revisado 2026-11-14: en `apps/` no queda ningun `window.confirm/prompt/alert`, `<select>` ni input de fecha/numero nativo |
-| Silo detalle: centro y manifiesto aprobado, jobs recientes, acciones (reiniciar contenedores, abrir incidente) | Hecho | 2026-11-13. Faltan version/digest (R1), suspender e iniciar salida (salidas) |
+| Silo detalle: centro y manifiesto aprobado, jobs recientes, acciones (reiniciar contenedores, abrir incidente) | Hecho | 2026-11-13. Faltan version/digest (R1) y suspender. "Iniciar salida" hecho 2026-11-14 |
 | Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. Bloqueado por R1 |
-| Salidas: S3 a S7, gracia 30 dias, actas, `eliminar` | Pendiente | Seccion 8 |
+| Salidas, etapa 1: expediente y actas en la consola (S1 a S8) | Hecho | 2026-11-14. Ver "Salidas" abajo |
+| Salidas, etapa 2: S6-S7 por el ejecutor y reversion | Hecho | 2026-11-14 (opciones B + C). S2 y S3 automaticos siguen bloqueados por R12 y R13 |
 | Incidentes S1/S2/S3: hitos (contencion, aviso al centro, actualizaciones, informe final, cierre) con plazos en horas y dias habiles, semaforo, bitacora; abrir desde una alerta del monitoreo o desde el silo | Hecho | 2026-11-13. Migracion `20261113035502_incidentes_y_soporte`. Dias habiles sin feriados (pendiente) |
 | Soporte: ticket con la autorizacion del ADMIN (alcance, 1 a 72 h), vencimiento y resultado sin datos del centro | Hecho | La autorizacion la declara el operador: verificarla contra el silo requiere `/api/internal/*` |
 | Configuracion: plazos, seguridad, correo (con prueba), sesiones abiertas (revocar), operadores, cambio de la propia contrasena | Hecho | 2026-11-13. Cierra el pendiente de la fase 1 (revocar y rotar desde la consola) |
 | `reiniciar_demo` | Bloqueado (ERP) | R10. Ver fase 4 |
-| Aviso por correo al operador cuando llega una solicitud | Pendiente | Hoy solo el contador en la consola (ver fase 2) |
 | Dias habiles con feriados de Chile en los plazos de incidentes | Pendiente | Hoy cuenta lunes a viernes |
+
+## Salidas (etapa 1 Hecha 2026-11-14)
+
+Plan aprobado 2026-11-14. La consola lleva el expediente y las actas; los pasos
+fisicos siguen `docs/cumplimiento/baja_centro.md` del ERP (manual). Nunca el
+contenido del exporte ni su clave.
+
+| Pieza | Estado | Nota |
+|---|---|---|
+| Modelo `Salida` (uno por centro): S1 corte y motivo; S3-S4 fecha, tamano y huella del exporte; S5 acta (firma, quien recibe por la direccion, conteos, hash); S6 gracia, silo detenido, confirmacion escrita; S7 acta de eliminacion (checklist + hash) | Hecho | Migracion `20261114180000_salidas` (aditiva: tabla nueva) |
+| Transiciones con auditoria: ACTIVO/ACTIVO_SIN_DOMINIO/SUSPENDIDO -> EN_SALIDA (slug escrito) -> EXPORTADO (acta con huella igual a la del exporte) -> GRACIA (silo detenido) -> ELIMINADO (gracia vencida + confirmacion escrita + checklist completo + slug) | Hecho | Optimistas (409 si otro cambio el estado). Cada paso idempotente: mismos datos = sin cambios; otros datos = 409 |
+| Gracia: 30 dias desde la firma del acta, editable por contrato (1 a 365) | Hecho | Plazo por defecto aun "a confirmar en los terminos" (seccion 12 del contexto) |
+| S6 comprobado con datos reales: se rechaza si el agente reporto contenedores `running` del silo en los ultimos 5 min; al detener, el silo sale del monitoreo (sin alertas falsas en la gracia) | Hecho | |
+| Consola: vista Salidas (lista con dias de gracia y semaforo; detalle con linea de tiempo S1-S8, datos de las actas y formularios en `Dialogo` con controles propios); "Iniciar salida" en el detalle del silo | Hecho | Revisado a 1280, 1536 y 1920 px: sin desborde. Se corrigio una huella larga que tapaba su etiqueta |
+| Tests: 8 unitarios (`salidas/reglas.spec.ts`), 22 de integracion (`salidas.int-spec.ts`: jobs simulados, reversion, actas por correo), 11 del ejecutor (`ciclo.test.ts`) | Hecho | |
+| S2 solo lectura del silo | Bloqueado (ERP) | R12 |
+| S3 huella y estado del exporte traidos por el agente (sin tipearlos) y bloquear `actualizar` con un exporte en curso | Bloqueado (ERP) | R13 |
+| S6/S7 por el ejecutor: verbos `detener`, `reanudar` (B) y `eliminar` (C); jobs DETENER_SILO, REANUDAR_SILO y ELIMINAR | Hecho | 2026-11-14, decidido por el usuario. `eliminar` exige `infra/host-b/bajas/<slug>` con el hash del acta de recepcion (consentimiento local, solo lectura), el silo detenido y fuera de la ventana de respaldo; borra contenedores, volumenes, redes y `respaldos/<slug>/` del proyecto; nunca llaves, bucket, DNS ni crontab. Su log va al acta S7 y marca 3 items del checklist. Sin ejecutor siguen los caminos a mano. Diseno en `docs/propuesta-escritura-docker.md` |
+| Copia del acta de eliminacion al centro por correo | Hecho | 2026-11-14, decidido por el usuario. Al eliminar se envia al responsable de datos del manifiesto aprobado (si no hay, al contacto); solo metadatos y hash. Si falla, la eliminacion queda igual, el fallo queda en la auditoria y se reenvia desde la consola. 3 tests de integracion |
+| Revertir una salida (baja por error o arrepentimiento) | Hecho | 2026-11-14. Con la solicitud escrita del centro y el slug. EN_SALIDA/EXPORTADO: vuelve al estado previo en el acto; GRACIA con silo detenido: job REANUDAR_SILO y vuelve al quedar sano (o a mano si el agente lo ve en marcha). Acta de reversion con hash y copia por correo. Bloqueada tras empezar ELIMINAR. Varias salidas por centro (una abierta: unico `(centro_id, abierta)`); la maquina de estados suma EN_SALIDA/EXPORTADO/GRACIA -> estado previo. Migracion `20261114210000_salidas_reversion_y_ejecutor` (aditiva) |
 
 ## Fase 6. Landing (Pendiente)
 
@@ -187,6 +207,8 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | R8 | Implementar el tema "editorial" (ya disenado en el boceto del landing) en `frontend/src/app/temas/` | Aprobar centros que lo eligieron |
 | R10 | `demo:resembrar`: vaciar los datos ficticios del demo y volver a sembrar, conservando llaves y configuracion; marca `es_demo` en la BD (spec en `docs/requisitos-erp.md`) | `reiniciar_demo` |
 | R9 | Tema y nombre del centro en runtime | Hecho 2026-11-13 (con R11) |
+| R12 | Modo solo lectura del silo por `/api/internal/*` (S2 de la salida) | Salidas S2 |
+| R13 | `/api/internal/exportaciones`: estado, fecha, tamano y huella del ultimo exporte, sin contenido | Salidas S3 automatico; bloquear `actualizar` durante un exporte |
 | R11 | Identidad del silo y redes propias (`identidad_silo`, `_interna`/`_silo`/`_borde`) | Hecho 2026-11-13 |
 
 ## Bocetos de `system-reference/` contra lo construido
@@ -201,7 +223,8 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | Panel de acceso | Aprovisionamiento | Hecho (job VERIFICAR; sin botones de simular) |
 | Panel de acceso | Silos, Silo detalle | Parcial |
 | Panel de acceso | Configuracion | Hecho |
-| Panel de acceso | Releases, Salidas | Pendiente (fase 5; releases depende de R1) |
+| Panel de acceso | Salidas | Hecho (etapa 1, 2026-11-14) |
+| Panel de acceso | Releases | Pendiente (fase 5; depende de R1) |
 | Panel de acceso | Monitoreo | Hecho (version basica) |
 | Panel de acceso | Auditoria | Hecho |
 | Landing | Todo | Pendiente (fase 6) |
@@ -215,12 +238,15 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 
 1. Hecho: tests de integracion de la API (y arreglo de la carrera de
    reportes finales simultaneos).
-2. Sin bloqueos, en el control: Salidas S3 a S7 (consola, estados y actas; el
-   job `eliminar` necesita un verbo de borrado en el ejecutor: decision de
-   seguridad a confirmar antes), landing (fase 6), aviso por correo de
-   solicitudes nuevas, feriados en los plazos de incidentes.
+2. Hecho: Salidas completas (expediente, actas por correo, ejecutor B + C,
+   reversion). Sin bloqueos, en el control: feriados de Chile en los plazos
+   de incidentes (portar `generar_feriados` del ERP), landing (fase 6),
+   pipeline de Bitbucket. Abierto: plazo de gracia por defecto en los
+   terminos. Probar los verbos nuevos del ejecutor contra un silo de prueba
+   real en el PC (hoy solo con Docker simulado).
 3. En el ERP: R1 (CI + compose por digest) habilita `preparar`/`levantar` del
-   ejecutor, `aprovisionar` y releases. R10 habilita `reiniciar_demo`. R6
+   ejecutor, `aprovisionar` y releases. R10 habilita `reiniciar_demo`. R12 y
+   R13 (salidas). R6
    (notas de version) y R8 (tema editorial).
 4. Infra: Cloudflare Access delante de la consola.
 5. Pendiente del ERP (experiencia): paginas de un modulo apagado abiertas por

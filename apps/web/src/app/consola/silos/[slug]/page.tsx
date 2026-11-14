@@ -4,12 +4,97 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { useConfirmacion } from '@/componentes/dialogo';
+import { CampoFecha } from '@/componentes/controles';
+import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
 import { ChipSalud, claseJob, claseSeveridad, Grafico, Medidor, Shell } from '@/componentes/piezas';
 import { SolicitudesModulo } from '@/componentes/solicitudes-modulo';
-import { enviarConSesion, gib, hace, mensajeDe, mib, useDatos, type DetalleJob, type Detalle, type Incidente, type Resumen } from '@/lib/api';
+import { enviarConSesion, gib, hace, mensajeDe, mib, useDatos, type DetalleJob, type DetalleSalida, type Detalle, type Incidente, type Resumen } from '@/lib/api';
 
 const COLORES: Record<string, string> = { db: 'var(--info)', backend: 'var(--accent)', frontend: 'var(--warn)' };
+const ORIGENES_SALIDA = ['ACTIVO', 'ACTIVO_SIN_DOMINIO', 'SUSPENDIDO'];
+const EN_SALIDA = ['EN_SALIDA', 'EXPORTADO', 'GRACIA', 'ELIMINADO'];
+
+/** S1 de la salida (CONTEXTO.md seccion 8): fecha de corte, motivo y el slug escrito para confirmar. */
+function IniciarSalida({ slug, centro }: { slug: string; centro: NonNullable<Detalle['centro']> }) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const [corte, setCorte] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [conf, setConf] = useState('');
+  const [msg, setMsg] = useState<string>();
+  const [ocupado, setOcupado] = useState(false);
+  if (EN_SALIDA.includes(centro.estado))
+    return (
+      <Link className="boton" href={`/consola/salidas?centro=${centro.id}`}>
+        Ver salida
+      </Link>
+    );
+  const puede = ORIGENES_SALIDA.includes(centro.estado);
+  const enviar = async () => {
+    setOcupado(true);
+    try {
+      const r = await enviarConSesion<DetalleSalida>('consola/salidas', { centroId: centro.id, fechaCorte: corte, motivo: motivo.trim(), confirmacion: conf.trim() });
+      if (r.ok) router.push(`/consola/salidas?salida=${r.datos.id}`);
+      else setMsg(mensajeDe(r.datos, `HTTP ${r.status}`));
+    } finally {
+      setOcupado(false);
+    }
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="boton"
+        disabled={!puede}
+        title={puede ? undefined : `Una salida se inicia desde ${ORIGENES_SALIDA.join(', ')} (el centro esta en ${centro.estado})`}
+        onClick={() => {
+          setMsg(undefined);
+          setAbierto(true);
+        }}
+      >
+        Iniciar salida
+      </button>
+      <Dialogo
+        abierto={abierto}
+        etiqueta={`S1 · erp-${slug}`}
+        titulo="Iniciar salida del centro"
+        ocupado={ocupado}
+        onCerrar={() => setAbierto(false)}
+        pie={
+          <>
+            <button type="button" className="boton" disabled={ocupado} onClick={() => setAbierto(false)}>
+              Cancelar
+            </button>
+            <button type="button" className="boton peligro" disabled={ocupado || !corte || motivo.trim().length < 4 || conf.trim() !== slug} onClick={() => void enviar()}>
+              Iniciar salida
+            </button>
+          </>
+        }
+      >
+        <p className="sub">
+          {centro.nombre} pasa a EN_SALIDA. Sigue: el ADMIN genera el exporte cifrado en su silo, el centro firma el acta de recepcion, se detiene el silo y corre la gracia antes de eliminar.
+        </p>
+        <label className="campo-consola">
+          Fecha de corte del contrato
+          <CampoFecha requerido valor={corte} onCambio={setCorte} />
+        </label>
+        <label className="campo-consola">
+          Motivo (contractual, sin datos de pacientes)
+          <input className="campo-texto" maxLength={300} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+        </label>
+        <label className="campo-consola">
+          Escribe {slug} para confirmar
+          <input className="campo-texto" spellCheck={false} maxLength={40} value={conf} onChange={(e) => setConf(e.target.value)} />
+        </label>
+        {msg && (
+          <p role="alert" className="chip danger" style={{ whiteSpace: 'normal' }}>
+            {msg}
+          </p>
+        )}
+      </Dialogo>
+    </>
+  );
+}
 
 export default function Silo() {
   const { slug } = useParams<{ slug: string }>();
@@ -70,9 +155,7 @@ export default function Silo() {
         <button type="button" className="boton" onClick={() => void incidente()}>
           Abrir incidente
         </button>
-        <span className="boton" aria-disabled="true" title="Fase 5: salidas (exporte, gracia, eliminacion con acta)" style={{ opacity: 0.45 }}>
-          Iniciar salida (pronto)
-        </span>
+        {d?.centro && <IniciarSalida slug={slug} centro={d.centro} />}
         {d?.centro && (
           <span className="mono-corto">
             centro <Link href={`/consola/manifiestos/${d.centro.id}`}>{d.centro.nombre}</Link> · {d.centro.estado}

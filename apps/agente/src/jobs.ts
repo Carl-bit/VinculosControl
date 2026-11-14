@@ -24,7 +24,9 @@ const EJECUTOR = (process.env.EJECUTOR_URL ?? '').replace(/\/$/, '');
 const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
 /** RECONFIGURAR no usa el ejecutor: habla con /api/internal del silo (token por silo). */
-export const TIPOS = EJECUTOR ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR'] as const) : (['VERIFICAR', 'RECONFIGURAR'] as const);
+export const TIPOS = EJECUTOR
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'] as const)
+  : (['VERIFICAR', 'RECONFIGURAR'] as const);
 
 interface EstadoContenedor {
   servicio: string;
@@ -33,11 +35,15 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: 'estado' | 'reiniciar'): Promise<T> {
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar';
+
+/** Unico cuerpo que acepta el ejecutor: { actaHash } en eliminar. */
+async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEjecutor, envio?: { actaHash: string }): Promise<T> {
   if (!EJECUTOR) throw new Error('EJECUTOR_URL sin definir');
   const r = await fetch(`${EJECUTOR}/v1/silos/${encodeURIComponent(slug)}/${verbo}`, {
     method: metodo,
-    headers: { authorization: `Bearer ${EJECUTOR_TOKEN}` },
+    headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
+    body: envio ? JSON.stringify(envio) : undefined,
     signal: AbortSignal.timeout(180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
@@ -63,6 +69,8 @@ export interface JobReclamado {
   revision: number;
   hashManifiesto: string;
   manifiesto: unknown;
+  /** ELIMINAR: hash del acta de recepcion de la salida (el ejecutor lo compara con bajas/<slug>). */
+  referencia?: string | null;
   pasos: { codigo: string; estado: string }[];
 }
 
@@ -178,6 +186,67 @@ export const EJECUTORES: Record<string, Ejecutor> = {
       await new Promise((r) => setTimeout(r, 5_000));
     }
     return { estado: 'FALLIDO', log: ultimo.map(lineaEstado), error: 'backend o frontend no quedaron en marcha en 60 s' };
+  },
+
+  // ---------- DETENER_SILO (salida S6; opcion B: no borra nada) ----------
+  async D1(j) {
+    const { contenedores } = await ejecutor<{ contenedores: EstadoContenedor[] }>('GET', j.slug, 'estado');
+    return contenedores.length
+      ? { estado: 'OK', log: contenedores.map(lineaEstado) }
+      : { estado: 'FALLIDO', log: [], error: `erp-${j.slug} no tiene contenedores` };
+  },
+
+  async D2(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'detener');
+    return { estado: 'OK', log };
+  },
+
+  async D3(j) {
+    const { contenedores } = await ejecutor<{ contenedores: EstadoContenedor[] }>('GET', j.slug, 'estado');
+    const vivos = contenedores.filter((c) => c.estado === 'running' || c.estado === 'restarting');
+    return vivos.length
+      ? { estado: 'FALLIDO', log: contenedores.map(lineaEstado), error: `siguen en marcha: ${vivos.map((c) => c.servicio).join(', ')}` }
+      : { estado: 'OK', log: contenedores.map(lineaEstado) };
+  },
+
+  // ---------- REANUDAR_SILO (rollback de una salida en gracia; opcion B) ----------
+  async A1(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'reanudar');
+    return { estado: 'OK', log };
+  },
+
+  async A2(j) {
+    // Igual que E3: hasta 90 s a que db, backend y frontend esten en marcha y sanos.
+    let ultimo: EstadoContenedor[] = [];
+    for (let i = 0; i < 18; i++) {
+      ultimo = (await ejecutor<{ contenedores: EstadoContenedor[] }>('GET', j.slug, 'estado')).contenedores.filter((c) => ['db', 'backend', 'frontend'].includes(c.servicio));
+      if (ultimo.length >= 3 && ultimo.every((c) => c.estado === 'running' && (c.salud === null || c.salud === 'healthy'))) return { estado: 'OK', log: ultimo.map(lineaEstado) };
+      await new Promise((r) => setTimeout(r, 5_000));
+    }
+    return { estado: 'FALLIDO', log: ultimo.map(lineaEstado), error: 'db, backend o frontend no quedaron en marcha y sanos en 90 s' };
+  },
+
+  // ---------- ELIMINAR (salida S7; opcion C: consentimiento local bajas/<slug>) ----------
+  async X1(j) {
+    const { contenedores } = await ejecutor<{ contenedores: EstadoContenedor[] }>('GET', j.slug, 'estado');
+    const vivos = contenedores.filter((c) => c.estado === 'running' || c.estado === 'restarting');
+    return vivos.length
+      ? { estado: 'FALLIDO', log: contenedores.map(lineaEstado), error: `erp-${j.slug} sigue en marcha (${vivos.map((c) => c.servicio).join(', ')}): detener primero` }
+      : { estado: 'OK', log: contenedores.length ? contenedores.map(lineaEstado) : ['sin contenedores'] };
+  },
+
+  async X2(j) {
+    if (!j.referencia || !/^[0-9a-f]{64}$/.test(j.referencia)) return { estado: 'FALLIDO', log: [], error: 'El job no trae el hash del acta de recepcion' };
+    // El log del ejecutor lista lo borrado (volumenes, redes, respaldos): queda como evidencia en el paso y en el acta.
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'eliminar', { actaHash: j.referencia });
+    return { estado: 'OK', log };
+  },
+
+  async X3(j) {
+    const { contenedores } = await ejecutor<{ contenedores: EstadoContenedor[] }>('GET', j.slug, 'estado');
+    return contenedores.length
+      ? { estado: 'FALLIDO', log: contenedores.map(lineaEstado), error: `quedan ${contenedores.length} contenedor(es) de erp-${j.slug}` }
+      : { estado: 'OK', log: [`erp-${j.slug} sin contenedores`] };
   },
 
   async V5() {

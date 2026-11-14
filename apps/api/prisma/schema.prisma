@@ -234,6 +234,8 @@ model Centro {
   transiciones TransicionCentro[]
   revisiones   RevisionManifiesto[]
   enlaces      EnlaceFase2[]
+  /// Expedientes de salida. A lo mas uno abierto (Salida.abierta = true); los revertidos quedan como historial.
+  salidas      Salida[]
 
   @@index([estado, creadoEn])
   @@map("centros")
@@ -303,6 +305,10 @@ enum TipoJob {
   REINICIAR_DEMO
   EXPORTAR
   ELIMINAR
+  /// Salida S6 (opcion B): para los contenedores del silo por el ejecutor. No borra nada.
+  DETENER_SILO
+  /// Reversion de una salida en gracia (opcion B): arranca los contenedores detenidos.
+  REANUDAR_SILO
 
   @@map("tipo_job")
 }
@@ -339,6 +345,8 @@ model Job {
   /// Revision del manifiesto que ejecuta el job (todo cambio en un silo nace de una revision aprobada).
   revision       Int?
   hashManifiesto String?   @map("hash_manifiesto")
+  /// Dato fijo del job que no es un manifiesto. ELIMINAR: hash del acta de recepcion (el ejecutor lo compara con bajas/<slug>).
+  referencia     String?
   creadoPor      String    @map("creado_por")
   creadoEn       DateTime  @default(now()) @map("creado_en")
   agenteId       Int?      @map("agente_id")
@@ -468,4 +476,76 @@ model SolicitudModulo {
   @@id([siloSlug, id])
   @@index([estado])
   @@map("solicitudes_modulo")
+}
+
+/// Protocolo de salida de un centro (CONTEXTO.md seccion 8, ERP docs/cumplimiento/baja_centro.md).
+/// Solo metadatos y actas: fechas, huella y conteos del exporte, quien recibe por el centro,
+/// checklist de eliminacion. Nunca el contenido del exporte ni su clave (la conoce solo el ADMIN).
+model Salida {
+  id       Int    @id @default(autoincrement())
+  centroId Int    @map("centro_id")
+  siloSlug String @map("silo_slug")
+
+  /// S1: termino de contrato con fecha de corte.
+  fechaCorte  DateTime     @map("fecha_corte") @db.Date
+  motivo      String
+  desde       EstadoCentro
+  iniciadaPor String       @map("iniciada_por")
+  iniciadaEn  DateTime     @default(now()) @map("iniciada_en")
+
+  /// S3-S4: exporte que genero el ADMIN en su silo (registro_exportaciones): fecha, tamano y huella SHA-256.
+  exporteEn     DateTime? @map("exporte_en")
+  exporteBytes  BigInt?   @map("exporte_bytes")
+  exporteHuella String?   @map("exporte_huella")
+
+  /// S5: acta de recepcion firmada por el centro (quien recibe es la direccion del centro, nunca pacientes).
+  actaRecepcionFirmadaEn DateTime? @map("acta_recepcion_firmada_en")
+  recibeNombre           String?   @map("recibe_nombre")
+  recibeCargo            String?   @map("recibe_cargo")
+  conteoPacientes        Int?      @map("conteo_pacientes")
+  conteoFichas           Int?      @map("conteo_fichas")
+  actaRecepcionHash      String?   @map("acta_recepcion_hash")
+  actaRecepcionPor       String?   @map("acta_recepcion_por")
+
+  /// S6: gracia desde el acta (30 dias salvo otro plazo en el contrato), silo detenido y confirmacion escrita antes de borrar.
+  graciaDias        Int       @default(30) @map("gracia_dias")
+  graciaHasta       DateTime? @map("gracia_hasta")
+  siloDetenidoEn    DateTime? @map("silo_detenido_en")
+  siloDetenidoPor   String?   @map("silo_detenido_por")
+  confirmacionEn    DateTime? @map("confirmacion_en")
+  confirmacionMedio String?   @map("confirmacion_medio")
+  confirmacionRef   String?   @map("confirmacion_ref")
+  confirmacionPor   String?   @map("confirmacion_por")
+
+  /// S7: acta de eliminacion (checklist de baja_centro.md) y su hash.
+  actaEliminacion     Json?     @map("acta_eliminacion")
+  actaEliminacionHash String?   @map("acta_eliminacion_hash")
+  eliminadoEn         DateTime? @map("eliminado_en")
+  eliminadoPor        String?   @map("eliminado_por")
+
+  /// Jobs del ejecutor (opciones B y C): S6 detener, S7 eliminar.
+  detencionJobId   Int? @map("detencion_job_id")
+  eliminacionJobId Int? @map("eliminacion_job_id")
+
+  /// Reversion (baja por error o arrepentimiento antes de eliminar): solicitud escrita del centro,
+  /// job que reanuda el silo si estaba detenido, y acta con hash. La salida queda cerrada como revertida.
+  reversionMotivo      String?   @map("reversion_motivo")
+  reversionSolicitudEn DateTime? @map("reversion_solicitud_en")
+  reversionMedio       String?   @map("reversion_medio")
+  reversionRef         String?   @map("reversion_ref")
+  reversionPedidaPor   String?   @map("reversion_pedida_por")
+  reversionPedidaEn    DateTime? @map("reversion_pedida_en")
+  reversionJobId       Int?      @map("reversion_job_id")
+  actaReversion        Json?     @map("acta_reversion")
+  actaReversionHash    String?   @map("acta_reversion_hash")
+  revertidaEn          DateTime? @map("revertida_en")
+  /// true mientras la salida esta abierta; null al revertirla. Con el unico (centro, abierta),
+  /// a lo mas una salida abierta por centro (los NULL no chocan entre si).
+  abierta              Boolean?  @default(true)
+
+  centro Centro @relation(fields: [centroId], references: [id], onDelete: Cascade)
+
+  @@unique([centroId, abierta])
+  @@index([siloSlug])
+  @@map("salidas")
 }

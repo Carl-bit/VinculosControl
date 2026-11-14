@@ -1,12 +1,14 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { EstadoPaso, Prisma, TipoJob } from '@prisma/client';
+import type { EstadoPaso, Prisma, Salida, TipoJob } from '@prisma/client';
 import { manifiestoSchema, MODULOS_MVP } from '@vinculos/manifest';
 import { hashManifiesto } from '@vinculos/manifest/hash';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
-import { ACTIVOS, BLOQUEO, EJECUTABLES, enVentanaRespaldo, estadoTrasPasos, FINALES_PASO, limpiarLog, pasosAReintentar, puedeCancelar, RESERVA_MS, SOBRE_SILO } from './pasos';
+import { SalidasCierre } from '../salidas/cierre.service';
+import { bloqueosEliminar } from '../salidas/reglas';
+import { ACTIVOS, BLOQUEO, DE_SALIDA, EJECUTABLES, enVentanaRespaldo, estadoTrasPasos, FINALES_PASO, limpiarLog, pasosAReintentar, puedeCancelar, RESERVA_MS, SOBRE_SILO } from './pasos';
 
 const SLUG = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 
@@ -18,9 +20,58 @@ export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly cierre: SalidasCierre,
   ) {}
 
   // ---------- consola ----------
+
+  /**
+   * Jobs de una salida (DETENER_SILO, REANUDAR_SILO, ELIMINAR): los encola
+   * SalidasService. ELIMINAR lleva el hash del acta de recepcion, que el
+   * ejecutor compara con el consentimiento local bajas/<slug>.
+   */
+  async crearDeSalida(tipo: TipoJob, s: Salida, op: OperadorSesion, ip: string | null) {
+    const defs = EJECUTABLES[tipo];
+    if (!defs || !DE_SALIDA.includes(tipo)) throw new UnprocessableEntityException({ mensaje: `${tipo} no nace de una salida` });
+    const activo = await this.prisma.job.findFirst({ where: { OR: [{ centroId: s.centroId }, { siloSlug: s.siloSlug }], estado: { in: [...ACTIVOS] } }, select: { id: true } });
+    if (activo) throw new ConflictException({ mensaje: `Ya hay un job activo para este silo (#${activo.id})` });
+    const job = await this.prisma.job.create({
+      data: {
+        tipo,
+        centroId: s.centroId,
+        siloSlug: s.siloSlug,
+        referencia: tipo === 'ELIMINAR' ? s.actaRecepcionHash : null,
+        creadoPor: op.correo,
+        pasos: { create: defs.map((d, i) => ({ orden: i, codigo: d.codigo, nombre: d.nombre, detalle: d.detalle, ejecutor: d.ejecutor })) },
+      },
+    });
+    await this.auditoria.registrar(op.correo, 'job.creado', `job:${job.id}`, [tipo, s.siloSlug, `salida:${s.id}`, ip].filter(Boolean).join(' · '));
+    await this.correrPasosControl(job.id);
+    return this.detalle(job.id);
+  }
+
+  /** P0 de los jobs de una salida: se lee el estado vivo de la salida abierta (al reintentar tambien). */
+  private async p0Salida(tipo: TipoJob, centroId: number, slug: string, referencia: string | null): Promise<{ ok: boolean; log: string[]; error: string | null }> {
+    const s = await this.prisma.salida.findFirst({ where: { centroId, abierta: true }, include: { centro: { select: { estado: true } } } });
+    const log = [`salida de erp-${slug}`];
+    const no = (error: string) => ({ ok: false, log, error });
+    if (!s) return no('El centro no tiene una salida abierta');
+    log.push(`centro ${s.centro.estado}`);
+    if (tipo === 'DETENER_SILO') {
+      if (s.reversionPedidaEn) return no('Hay una reversion pedida');
+      if (s.centro.estado !== 'EXPORTADO' && !(s.centro.estado === 'GRACIA' && s.siloDetenidoEn)) return no('El silo se detiene con el acta de recepcion registrada (EXPORTADO)');
+    } else if (tipo === 'REANUDAR_SILO') {
+      if (!s.reversionPedidaEn || s.revertidaEn) return no('No hay una reversion pedida');
+      if (s.eliminacionJobId) return no('El silo ya se elimino');
+    } else {
+      const bloqueos = bloqueosEliminar(s, s.centro.estado, new Date());
+      if (bloqueos.length) return no(bloqueos.join('. '));
+      if (!referencia || referencia !== s.actaRecepcionHash) return no('El hash del job no es el del acta de recepcion');
+      log.push(`acta de recepcion ${referencia.slice(0, 12)}`);
+    }
+    const silo = await this.p0Silo(slug);
+    return { ok: silo.ok, log: [...log, ...silo.log.slice(1)], error: silo.error };
+  }
 
   /**
    * Encola un job. P0 corre aqui: si falla, el job no parte.
@@ -30,6 +81,7 @@ export class JobsService {
   async crear(tipo: TipoJob, destino: { centroId?: number; siloSlug?: string }, op: OperadorSesion, ip: string | null) {
     const defs = EJECUTABLES[tipo];
     if (!defs) throw new UnprocessableEntityException({ mensaje: BLOQUEO[tipo] ?? `${tipo} no se puede encolar` });
+    if (DE_SALIDA.includes(tipo)) throw new UnprocessableEntityException({ mensaje: `${tipo} se encola desde Salidas` });
     if (SOBRE_SILO.includes(tipo)) return this.crearSobreSilo(tipo, destino.siloSlug ?? '', op, ip);
     const centroId = destino.centroId;
     if (!centroId) throw new UnprocessableEntityException({ mensaje: `${tipo} necesita un centro` });
@@ -91,7 +143,11 @@ export class JobsService {
     const job = await this.prisma.job.findUniqueOrThrow({ where: { id: jobId }, include: { pasos: { orderBy: { orden: 'asc' } } } });
     for (const p of job.pasos.filter((x) => x.ejecutor === 'control' && x.estado !== 'OK')) {
       await this.prisma.pasoJob.update({ where: { id: p.id }, data: { estado: 'EN_CURSO', inicioEn: new Date(), intentos: { increment: 1 } } });
-      const { ok, log, error } = SOBRE_SILO.includes(job.tipo) ? await this.p0Silo(job.siloSlug!) : await this.p0Manifiesto(job.tipo, job.centroId!, job.revision!, job.hashManifiesto!, job.siloSlug!);
+      const { ok, log, error } = DE_SALIDA.includes(job.tipo)
+        ? await this.p0Salida(job.tipo, job.centroId!, job.siloSlug!, job.referencia)
+        : SOBRE_SILO.includes(job.tipo)
+          ? await this.p0Silo(job.siloSlug!)
+          : await this.p0Manifiesto(job.tipo, job.centroId!, job.revision!, job.hashManifiesto!, job.siloSlug!);
       await this.prisma.pasoJob.update({ where: { id: p.id }, data: { estado: ok ? 'OK' : 'FALLIDO', finEn: new Date(), log, error } });
       if (!ok) {
         await this.prisma.job.update({ where: { id: jobId }, data: { estado: 'FALLIDO', error, terminadoEn: new Date() } });
@@ -227,6 +283,7 @@ export class JobsService {
       slug: job.siloSlug,
       revision: job.revision,
       hashManifiesto: job.hashManifiesto,
+      referencia: job.referencia,
       manifiesto: rev?.contenido ?? null,
       pasos: job.pasos.filter((p) => p.ejecutor === 'agente').map((p) => ({ codigo: p.codigo, estado: p.estado })),
     };
@@ -262,7 +319,13 @@ export class JobsService {
       });
       if (cerrado.count !== 1) return { seguir: false };
       await this.auditoria.registrar(`agente:${agenteId}`, nuevo === 'OK' ? 'job.ok' : 'job.fallido', `job:${jobId}`, nuevo === 'FALLIDO' ? `${codigo}: ${error ?? ''}` : job.siloSlug);
-      if (nuevo === 'OK') await this.cerrarSolicitudes(jobId);
+      if (nuevo === 'OK') {
+        await this.cerrarSolicitudes(jobId);
+        // El job ya quedo OK: un fallo al cerrar el paso de la salida no se le devuelve al agente.
+        await this.cierre.alTerminarJob(job).catch((e: unknown) =>
+          this.auditoria.registrar('control', 'salida.cierre_fallido', `job:${jobId}`, (e instanceof Error ? e.message : String(e)).slice(0, 300)),
+        );
+      }
     }
     return { seguir: nuevo === 'EN_CURSO' };
   }

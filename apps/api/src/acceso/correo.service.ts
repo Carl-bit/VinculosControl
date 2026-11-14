@@ -68,6 +68,41 @@ export class CorreoService {
     ]);
   }
 
+  /**
+   * Copia del acta de eliminacion al responsable de datos del centro (S7).
+   * Solo metadatos: que se borro, cuando, quien y el hash del acta.
+   */
+  async enviarActaEliminacion(para: string, a: { centro: string; silo: string; fecha: string; items: string[]; exporteHuella: string | null; actaRecepcion: string | null; nota: string | null; hash: string }): Promise<void> {
+    await this.enviar(para, `Vinculos: acta de eliminacion de ${a.centro}`, [
+      `Acta de eliminacion de los datos de ${a.centro} (instancia ${a.silo}).`,
+      '',
+      `Eliminado de produccion y respaldos el dia ${a.fecha}.`,
+      '',
+      'Se realizo:',
+      ...a.items.map((i) => `- ${i}`),
+      '',
+      `Exporte entregado (huella SHA-256): ${a.exporteHuella ?? '-'}`,
+      `Acta de recepcion (hash): ${a.actaRecepcion ?? '-'}`,
+      ...(a.nota ? [`Nota: ${a.nota}`] : []),
+      '',
+      `Hash de esta acta: ${a.hash}`,
+      '',
+      'Vinculos actuo como encargado del tratamiento. La conservacion de las fichas (15 anos) queda a cargo del centro con el exporte entregado.',
+    ]);
+  }
+
+  /** Copia del acta de reversion de una salida (el servicio continua). Solo metadatos. */
+  async enviarActaReversion(para: string, a: { centro: string; silo: string; texto: string; fecha: string; hash: string }): Promise<void> {
+    await this.enviar(para, `Vinculos: se revirtio la salida de ${a.centro}`, [
+      `${a.texto}.`,
+      '',
+      `Instancia: ${a.silo}. Fecha: ${a.fecha}.`,
+      'La plataforma sigue disponible con los mismos datos. Si no pediste revertir la salida, responde este correo.',
+      '',
+      `Hash de esta acta: ${a.hash}`,
+    ]);
+  }
+
   /** Prueba de la configuracion de correo (vista Configuracion). */
   async enviarPrueba(para: string): Promise<void> {
     await this.enviar(para, 'vinculos-control: correo de prueba', ['Si lees esto, el correo de la consola funciona.']);

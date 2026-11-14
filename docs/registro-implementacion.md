@@ -289,3 +289,55 @@ estado. Hoy no ocurre (el agente reporta en serie), pero con `aprovisionar` el
 cierre movera el centro de estado. Corregido el mismo dia: el
 cierre es un `updateMany` condicionado a `estado = EN_CURSO` y solo el reporte
 que lo cierra audita y cierra solicitudes. Lo cubre `jobs.int-spec.ts`.
+
+### Salidas, etapa 1 (2026-11-14)
+
+Expediente de la salida de un centro (CONTEXTO.md seccion 8) en la consola:
+modelo `Salida` (migracion aditiva `20261114180000_salidas`), servicio con las
+transiciones EN_SALIDA -> EXPORTADO -> GRACIA -> ELIMINADO (cada una con
+transicion, auditoria e idempotencia), vista Salidas y "Iniciar salida" en el
+silo. Los pasos fisicos siguen el procedimiento manual del ERP
+(`baja_centro.md`); el ejecutor sigue sin verbo de borrado.
+
+Controles: el acta exige que la huella firmada por el centro coincida con la
+del exporte; "silo detenido" se rechaza si el agente vio contenedores
+`running` en los ultimos 5 min, y al aceptarse suelta el silo del monitoreo;
+eliminar exige gracia vencida, confirmacion escrita, checklist completo y el
+slug escrito. Cada acta guarda su hash (JSON canonico).
+
+Pruebas: 8 unitarios y 14 de integracion. Revision visual en una copia
+aislada (Postgres desechable, API 4150, web 3150, sin tocar el stack local) a
+1280, 1536 y 1920 px: sin desborde. Se encontro y corrigio una huella de 64
+caracteres que tapaba su etiqueta en el detalle.
+
+Requisitos nuevos del ERP: R12 (solo lectura) y R13 (exportaciones por
+`/api/internal`), en `docs/requisitos-erp.md`.
+
+### Salidas: ejecutor (B + C), reversion y actas por correo (2026-11-14)
+
+Decisiones del usuario: opciones B (`detener`/`reanudar`, no borran) y C
+(`eliminar` real, acotado) para el ejecutor; poder revertir una salida (baja por
+error o arrepentimiento en la gracia); enviar las actas por correo.
+
+- Ejecutor (`apps/ejecutor/src/ciclo.ts`): `detener`, `reanudar` y `eliminar`.
+  `eliminar` exige el archivo `bajas/<slug>` en el host B (montado en solo
+  lectura) con el hash del acta de recepcion, el mismo hash en la peticion, el
+  silo detenido y fuera de la ventana de respaldo; valida todo antes de borrar
+  y solo borra recursos del proyecto `erp-<slug>` y `respaldos/<slug>/`. Nunca
+  llaves. 11 tests con Docker y disco simulados.
+- Agente: pasos D1-D3 (DETENER_SILO), A1-A2 (REANUDAR_SILO), X1-X3 (ELIMINAR).
+- API: jobs de una salida con P0 propio (lee la salida viva); al terminar OK,
+  `SalidasCierre` pasa a GRACIA, registra la eliminacion o completa la
+  reversion. Un fallo de ese cierre no se devuelve al agente (queda en la
+  auditoria). Rutas de salidas por id; varias salidas por centro con una sola
+  abierta (unico `(centro_id, abierta)`; un indice parcial no lo maneja Prisma).
+  Migracion aditiva `20261114210000_salidas_reversion_y_ejecutor`.
+- Actas de eliminacion y de reversion al responsable de datos del manifiesto
+  (si no hay, al contacto), con hash; si el correo falla se reenvia.
+- Consola: Detener silo / Ya lo detuve a mano, Eliminar silo (muestra el comando
+  del consentimiento con el hash), acta S7 con los items probados por el job ya
+  marcados y la evidencia del ejecutor, Revertir salida, historial de salidas
+  revertidas.
+
+Pruebas: API 74 unitarios y 70 de integracion; agente 13; ejecutor 22. Los
+verbos nuevos no se probaron aun contra Docker real.

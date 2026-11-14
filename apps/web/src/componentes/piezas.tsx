@@ -52,7 +52,7 @@ export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo
         { href: '/consola/auditoria', l: 'Auditoria', d: ICONOS.auditoria },
       ],
     },
-    { l: 'Ciclo de vida', items: [{ href: '/consola/salidas', l: 'Salidas', d: ICONOS.salidas, pronto: true }] },
+    { l: 'Ciclo de vida', items: [{ href: '/consola/salidas', l: 'Salidas', d: ICONOS.salidas }] },
     { l: 'Ajustes', items: [{ href: '/consola/config', l: 'Configuracion', d: ICONOS.config }] },
   ];
   const activo = (href: string) => ruta === href || (href !== '/consola' && ruta.startsWith(`${href}/`));

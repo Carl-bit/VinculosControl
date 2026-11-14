@@ -84,6 +84,7 @@ SOLICITUD -> CONTACTADO -> REUNION -> DATOS_COMPLETOS -> APROBADO
    -> APROVISIONANDO -> ACTIVO <-> SUSPENDIDO
    -> EN_SALIDA -> EXPORTADO -> GRACIA -> ELIMINADO
    (DESCARTADO desde cualquier estado previo a APROBADO)
+   (EN_SALIDA, EXPORTADO o GRACIA -> estado previo: reversion de la salida, hasta antes de eliminar)
 ```
 
 | Estado | Que significa | Quien lo mueve |
@@ -316,9 +317,11 @@ Marco: el centro es el **responsable** de los datos y Vinculos es el **encargado
 | S3 Exportar | El ADMIN del centro, en Configuracion > Exportar datos, elige una clave de 16+ caracteres y pulsa "Preparar ahora (urgente)". Job dentro del silo: todas las tablas salvo llaves, sesiones, tokens, codigos e intentos de login, con columnas cifradas ya legibles (JSON por tabla) + un PDF por ficha. Huella SHA-256 en `registro_exportaciones` | Paquete generado; la consola registra fecha, tamano y huella |
 | S4 Cifrar y entregar | Archivo `exportacion-centro-AAAA-MM-DD.vxp`, AES-256-GCM con clave derivada (scrypt) de la clave del ADMIN, que Vinculos no conoce ni guarda. Disponible 24 h, se borra al descargar. Vinculos entrega `descifrar.mjs` para abrirlo | Descarga registrada en el silo |
 | S5 Verificar | El centro descifra, revisa los conteos del `indice.json` y firma el acta de recepcion (huella, conteo de pacientes y fichas, quien recibe) | Acta en la consola |
-| S6 Gracia | Silo apagado y base conservada **30 dias** desde el acta (salvo otro plazo en el contrato), con confirmacion escrita antes de borrar | Estado GRACIA |
-| S7 Eliminar | `down`, borrar volumenes, `respaldos/<slug>/` en el host y en el bucket (incluidas versiones), `shred -u` de `infra/secrets/<slug>/`, aviso a los custodios para destruir su parte, quitar ruta del tunel/DNS y lineas `# vinculos:<slug>` del crontab (`docs/cumplimiento/baja_centro.md` del ERP) | Acta de eliminacion: "eliminado de produccion y respaldos el dia X" |
+| S6 Gracia | Silo apagado (job DETENER_SILO del ejecutor: para los contenedores sin borrar nada; o a mano con confirmacion) y base conservada **30 dias** desde el acta (salvo otro plazo en el contrato), con confirmacion escrita antes de borrar | Estado GRACIA |
+| S7 Eliminar | Job ELIMINAR del ejecutor (contenedores, volumenes, redes y `respaldos/<slug>/` del host; exige el archivo `bajas/<slug>` en el host B con el hash del acta de recepcion) y a mano el resto: `down`, borrar volumenes, `respaldos/<slug>/` en el host y en el bucket (incluidas versiones), `shred -u` de `infra/secrets/<slug>/`, aviso a los custodios para destruir su parte, quitar ruta del tunel/DNS y lineas `# vinculos:<slug>` del crontab (`docs/cumplimiento/baja_centro.md` del ERP) | Acta de eliminacion: "eliminado de produccion y respaldos el dia X" |
 | S8 Cierre | En el plano de control solo quedan metadatos (fechas, actas, hashes del paquete), nunca contenido | Estado ELIMINADO |
+
+**Reversion** (decidida 2026-11-14): si el centro se dio de baja por error o se arrepiente antes de eliminar, con su solicitud escrita la salida se revierte. Desde EN_SALIDA o EXPORTADO vuelve al estado previo en el acto; desde GRACIA, el job REANUDAR_SILO arranca el silo detenido y al quedar sano vuelve. Queda un acta de reversion (hash) con copia por correo, y la salida como historial. Despues de que el job ELIMINAR empieza a borrar, o del acta S7, no hay vuelta. Las actas de eliminacion y de reversion se envian al responsable de datos del manifiesto.
 
 El proveedor nunca abre el contenido del exporte: el job lo genera dentro del silo y solo el ADMIN conoce la clave. El exporte incluye las notas clinicas porque es la entrega legal de las fichas al Responsable: debe pedirlo quien responde por ellas (direccion del centro). El formato canonico (seccion 4) seria un adaptador de salida posterior.
 

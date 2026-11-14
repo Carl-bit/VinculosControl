@@ -5,13 +5,14 @@
  */
 import { request } from 'node:http';
 
+import type { DockerCiclo, RedProyecto, Volumen } from './ciclo';
 import type { Contenedor, Docker, Red } from './verbos';
 
 const ID = /^[0-9a-f]{12,64}$/;
 
 const SOCKET = process.env.DOCKER_SOCKET ?? '/var/run/docker.sock';
 
-function llamar(metodo: 'GET' | 'POST', ruta: string, timeoutMs = 60_000, json?: unknown): Promise<{ status: number; cuerpo: string }> {
+function llamar(metodo: 'GET' | 'POST' | 'DELETE', ruta: string, timeoutMs = 60_000, json?: unknown): Promise<{ status: number; cuerpo: string }> {
   return new Promise((ok, falla) => {
     const enviar = json === undefined ? undefined : JSON.stringify(json);
     const headers = enviar ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(enviar) } : undefined;
@@ -76,5 +77,54 @@ export const docker: Docker = {
     if (!ID.test(redId) || !ID.test(contenedorId)) throw new Error('id invalido');
     const r = await llamar('POST', `/networks/${redId}/disconnect`, 30_000, { Container: contenedorId, Force: false });
     if (r.status !== 200) throw new Error(`docker desconectar: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+};
+
+const PROYECTO = /^erp-[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
+const NOMBRE_VOLUMEN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$/;
+const filtroProyecto = (p: string) => {
+  if (!PROYECTO.test(p)) throw new Error('proyecto invalido');
+  return encodeURIComponent(JSON.stringify({ label: [`com.docker.compose.project=${p}`] }));
+};
+const esId = (id: string) => {
+  if (!ID.test(id)) throw new Error('id invalido');
+  return id;
+};
+
+/** Ciclo de vida (detener, reanudar, eliminar): ver ciclo.ts. 304 = ya estaba en ese estado. */
+export const dockerCiclo: DockerCiclo = {
+  listar: (p) => docker.listar(p),
+  salud: (id) => docker.salud(id),
+  async detener(id, timeoutS) {
+    const r = await llamar('POST', `/containers/${esId(id)}/stop?t=${timeoutS}`, (timeoutS + 30) * 1000);
+    if (r.status !== 204 && r.status !== 304) throw new Error(`docker detener: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+  async arrancar(id) {
+    const r = await llamar('POST', `/containers/${esId(id)}/start`);
+    if (r.status !== 204 && r.status !== 304) throw new Error(`docker arrancar: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+  async borrarContenedor(id) {
+    // v=false: los volumenes con nombre se borran aparte, uno por uno y validados.
+    const r = await llamar('DELETE', `/containers/${esId(id)}?v=false&force=false`);
+    if (r.status !== 204 && r.status !== 404) throw new Error(`docker borrar contenedor: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+  async volumenes(p) {
+    const r = await llamar('GET', `/volumes?filters=${filtroProyecto(p)}`);
+    if (r.status !== 200) throw new Error(`docker volumenes: ${r.status}`);
+    return ((JSON.parse(r.cuerpo) as { Volumes: Volumen[] | null }).Volumes ?? []).map((v) => ({ Name: v.Name, Labels: v.Labels ?? {} }));
+  },
+  async borrarVolumen(nombre) {
+    if (!NOMBRE_VOLUMEN.test(nombre)) throw new Error('nombre de volumen invalido');
+    const r = await llamar('DELETE', `/volumes/${encodeURIComponent(nombre)}`);
+    if (r.status !== 204 && r.status !== 404) throw new Error(`docker borrar volumen: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+  async redes(p) {
+    const r = await llamar('GET', `/networks?filters=${filtroProyecto(p)}`);
+    if (r.status !== 200) throw new Error(`docker redes: ${r.status}`);
+    return (JSON.parse(r.cuerpo) as RedProyecto[]).map((x) => ({ Id: x.Id, Name: x.Name, Labels: x.Labels ?? {} }));
+  },
+  async borrarRed(id) {
+    const r = await llamar('DELETE', `/networks/${esId(id)}`);
+    if (r.status !== 204 && r.status !== 404) throw new Error(`docker borrar red: ${r.status} ${r.cuerpo.slice(0, 200)}`);
   },
 };

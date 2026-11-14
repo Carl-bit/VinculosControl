@@ -26,10 +26,15 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('OK')).toBe(false);
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
-  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO y RECONFIGURAR (R4), todos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR']);
+  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4) y los de la salida, todos con P0 en el plano de control', () => {
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR']);
     expect(EJECUTABLES.RECONFIGURAR?.map((p) => p.codigo)).toEqual(['P0', 'C1', 'C2']);
+    expect(EJECUTABLES.ELIMINAR?.map((p) => p.codigo)).toEqual(['P0', 'X1', 'X2', 'X3']);
     for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: 'P0', ejecutor: 'control' });
+  });
+  it('el agente despacha por codigo: un codigo de paso del agente no se repite entre tipos', () => {
+    const codigos = Object.values(EJECUTABLES).flatMap((d) => d!.filter((p) => p.ejecutor === 'agente').map((p) => p.codigo));
+    expect(new Set(codigos).size).toBe(codigos.length);
   });
   it('ventana de respaldo: 01:45 a 02:30 en Chile', () => {
     expect(enVentanaRespaldo(new Date('2026-11-12T05:00:00Z'))).toBe(true); // 02:00 Chile

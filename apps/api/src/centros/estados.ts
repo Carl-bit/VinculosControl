@@ -10,6 +10,9 @@ import type { EstadoCentro } from '@prisma/client';
 
 export const ANTES_DE_APROBADO: readonly EstadoCentro[] = ['SOLICITUD', 'CONTACTADO', 'REUNION', 'DATOS_COMPLETOS'];
 
+/** Estados desde los que se inicia una salida: a ellos vuelve una salida revertida. */
+const ANTES_DE_LA_SALIDA: EstadoCentro[] = ['ACTIVO', 'ACTIVO_SIN_DOMINIO', 'SUSPENDIDO'];
+
 export const TRANSICIONES: Record<EstadoCentro, readonly EstadoCentro[]> = {
   SOLICITUD: ['CONTACTADO', 'DESCARTADO'],
   CONTACTADO: ['REUNION', 'DESCARTADO'],
@@ -20,9 +23,10 @@ export const TRANSICIONES: Record<EstadoCentro, readonly EstadoCentro[]> = {
   ACTIVO_SIN_DOMINIO: ['ACTIVO', 'SUSPENDIDO', 'EN_SALIDA'],
   ACTIVO: ['ACTIVO_SIN_DOMINIO', 'SUSPENDIDO', 'EN_SALIDA'],
   SUSPENDIDO: ['ACTIVO', 'EN_SALIDA'],
-  EN_SALIDA: ['EXPORTADO'],
-  EXPORTADO: ['GRACIA'],
-  GRACIA: ['ELIMINADO'],
+  // Reversion de una salida (decidida 2026-11-14): vuelve al estado previo (Salida.desde) hasta antes de eliminar.
+  EN_SALIDA: ['EXPORTADO', ...ANTES_DE_LA_SALIDA],
+  EXPORTADO: ['GRACIA', ...ANTES_DE_LA_SALIDA],
+  GRACIA: ['ELIMINADO', ...ANTES_DE_LA_SALIDA],
   ELIMINADO: [],
   DESCARTADO: [],
 };

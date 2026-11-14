@@ -224,3 +224,18 @@ centro esta en sus contenedores, red, base, volumenes y secretos.
 Esta disenado (boceto del landing) pero no implementado en
 `frontend/src/app/temas/`. Hasta entonces el manifiesto aprueba solo moderno y
 cuaderno.
+
+## R12 y R13. Salida de un centro (S2 y S3)
+
+Hoy la salida se registra a mano en la consola (Salidas, 2026-11-14). Para
+automatizar sin datos personales:
+
+- R12 `POST /api/internal/salida` `{ soloLectura: true, fechaCorte }`: el silo
+  pasa a solo lectura (sin reservas, pagos ni cambios; lectura y exporte
+  siguen). Funcion SECURITY DEFINER, idempotente, auditada en el silo. El
+  centro avisa a sus pacientes (S2).
+- R13 `GET /api/internal/exportaciones`: lista corta de `registro_exportaciones`
+  (id, estado, creada, tamano, huella SHA-256), sin contenido ni clave. El
+  agente la reporta: la consola deja de pedir la huella a mano y el job
+  `actualizar` se bloquea con un exporte EN_CURSO (`ERP_REGLAS_Y_DESPLIEGUE.md`).
+- Comun: token por silo, red de borde, sin contexto de usuario.

@@ -16,12 +16,15 @@ import { CentrosService } from '../../src/centros/centros.service';
 import { Fase2Service } from '../../src/centros/fase2.service';
 import { PrismaService } from '../../src/comun/prisma.service';
 import { JobsService } from '../../src/jobs/jobs.service';
+import { SalidasCierre } from '../../src/salidas/cierre.service';
+import { SalidasService } from '../../src/salidas/salidas.service';
 import { SolicitudesService } from '../../src/solicitudes/solicitudes.service';
 
 export interface Enviado {
   para: string;
-  tipo: 'codigo' | 'fase2' | 'aviso' | 'prueba';
+  tipo: 'codigo' | 'fase2' | 'aviso' | 'prueba' | 'acta' | 'acta_reversion';
   codigo?: string;
+  hash?: string;
 }
 
 /** Reemplaza CorreoService: guarda lo enviado; `fallar` simula un SMTP caido. */
@@ -42,6 +45,12 @@ export class CorreoFalso {
   avisarSolicitud(para: string) {
     return this.registrar({ para, tipo: 'aviso' });
   }
+  enviarActaEliminacion(para: string, a: { hash: string }) {
+    return this.registrar({ para, tipo: 'acta', hash: a.hash });
+  }
+  enviarActaReversion(para: string, a: { hash: string }) {
+    return this.registrar({ para, tipo: 'acta_reversion', hash: a.hash });
+  }
   enviarPrueba(para: string) {
     return this.registrar({ para, tipo: 'prueba' });
   }
@@ -59,13 +68,14 @@ export interface Entorno {
   centros: CentrosService;
   jobs: JobsService;
   solicitudes: SolicitudesService;
+  salidas: SalidasService;
   cerrar: () => Promise<void>;
 }
 
 export async function crearEntorno(): Promise<Entorno> {
   const correo = new CorreoFalso();
   const mod = await Test.createTestingModule({
-    providers: [PrismaService, AuditoriaService, AccesoService, Fase2Service, CentrosService, JobsService, SolicitudesService, { provide: CorreoService, useValue: correo }],
+    providers: [PrismaService, AuditoriaService, AccesoService, Fase2Service, CentrosService, JobsService, SolicitudesService, SalidasService, SalidasCierre, { provide: CorreoService, useValue: correo }],
   }).compile();
   const prisma = mod.get(PrismaService);
   await prisma.$connect();
@@ -76,6 +86,7 @@ export async function crearEntorno(): Promise<Entorno> {
     centros: mod.get(CentrosService),
     jobs: mod.get(JobsService),
     solicitudes: mod.get(SolicitudesService),
+    salidas: mod.get(SalidasService),
     cerrar: () => mod.close(),
   };
 }

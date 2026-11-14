@@ -18,6 +18,7 @@ next-env.d.ts
 # pero el operador trabaja al lado del repo del ERP.
 *.token
 infra/host-b/internos/
+infra/host-b/bajas/
 *.pem
 *.key
 *.p12

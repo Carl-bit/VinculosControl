@@ -22,7 +22,10 @@ describe('maquina de estados del centro', () => {
     expect(puedeTransitar('ACTIVO', 'SUSPENDIDO')).toBe(true);
     expect(puedeTransitar('SUSPENDIDO', 'ACTIVO')).toBe(true);
     expect(puedeTransitar('SUSPENDIDO', 'EN_SALIDA')).toBe(true);
-    expect(puedeTransitar('EN_SALIDA', 'ACTIVO')).toBe(false);
+    // Reversion de una salida: vuelve al estado previo; despues de ELIMINADO no.
+    expect(puedeTransitar('EN_SALIDA', 'ACTIVO')).toBe(true);
+    expect(puedeTransitar('GRACIA', 'SUSPENDIDO')).toBe(true);
+    expect(puedeTransitar('EN_SALIDA', 'APROBADO')).toBe(false);
   });
 
   it('ELIMINADO y DESCARTADO son finales', () => {

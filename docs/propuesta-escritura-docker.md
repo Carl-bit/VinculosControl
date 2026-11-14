@@ -95,3 +95,32 @@ Etapas:
 3. **R1 se mantiene como requisito** (imagen unica por digest para todos los
    centros; el aislamiento por centro esta en contenedores, red, base, volumenes y
    secretos, no en la imagen). Explicacion en `docs/roadmap.md`, requisito R1.
+
+## Decision 2026-11-14: salida con opciones B y C
+
+El usuario aprobo, para la salida de un centro (CONTEXTO.md seccion 8):
+
+- **B. `detener` y `reanudar`** (`apps/ejecutor/src/ciclo.ts`): `detener` para
+  frontend, backend y db de `erp-<slug>` (suelta antes la red de borde); no
+  borra contenedores, volumenes, redes, secretos ni respaldos. `reanudar`
+  arranca db, espera que este sana y arranca backend y frontend (une el borde).
+  Jobs DETENER_SILO (S6) y REANUDAR_SILO (reversion en gracia).
+- **C. `eliminar`**: el unico verbo que destruye. Para que sea real y no un
+  checklist, pero acotado:
+  - consentimiento local en el host B: el operador crea a mano
+    `infra/host-b/bajas/<slug>` con el hash del acta de recepcion de esa salida;
+    el ejecutor lo monta en solo lectura. Un plano de control o un agente
+    comprometidos no pueden borrar un silo sin ese archivo;
+  - la peticion trae el mismo hash (lo pone el plano de control desde el acta);
+  - el silo debe estar detenido y fuera de la ventana de respaldo;
+  - verifica todas las precondiciones antes de borrar lo primero;
+  - borra solo recursos con la label `com.docker.compose.project=erp-<slug>` y
+    el prefijo `erp-<slug>` (contenedores, volumenes, redes) y la carpeta
+    `respaldos/<slug>/` (rechaza enlaces simbolicos);
+  - no toca `infra/secrets/<slug>/` (llaves: shred manual), el bucket externo,
+    el DNS, el tunel ni el crontab;
+  - devuelve el log de lo borrado: queda en el paso X2 del job y en el acta S7.
+  Job ELIMINAR (P0 en el plano de control: GRACIA vencida, confirmacion escrita,
+  silo detenido, sin reversion, hash del acta).
+- El verbo `reconstruir_demo` (R10, opcion A) sigue siendo la otra excepcion,
+  acotada a los demos.
