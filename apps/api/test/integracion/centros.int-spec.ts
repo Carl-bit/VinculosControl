@@ -44,7 +44,7 @@ describe('centros: solicitud de fase 1', () => {
     expect(c.revisiones).toHaveLength(1);
     expect(c.revisiones[0]).toMatchObject({ numero: 1, fase: 1, autor: 'centro:fase1' });
     expect(c.revisiones[0].hash).toBe(hashManifiesto(c.revisiones[0].contenido));
-    expect(c.transiciones).toMatchObject([{ desde: null, hacia: 'SOLICITUD', actor: 'sitio' }]);
+    expect(c.transiciones).toMatchObject([{ desde: null, hacia: 'SOLICITUD', actor: 'landing' }]);
     expect(await contarAuditoria(e.prisma, 'centro.solicitud')).toBe(1);
     expect(e.correo.enviados).toEqual([{ para: op.correo, tipo: 'aviso' }]);
   });

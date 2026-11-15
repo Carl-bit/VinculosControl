@@ -335,6 +335,9 @@ export function mensajeDe(d: { mensaje?: string | string[]; message?: string | s
 
 export const mib = (b: number) => `${Math.round(b / 1024 / 1024)}`;
 export const gib = (b: number) => (b / 1024 ** 3).toFixed(1);
+/** Tamano de un archivo con la unidad que le queda (un exporte de 2 MiB no es "0.0 GiB"). */
+export const tamano = (b: number) =>
+  b >= 1024 ** 3 ? `${gib(b)} GiB` : b >= 1024 ** 2 ? `${(b / 1024 ** 2).toFixed(1)} MiB` : b >= 1024 ? `${Math.round(b / 1024)} KiB` : `${b} B`;
 
 /** "hace 12 s", "hace 3 min", "hace 2 h". */
 export function hace(iso: string | null | undefined): string {

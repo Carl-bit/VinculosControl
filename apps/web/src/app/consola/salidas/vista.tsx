@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CampoFechaHora, CampoNumero, Selector } from '@/componentes/controles';
 import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
 import { claseJob, Shell } from '@/componentes/piezas';
-import { enviarConSesion, gib, mensajeDe, useDatos, type DetalleSalida, type FilaSalida, type Resumen } from '@/lib/api';
+import { enviarConSesion, mensajeDe, tamano, useDatos, type DetalleSalida, type FilaSalida, type Resumen } from '@/lib/api';
 
 /*
  * Salidas (CONTEXTO.md seccion 8; ERP docs/cumplimiento/baja_centro.md).
@@ -597,7 +597,7 @@ function DetalleSalidaVista({ id, alCambiar }: { id: number; alCambiar: () => Pr
           <h2>Acta de recepcion</h2>
           <ul className="hitos">
             <Dato l="Exporte">
-              {fecha(s.exporteEn)} · {s.exporteBytes ? `${gib(s.exporteBytes)} GiB` : '-'}
+              {fecha(s.exporteEn)} · {s.exporteBytes ? tamano(s.exporteBytes) : '-'}
             </Dato>
             <Dato l="Huella del exporte">{s.exporteHuella}</Dato>
             <Dato l="Firmada">

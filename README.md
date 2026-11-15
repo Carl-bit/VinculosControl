@@ -8,7 +8,7 @@ silos y de cada silo. Manifiestos, jobs y landing vienen despues.
 |---|---|---|
 | `apps/api` | Host A | NestJS + Prisma (Postgres `control`). Recibe al agente, sondea `/api/salud` de cada silo adoptado, abre y cierra alertas |
 | `apps/web` | Host A | Consola (estilo Terminal). Solo en `127.0.0.1`; desde afuera, Cloudflare Access |
-| `apps/sitio` | Host A (publico) | Formulario de solicitud (fase 1) y, mas adelante, el landing. App y puerto propios; solo llega a `/publico/*` de la API |
+| `apps/landing` | Host A (publico) | Unico sitio publico: landing para vender, solicitud de fase 1 (tambien por el enlace que comparte el operador) y enlace privado de fase 2. App, puerto y red propios; solo llega a `/landing/*` de la API |
 | `packages/manifest` | Compartido | Schema del manifiesto, modulos y dependencias (zod) |
 | `apps/agente` | Host B | Descubre los stacks `erp-<slug>`, reporta contenedores, host, p95 y respaldos. Solo numeros y booleanos |
 
@@ -39,7 +39,7 @@ docker exec vinculos-control-api-1 node dist/cli/crear-agente.js host-b   # toke
 docker exec vinculos-control-api-1 node dist/cli/crear-operador.js tu@correo.cl "Tu nombre"   # contrasena: se muestra una vez
 ```
 
-- Sitio publico (formulario de solicitud, app separada de la consola): http://127.0.0.1:3200
+- Landing publica (solicitud y enlace de fase 2, app separada de la consola): http://127.0.0.1:3300
 - Consola: http://127.0.0.1:3100 (login en dos pasos: contrasena + codigo de 6 digitos por correo)
 - Correo local (Mailpit, donde llegan los codigos): http://127.0.0.1:8026. En produccion, SES por SMTP
   (`SMTP_*` y `SES_CONFIGURATION_SET` en `infra/host-a/.env`).
@@ -85,8 +85,8 @@ docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env u
 pnpm api dev          # apps/api/.env (ver .env.example; SMTP_HOST=127.0.0.1, SMTP_PUERTO=1026)
 pnpm api operador:crear tu@correo.cl "Tu nombre"
 pnpm web dev          # consola en :3100. apps/web/.env.local: API_URL y el mismo CONSOLA_SECRETO
-pnpm manifest build   # paquete compartido (lo usan la API y el sitio); repetir si cambia
-pnpm sitio dev        # sitio publico en :3200. apps/sitio/.env.local: API_URL y el mismo SITIO_SECRETO
+pnpm manifest build   # paquete compartido (lo usan la API y la landing); repetir si cambia
+pnpm landing dev      # landing en :3300. apps/landing/.env.local: API_URL y el mismo LANDING_SECRETO
 pnpm test             # reglas de alerta (jest) y agente (node:test)
 ```
 

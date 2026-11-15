@@ -18,7 +18,7 @@ Ultima revision: 2026-11-13 (corrida completa en un PC que ya tenia el ERP). Si 
 | BD `control` | Control | Docker (host A) | `127.0.0.1:5440` |
 | API del plano de control | Control | Docker (host A) | http://127.0.0.1:4000 |
 | Consola del operador | Control | Docker (host A) | http://127.0.0.1:3100 |
-| Sitio publico (formulario; landing en fase 6) | Control | Docker (host A) | http://127.0.0.1:3200 |
+| Landing publica (solicitud y enlace de fase 2) | Control | Docker (host A) | http://127.0.0.1:3300 |
 | Mailpit de la consola (codigo del login) | Control | Docker (host A) | http://127.0.0.1:8026 (SMTP 1026) |
 | Agente, ejecutor y socket-proxy | Control | Docker (host B, mismo PC en pruebas) | sin puertos |
 
@@ -38,7 +38,7 @@ opcionales en local: seccion 8.
 - PostgreSQL 18 (solo las herramientas: `initdb`, `pg_ctl`, `psql` en el PATH)
   para los tests de BD y e2e del ERP. Si se instala el servicio de Windows,
   detenerlo: el 5432 lo usa la BD de desarrollo en Docker.
-- Puertos libres: 3000, 3001, 3100, 3200, 4000, 5432, 5440, 1025, 1026, 8025, 8026.
+- Puertos libres: 3000, 3001, 3100, 3300, 4000, 5432, 5440, 1025, 1026, 8025, 8026.
 
 ## 2. Clonar
 
@@ -116,7 +116,7 @@ El slug de la BD de desarrollo es el `CLIENTE_SLUG` de `infra/.env`
 ```sh
 cd "Vinculos Control"
 pnpm install
-cp infra/host-a/.env.example infra/host-a/.env   # CONTROL_DB_PASSWORD, CONSOLA_SECRETO y SITIO_SECRETO largos y distintos
+cp infra/host-a/.env.example infra/host-a/.env   # CONTROL_DB_PASSWORD, CONSOLA_SECRETO y LANDING_SECRETO largos y distintos
 docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env up -d --build
 docker exec vinculos-control-api-1 node dist/cli/crear-operador.js tu@correo.cl "Tu nombre"   # contrasena: se muestra UNA vez
 docker exec vinculos-control-api-1 node dist/cli/crear-agente.js host-b                       # token del agente: UNA vez
@@ -289,10 +289,11 @@ cd ../frontend && npx vitest run && npx tsc --noEmit
   (mismo correo: rota la contrasena, quita el bloqueo y cierra sus sesiones).
   5 intentos fallidos bloquean la cuenta 15 minutos. En un PC nuevo la BD
   `control` parte vacia: crear el operador de nuevo.
-- **`http://127.0.0.1:3200` abre /solicitud.** Es provisorio: el landing por
-  bloques es la fase 6 del roadmap y aun no existe; hasta entonces la raiz del
-  sitio redirige al formulario. `/solicitud` se mantiene como enlace directo
-  para compartir.
+- **Ya no existe `http://127.0.0.1:3200`.** Desde 2026-11-15 el formulario
+  compartido y el enlace de fase 2 viven en la landing (`http://127.0.0.1:3300`):
+  el boton "Compartir solicitud" de la consola entrega `/solicitud` (formulario
+  aparte, el centro elige sus modulos) y el correo de fase 2 lleva
+  `/manifiesto/<token>`.
 - **El agente dice "no resuelve: el agente no esta en erp-<slug>_borde".**
   Con silos completos falta `conectar_borde` (seccion 8). En desarrollo, falta
   `SILO_INTERNO_URL`.

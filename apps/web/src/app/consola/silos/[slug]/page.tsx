@@ -8,7 +8,7 @@ import { CampoFecha } from '@/componentes/controles';
 import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
 import { ChipSalud, claseJob, claseSeveridad, Grafico, Medidor, Shell } from '@/componentes/piezas';
 import { SolicitudesModulo } from '@/componentes/solicitudes-modulo';
-import { enviarConSesion, gib, hace, mensajeDe, mib, useDatos, type DetalleJob, type DetalleSalida, type Detalle, type Incidente, type Resumen } from '@/lib/api';
+import { enviarConSesion, hace, mensajeDe, mib, tamano, useDatos, type DetalleJob, type DetalleSalida, type Detalle, type Incidente, type Resumen } from '@/lib/api';
 
 const COLORES: Record<string, string> = { db: 'var(--info)', backend: 'var(--accent)', frontend: 'var(--warn)' };
 const ORIGENES_SALIDA = ['ACTIVO', 'ACTIVO_SIN_DOMINIO', 'SUSPENDIDO'];
@@ -203,7 +203,7 @@ export default function Silo() {
               <div className="v" style={{ fontSize: 16, marginTop: 6 }}>
                 {d.respaldo ? hace(d.respaldo.fecha) : 'sin respaldo'}
               </div>
-              <div className="l">{d.respaldo ? `${gib(d.respaldo.bytes)} GiB · sha256 ${d.respaldo.sha256?.slice(0, 12) ?? '-'}` : 'instalar.sh no corre'}</div>
+              <div className="l">{d.respaldo ? `${tamano(d.respaldo.bytes)} · sha256 ${d.respaldo.sha256?.slice(0, 12) ?? '-'}` : 'instalar.sh no corre'}</div>
             </div>
           </section>
 

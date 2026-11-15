@@ -284,6 +284,10 @@ td {
 tr:last-child td {
   border-bottom: 0;
 }
+/* Celdas con correos, IPs o hashes sin espacios: se cortan en vez de ensanchar la tabla. */
+.partir {
+  overflow-wrap: anywhere;
+}
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;

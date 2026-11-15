@@ -76,6 +76,16 @@ export class CentrosController {
     return this.fase2.guardarPorOperador(id, cuerpo, op, ip);
   }
 
+  /**
+   * Lo mismo por POST: es lo que manda el editor de la consola, y el proxy de la
+   * web solo reenvia GET y POST (con PUT el guardado daba 404; hallado 2026-11-15).
+   */
+  @Post(':id/manifiesto')
+  @HttpCode(200)
+  manifiestoPost(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
+    return this.fase2.guardarPorOperador(id, cuerpo, op, ip);
+  }
+
   @Post(':id/aprobar')
   @HttpCode(200)
   aprobar(@Param('id', ParseIntPipe) id: number, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {

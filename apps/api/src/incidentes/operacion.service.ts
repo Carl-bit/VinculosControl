@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
@@ -85,10 +86,18 @@ export class OperacionService {
       if (!i.informeFinalEn) throw new UnprocessableEntityException({ mensaje: 'Para cerrar falta el informe final' });
       data.cerradoEn = ahora;
     }
-    await this.prisma.$transaction([
-      this.prisma.incidente.update({ where: { id }, data }),
-      this.prisma.eventoIncidente.create({ data: { incidenteId: id, tipo, texto: texto.trim(), actor: op.correo, en: ahora } }),
-    ]);
+    // Condicionado a lo que se reviso arriba: con dos registros a la vez, solo uno
+    // cambia la fila; el otro no deja evento ni auditoria (hallado 2026-11-15).
+    const condicion: Prisma.IncidenteWhereInput = { id, cerradoEn: null };
+    if (tipo in CAMPO_HITO) condicion[CAMPO_HITO[tipo as keyof typeof CAMPO_HITO]] = null;
+    if (tipo === 'cierre') condicion.informeFinalEn = { not: null };
+    await this.prisma.$transaction(async (tx) => {
+      if (Object.keys(data).length) {
+        const u = await tx.incidente.updateMany({ where: condicion, data });
+        if (u.count !== 1) throw new ConflictException({ mensaje: 'El incidente cambio mientras tanto. Recarga.' });
+      }
+      await tx.eventoIncidente.create({ data: { incidenteId: id, tipo, texto: texto.trim(), actor: op.correo, en: ahora } });
+    });
     await this.auditoria.registrar(op.correo, `incidente.${tipo}`, `incidente:${id}`, texto.slice(0, 200));
     return this.detalleIncidente(id);
   }
@@ -118,7 +127,8 @@ export class OperacionService {
     const s = await this.prisma.solicitudSoporte.findUnique({ where: { id } });
     if (!s) throw new NotFoundException();
     if (s.estado !== 'ABIERTA') throw new UnprocessableEntityException({ mensaje: 'Ya esta cerrada' });
-    await this.prisma.solicitudSoporte.update({ where: { id }, data: { estado: 'CERRADA', resultado: resultado.trim(), cerradaEn: new Date() } });
+    const u = await this.prisma.solicitudSoporte.updateMany({ where: { id, estado: 'ABIERTA' }, data: { estado: 'CERRADA', resultado: resultado.trim(), cerradaEn: new Date() } });
+    if (u.count !== 1) throw new UnprocessableEntityException({ mensaje: 'Ya esta cerrada' });
     await this.auditoria.registrar(op.correo, 'soporte.cerrado', `soporte:${id}`, resultado.slice(0, 200));
   }
 

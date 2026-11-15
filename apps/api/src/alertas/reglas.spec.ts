@@ -56,6 +56,12 @@ describe('evaluar', () => {
     expect(claves(base({ respaldo: { fecha: new Date('2026-11-07T02:00:00Z') } }))).toEqual(['respaldo:estres']);
   });
 
+  it('respaldo reciente pero casi vacio (db detenida al respaldar) es S2', () => {
+    const vacio = evaluar(base({ respaldo: { fecha: new Date('2026-11-08T02:00:00Z'), bytes: BigInt(32) } }));
+    expect(vacio.map((a) => [a.clave, a.severidad])).toEqual([['respaldo_vacio:estres', 'S2']]);
+    expect(claves(base({ respaldo: { fecha: new Date('2026-11-08T02:00:00Z'), bytes: 5_000_000 } }))).toEqual([]);
+  });
+
   it('agente sin latido por mas de 2 min y disco del host', () => {
     expect(claves(base({}, { agente: { nombre: 'host-b', ultimoLatido: new Date(ahora.getTime() - 180_000) } }))).toEqual(['agente:host-b']);
     expect(claves(base({}, { host: { discoPct: 91 } }))).toEqual(['host:disco']);

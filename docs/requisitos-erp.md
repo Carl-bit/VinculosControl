@@ -239,3 +239,35 @@ automatizar sin datos personales:
   agente la reporta: la consola deja de pedir la huella a mano y el job
   `actualizar` se bloquea con un exporte EN_CURSO (`ERP_REGLAS_Y_DESPLIEGUE.md`).
 - Comun: token por silo, red de borde, sin contexto de usuario.
+
+## R14. `respaldar.sh` con la db detenida (hallado 2026-11-15)
+
+Hallado en la prueba de salida de punta a punta (silo en GRACIA, contenedores
+detenidos). En `infra/scripts/continuidad/respaldar.sh`:
+
+- `docker compose ... exec -T db pg_dump ... | openssl enc ...`: con la db
+  detenida, `exec` falla, pero `set -eu` en `sh` solo mira el ultimo comando
+  del pipe (`openssl`), que cifra la entrada vacia y sale con 0.
+- El archivo queda de 32 bytes (cabecera `Salted__` + bloque de relleno) y pasa
+  el chequeo `[ -s "$SALIDA" ]`. Probado: `false | openssl enc -aes-256-cbc
+  -pbkdf2 ...` deja 32 bytes y estado 0.
+- Consecuencias: cada noche de la gracia (30 dias) queda un respaldo vacio con
+  su `.sha256`, se sube al destino externo y `find -mtime +7 -delete` borra los
+  respaldos reales del host a los 7 dias. Si la salida se revierte despues, en
+  el host solo quedan respaldos vacios. Lo mismo pasa si la db de un silo
+  activo esta caida a las 02:00.
+
+Pedido al ERP (cualquiera sirve, mejor ambos):
+
+1. Comprobar `pg_dump` antes de cifrar: volcar a un archivo temporal dentro
+   del `umask 077` y cifrarlo solo si `exec` salio con 0 (o `set -o pipefail`
+   si el script pasa a bash), y exigir un tamano minimo razonable.
+2. No respaldar un silo detenido: si `docker compose ps --status running db`
+   no lo trae, salir con un mensaje claro y codigo distinto de cero, sin crear
+   archivo ni rotar.
+3. Opcional: que `instalar.sh` tenga `pausar`/`reanudar` de las lineas
+   `# vinculos:<slug>` para la gracia (hoy la baja las quita a mano).
+
+En el plano de control (hecho 2026-11-15): la regla de alertas abre S2
+`respaldo_vacio:<slug>` si el ultimo respaldo pesa menos de 1 KiB, para que
+un respaldo vacio de un silo activo no pase por bueno.

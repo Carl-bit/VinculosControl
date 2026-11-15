@@ -1,10 +1,10 @@
 /*
- * Sitio publico de Vinculos. Tokens del sistema de diseno del ERP, estilo
- * "Moderno A" (SW Proyecto/frontend/src/app/globals.css, data-tema="moderno").
- * Los componentes usan solo estas variables: ningun color escrito a mano.
+ * Datos formales de fase 2 (enlace privado del centro), traido de apps/sitio al
+ * juntar el sitio con la landing (2026-11-15). Estilo "Moderno A" del ERP con
+ * sus tokens acotados a .f2-pagina; clases con prefijo f2- para no chocar con
+ * las de la landing.
  */
-:root,
-[data-tema='moderno'] {
+.f2-pagina {
   --tinta: #2b2420;
   --tinta-suave: #5f574b;
   --arcilla: #8a4b1f;
@@ -21,37 +21,11 @@
   --radio-tarjeta: 16px;
   --radio-panel: 24px;
   --sombra-suave: 0 14px 40px rgb(43 36 32 / 0.1);
-  --fuente: var(--font-figtree), system-ui, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-html,
-body {
-  margin: 0;
-  background: var(--lienzo);
-  color: var(--tinta);
+  --fuente: var(--f-figtree), system-ui, sans-serif;
   font-family: var(--fuente);
-  font-size: 16px;
-  line-height: 1.55;
+  color: var(--tinta);
 }
-a {
-  color: var(--arcilla);
-}
-:focus-visible {
-  outline: 3px solid var(--arcilla);
-  outline-offset: 2px;
-}
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-.pagina {
+.f2-pagina {
   max-width: 880px;
   margin: 0 auto;
   padding: 32px 16px 64px;
@@ -59,26 +33,26 @@ textarea {
   flex-direction: column;
   gap: 24px;
 }
-.marca {
+.f2-marca {
   font-weight: 800;
   font-size: 20px;
   letter-spacing: -0.01em;
 }
-.marca span {
+.f2-marca span {
   color: var(--arcilla);
 }
-.titulo {
+.f2-titulo {
   margin: 0;
   font-size: clamp(28px, 5vw, 40px);
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
-.bajada {
+.f2-bajada {
   margin: 0;
   color: var(--tinta-suave);
   max-width: 60ch;
 }
-.panel {
+.f2-panel {
   background: var(--papel);
   border: 1px solid var(--borde);
   border-radius: var(--radio-panel);
@@ -86,16 +60,16 @@ textarea {
   padding: 28px;
 }
 @media (max-width: 600px) {
-  .panel {
+  .f2-panel {
     padding: 20px 16px;
   }
 }
-.formulario {
+.f2-formulario {
   display: flex;
   flex-direction: column;
   gap: 28px;
 }
-fieldset {
+.f2-pagina fieldset {
   border: 0;
   margin: 0;
   padding: 0;
@@ -103,36 +77,36 @@ fieldset {
   flex-direction: column;
   gap: 14px;
 }
-legend {
+.f2-pagina legend {
   font-weight: 700;
   font-size: 18px;
   margin-bottom: 4px;
   padding: 0;
 }
-.ayuda {
+.f2-ayuda {
   color: var(--tinta-suave);
   font-size: 14px;
   margin: -6px 0 0;
 }
-.fila {
+.f2-fila {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
-.campo {
+.f2-campo {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
   font-size: 14px;
 }
-.campo .opcional {
+.f2-campo .f2-opcional {
   font-weight: 400;
   color: var(--tinta-suave);
 }
-.campo input,
-.campo select,
-.campo textarea {
+.f2-campo input,
+.f2-campo select,
+.f2-campo textarea {
   min-height: 48px;
   padding: 10px 14px;
   border-radius: var(--radio-campo);
@@ -141,19 +115,19 @@ legend {
   font-weight: 400;
   font-size: 16px;
 }
-.campo textarea {
+.f2-campo textarea {
   min-height: 96px;
   resize: vertical;
 }
-.campo [aria-invalid='true'] {
+.f2-campo [aria-invalid='true'] {
   border-color: var(--error);
 }
-.opciones {
+.f2-opciones {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
-.opcion {
+.f2-opcion {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -165,23 +139,23 @@ legend {
   cursor: pointer;
   font-size: 15px;
 }
-.opcion:has(input:checked) {
+.f2-opcion:has(input:checked) {
   border-color: var(--arcilla);
   background: var(--arcilla-clara);
   color: var(--arcilla);
   font-weight: 600;
 }
-.opcion input {
+.f2-opcion input {
   accent-color: var(--arcilla);
 }
 
 /* Bloques de modulos: activos, requeridos por otro (agregados solos) y libres. */
-.bloques {
+.f2-bloques {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 12px;
 }
-.bloque {
+.f2-bloque {
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -193,30 +167,30 @@ legend {
   cursor: pointer;
   min-height: 44px;
 }
-.bloque b {
+.f2-bloque b {
   font-size: 16px;
 }
-.bloque small {
+.f2-bloque small {
   color: var(--tinta-suave);
   font-size: 13px;
 }
-.bloque[aria-pressed='true'] {
+.f2-bloque[aria-pressed='true'] {
   border-color: var(--arcilla);
   background: var(--arcilla-clara);
 }
-.bloque[data-requerido='true'] {
+.f2-bloque[data-requerido='true'] {
   border-style: dashed;
   border-color: var(--oliva);
   background: var(--oliva-clara);
 }
-.trampa {
+.f2-trampa {
   position: absolute;
   left: -10000px;
   width: 1px;
   height: 1px;
   overflow: hidden;
 }
-.aviso {
+.f2-aviso {
   margin: 0;
   padding: 12px 16px;
   border-radius: var(--radio-campo);
@@ -224,7 +198,7 @@ legend {
   color: var(--error);
   font-weight: 600;
 }
-.enviar {
+.f2-enviar {
   align-self: flex-start;
   min-height: 52px;
   padding: 0 28px;
@@ -236,30 +210,30 @@ legend {
   font-size: 16px;
   cursor: pointer;
 }
-.enviar:disabled {
+.f2-enviar:disabled {
   opacity: 0.6;
   cursor: progress;
 }
-.nota {
+.f2-nota {
   color: var(--tinta-suave);
   font-size: 14px;
   margin: 0;
 }
-.exito {
+.f2-exito {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.exito h2 {
+.f2-exito h2 {
   margin: 0;
   font-size: 26px;
 }
 
 /* Selector propio (selector.tsx): nunca el popup nativo de <select>. */
-.selector {
+.f2-selector {
   position: relative;
 }
-.selector-boton {
+.f2-selector-boton {
   width: 100%;
   min-height: 48px;
   padding: 10px 14px;
@@ -274,23 +248,23 @@ legend {
   text-align: left;
   cursor: pointer;
 }
-.selector-boton > span:first-child {
+.f2-selector-boton > span:first-child {
   flex: 1;
 }
-.selector-boton[aria-invalid='true'] {
+.f2-selector-boton[aria-invalid='true'] {
   border-color: var(--error);
 }
-.selector-boton[aria-expanded='true'] {
+.f2-selector-boton[aria-expanded='true'] {
   border-color: var(--arcilla);
 }
-.selector-vacio {
+.f2-selector-vacio {
   color: var(--tinta-suave);
 }
-.selector-flecha {
+.f2-selector-flecha {
   color: var(--tinta-suave);
   font-size: 12px;
 }
-.selector-oculto {
+.f2-selector-oculto {
   position: absolute;
   left: 0;
   right: 0;
@@ -299,7 +273,7 @@ legend {
   opacity: 0;
   pointer-events: none;
 }
-.selector-lista {
+.f2-selector-lista {
   position: absolute;
   z-index: 20;
   top: calc(100% + 6px);
@@ -317,15 +291,15 @@ legend {
   outline: none;
   font-weight: 400;
 }
-.selector-lista li {
+.f2-selector-lista li {
   padding: 10px 12px;
   border-radius: calc(var(--radio-campo) - 4px);
   cursor: pointer;
 }
-.selector-lista li[data-activa='true'] {
+.f2-selector-lista li[data-activa='true'] {
   background: var(--lienzo);
 }
-.selector-lista li[aria-selected='true'] {
+.f2-selector-lista li[aria-selected='true'] {
   color: var(--arcilla);
   font-weight: 700;
 }

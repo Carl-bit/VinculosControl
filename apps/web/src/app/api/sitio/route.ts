@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
-/** Direccion publica del formulario de solicitud (SITIO_URL, runtime). No es secreta: la usa el boton "Compartir solicitud". */
+/**
+ * Direccion publica de la landing (LANDING_URL, runtime). No es secreta: la usa
+ * el boton "Compartir solicitud" para armar el enlace con ?via=enlace.
+ */
 export const dynamic = 'force-dynamic';
 
 export function GET() {
-  return NextResponse.json({ url: (process.env.SITIO_URL ?? 'http://127.0.0.1:3200').replace(/\/$/, '') }, { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json({ url: (process.env.LANDING_URL ?? 'http://127.0.0.1:3300').replace(/\/$/, '') }, { headers: { 'cache-control': 'no-store' } });
 }

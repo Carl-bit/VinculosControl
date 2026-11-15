@@ -141,8 +141,20 @@ function delProyecto(slug: string, nombre: string, labels: Record<string, string
  * C: eliminar. Verifica todo antes de borrar lo primero (no deja un borrado a
  * medias por una precondicion). Idempotente: lo que ya no existe no falla.
  * Devuelve el inventario de lo borrado como evidencia para el acta.
+ *
+ * `soltarBorde` (Traefik y el agente fuera de erp-<slug>_borde, para poder
+ * borrar la red) corre solo despues de pasar todas las precondiciones: un
+ * pedido rechazado nunca debe dejar sin entrada a un silo en marcha (hallazgo
+ * de la prueba contra Docker real, 2026-11-15).
  */
-export async function eliminar(d: DockerCiclo, disco: Disco, slug: string, actaHash: string, ahora = new Date()): Promise<{ log: string[]; inventario: Inventario }> {
+export async function eliminar(
+  d: DockerCiclo,
+  disco: Disco,
+  slug: string,
+  actaHash: string,
+  ahora = new Date(),
+  soltarBorde: () => Promise<string[]> = async () => [],
+): Promise<{ log: string[]; inventario: Inventario }> {
   validarSlug(slug);
   if (!HASH.test(actaHash)) throw new ErrorVerbo(400, 'hash del acta invalido');
   if (enVentanaRespaldo(ahora)) throw new ErrorVerbo(409, 'ventana de respaldo (01:45 a 02:30 Chile): intenta despues');
@@ -158,7 +170,7 @@ export async function eliminar(d: DockerCiclo, disco: Disco, slug: string, actaH
   const redes = (await d.redes(proyecto(slug))).filter((r) => delProyecto(slug, r.Name, r.Labels));
   const resp = await disco.respaldos(slug);
 
-  const log: string[] = [];
+  const log: string[] = [...(await soltarBorde())];
   const inventario: Inventario = { contenedores: [], volumenes: [], redes: [], respaldos: { archivos: 0, bytes: 0 } };
   for (const c of cs) {
     await d.borrarContenedor(c.Id);
@@ -182,6 +194,44 @@ export async function eliminar(d: DockerCiclo, disco: Disco, slug: string, actaH
   } else log.push(`respaldos/${slug}/ no existe`);
   log.push(`pendiente manual: shred de infra/secrets/${slug}/, bucket externo, DNS/tunel, crontab y bajas/${slug}`);
   return { log, inventario };
+}
+
+const vacio = (i: Inventario) => !i.contenedores.length && !i.volumenes.length && !i.redes.length && !i.respaldos.archivos;
+
+/**
+ * Eliminacion previa de un slug en la auditoria local (JSON por linea): el
+ * ultimo `eliminar` OK que si borro algo. Sirve cuando el agente perdio la
+ * respuesta de un eliminar que si borro y reintenta: la segunda corrida no
+ * encuentra nada, y sin esto el acta S7 recibiria un inventario vacio.
+ */
+export function eliminacionPrevia(auditoria: string, slug: string): { en: string; inventario: Inventario } | null {
+  const lineas = auditoria.split('\n');
+  for (let i = lineas.length - 1; i >= 0; i--) {
+    if (!lineas[i].includes('"eliminar"')) continue;
+    try {
+      const r = JSON.parse(lineas[i]) as { en?: string; verbo?: string; slug?: string; ok?: boolean; inventario?: Inventario };
+      if (r.verbo === 'eliminar' && r.slug === slug && r.ok && r.inventario && !vacio(r.inventario)) return { en: r.en ?? '?', inventario: r.inventario };
+    } catch {
+      // linea cortada o ajena: se ignora
+    }
+  }
+  return null;
+}
+
+/** Si esta corrida no borro nada, agrega al log lo que borro la corrida previa (evidencia para el acta). */
+export function conPrevia(r: { log: string[]; inventario: Inventario }, auditoria: string, slug: string) {
+  if (!vacio(r.inventario)) return r;
+  const p = eliminacionPrevia(auditoria, slug);
+  if (!p) return r;
+  const i = p.inventario;
+  return {
+    ...r,
+    inventarioPrevio: p,
+    log: [
+      ...r.log,
+      `eliminacion previa (${p.en}): ${i.contenedores.length} contenedor(es); volumenes: ${i.volumenes.join(', ') || 'ninguno'}; redes: ${i.redes.join(', ') || 'ninguna'}; respaldos/${slug}/: ${i.respaldos.archivos} archivo(s), ${i.respaldos.bytes} bytes`,
+    ],
+  };
 }
 
 /** Disco real: consentimiento en BAJAS_DIR (solo lectura) y respaldos en RESPALDOS_DIR. */

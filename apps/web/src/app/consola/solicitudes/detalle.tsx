@@ -14,7 +14,7 @@ import { enviarConSesion, mensajeDe, useDatos, type CentroDetalle, type EstadoCe
 const ETAPAS: EstadoCentro[] = ['SOLICITUD', 'CONTACTADO', 'REUNION', 'DATOS_COMPLETOS', 'APROBADO'];
 const ETIQUETA_ETAPA: Partial<Record<EstadoCentro, string>> = { SOLICITUD: 'Solicitud', CONTACTADO: 'Contactado', REUNION: 'Reunion', DATOS_COMPLETOS: 'Datos', APROBADO: 'Aprobado' };
 const SITIO: Record<string, string> = { nuevo: 'No tiene, quiere uno', integrar: 'Tiene, integrarlo', no_necesito: 'No necesita' };
-const ORIGEN: Record<string, string> = { formulario: 'Formulario del sitio', enlace: 'Enlace compartido por el operador', conversacion: 'Conversacion', demo: 'Demo', consola: 'Consola' };
+const ORIGEN: Record<string, string> = { landing: 'Landing publica', formulario: 'Formulario del sitio (anterior a la landing)', enlace: 'Enlace compartido por el operador', conversacion: 'Conversacion', demo: 'Demo', consola: 'Consola' };
 const ESTILO: Record<string, string> = { moderno: 'Moderno', cuaderno: 'Cuaderno', editorial: 'Editorial', propios: 'Tiene sus colores', aun_no_se: 'Aun no sabe (se define en la primera sesion)' };
 const CON_MANIFIESTO: EstadoCentro[] = ['REUNION', 'DATOS_COMPLETOS', 'APROBADO'];
 

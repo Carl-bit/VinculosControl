@@ -7,9 +7,11 @@
  * | Actualizaciones| cada 24 h       | cada 48 h       | -                    |
  * | Informe final  | 10 dias habiles | 10 dias habiles | 20 dias habiles      |
  *
- * Dias habiles = lunes a viernes en America/Santiago (sin feriados: pendiente).
- * Funciones puras, con tests en plazos.spec.ts.
+ * Dias habiles = lunes a viernes en America/Santiago, sin los feriados de ley
+ * (feriados.ts, mismas reglas que el ERP) ni los de FERIADOS_EXTRA.
+ * Funciones puras, con tests en plazos.spec.ts y feriados.spec.ts.
  */
+import { esFeriado, fechaChile, feriadosExtra } from './feriados';
 
 export const SEVERIDADES = ['S1', 'S2', 'S3'] as const;
 export type Severidad = (typeof SEVERIDADES)[number];
@@ -33,13 +35,16 @@ const DIA = 24 * H;
 
 const diaSemana = (d: Date) => new Intl.DateTimeFormat('en-US', { timeZone: 'America/Santiago', weekday: 'short' }).format(d);
 
-/** Suma n dias habiles (lunes a viernes, hora de Chile) manteniendo la hora del dia. */
-export function sumarHabiles(desde: Date, n: number): Date {
+/** Feriados puntuales o regionales que la ley no fija con una regla (.env del host A). */
+const EXTRA = feriadosExtra(process.env.FERIADOS_EXTRA);
+
+/** Suma n dias habiles (lunes a viernes no feriados, hora de Chile) manteniendo la hora del dia. */
+export function sumarHabiles(desde: Date, n: number, extra: Set<string> = EXTRA): Date {
   let d = new Date(desde.getTime());
   let quedan = n;
   while (quedan > 0) {
     d = new Date(d.getTime() + DIA);
-    if (!['Sat', 'Sun'].includes(diaSemana(d))) quedan--;
+    if (!['Sat', 'Sun'].includes(diaSemana(d)) && !esFeriado(fechaChile(d), extra)) quedan--;
   }
   return d;
 }

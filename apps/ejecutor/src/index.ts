@@ -18,10 +18,10 @@
  * - Auditoria local: cada verbo de escritura queda en EJECUTOR_LOG (JSON por linea, solo agregar).
  */
 import { timingSafeEqual } from 'node:crypto';
-import { appendFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-import { detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
+import { conPrevia, detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
 import { docker, dockerCiclo } from './docker';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
 
@@ -105,8 +105,10 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
     case 'eliminar': {
       if (!BAJAS_DIR || !RESPALDOS_DIR) throw new ErrorVerbo(409, 'eliminar deshabilitado: faltan EJECUTOR_BAJAS_DIR o EJECUTOR_RESPALDOS_DIR');
       const actaHash = await leerActaHash(req);
-      await soltarBorde(docker, slug, UNIR_BORDE);
-      return eliminar(dockerCiclo, discoReal(BAJAS_DIR, RESPALDOS_DIR), slug, actaHash);
+      // El borde se suelta dentro de eliminar, solo si pasan todas las precondiciones.
+      const r = await eliminar(dockerCiclo, discoReal(BAJAS_DIR, RESPALDOS_DIR), slug, actaHash, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
+      // Reintento tras un exito cuya respuesta se perdio: el log lleva lo que borro la corrida previa.
+      return conPrevia(r, await readFile(LOG, 'utf8').catch(() => ''), slug);
     }
     default:
       return { log: await escribirSimple(verbo, slug) };

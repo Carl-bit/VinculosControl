@@ -1,4 +1,4 @@
-# Roadmap de vinculos-control (actualizado 2026-11-14)
+# Roadmap de vinculos-control (actualizado 2026-11-15)
 
 Memoria de avance del plano de control: que esta hecho, que falta y que
 depende del ERP. Se actualiza al cerrar cada pieza (estado + fecha + nota).
@@ -13,6 +13,87 @@ Fuentes: `CONTEXTO.md` (diseno), `ERP_REGLAS_Y_DESPLIEGUE.md` (estado del ERP),
 para la memoria: `docs/registro-implementacion.md`. Decision abierta sobre
 escritura en Docker: `docs/propuesta-escritura-docker.md`.
 
+## Revisiones pendientes al retomar (anotadas 2026-11-14; 1 a 5 hechas 2026-11-15)
+
+Lo construido el 2026-11-14 que paso los tests pero falta comprobar en el
+entorno real, en este orden:
+
+1. **Reconstruir y migrar.** Hecho 2026-11-15: host A (`api`, `web`) aplico
+   `20261114210000_salidas_reversion_y_ejecutor` (la de salidas ya estaba);
+   host B (`agente`, `ejecutor`) con `bajas/` creada.
+2. **Verbos del ejecutor contra Docker real.** Hecho 2026-11-15 con un silo
+   desechable `erp-desechable` (misma forma que el compose del ERP: db
+   postgres con healthcheck, backend y frontend de relleno, tres redes,
+   `db_data` y `exportaciones`) y un contenedor de relleno con el nombre de
+   Traefik (en el PC no corre Traefik). Cada verbo dos veces:
+   - `detener`: borde soltado, frontend/backend/db en `exited`, volumenes
+     intactos; la segunda vez informa "ya estaba detenido".
+   - `reanudar`: db `healthy` 6 s antes de backend y frontend; borde unido;
+     idempotente. `/api/salud` no se probo (backend de relleno, sin ERP).
+   - `eliminar`: sin `bajas/<slug>` 403, otro hash 403, en marcha 409, cuerpo
+     malo 400, otro slug 403. Con todo en regla borro 3 contenedores,
+     `db_data`, `exportaciones`, las tres redes (el filtro por label de
+     compose las trae) y `respaldos/desechable/`; `centro-prueba`, sus
+     volumenes y el plano del host siguieron. La segunda vez: inventario vacio
+     sin error. Auditoria local en `verbos.jsonl` con el inventario.
+   - **BUG encontrado y corregido:** `index.ts` soltaba el borde antes de
+     revisar las precondiciones, asi que un `eliminar` rechazado (403/409)
+     dejaba a un silo en marcha sin Traefik ni agente. Ahora `eliminar` recibe
+     `soltarBorde` y lo corre solo tras pasar todas las precondiciones. Test
+     nuevo en `ciclo.test.ts` (23 del ejecutor). Repetido contra Docker real:
+     tras los rechazos el borde queda intacto.
+   - Reintento tras un exito perdido: hecho 2026-11-15. Si `eliminar` no
+     encuentra nada que borrar, el ejecutor busca en `verbos.jsonl` el ultimo
+     `eliminar` OK de ese slug que si borro y agrega al log "eliminacion previa
+     (<fecha>): ..." (y `inventarioPrevio`), que llega al acta S7. 24 tests del
+     ejecutor; probado contra el ejecutor real.
+3. **Salida de punta a punta en la consola.** Hecho 2026-11-15 con el centro
+   de prueba "Centro Desechable" (insertado en ACTIVO en la BD `control`, sin
+   aprovisionar por R1) y el silo `erp-desechable`, con un operador de
+   pruebas (2FA por Mailpit). Los pasos van por los mismos endpoints que usa
+   la consola (el selector de fecha no se pudo manejar sin capturas) y cada
+   vista se reviso como texto:
+   - Salida #1: S1 -> acta de recepcion (repetida: idempotente) -> Detener
+     silo (job #4 DETENER_SILO OK, GRACIA) -> reversion desde GRACIA (job #5
+     REANUDAR_SILO OK: db sana antes de backend/frontend, borde unido, centro
+     ACTIVO, silo adoptado de nuevo, acta de reversion con hash y correo).
+   - Salida #2: S1 -> reversion desde EN_SALIDA en el acto (ACTIVO, acta).
+   - Salida #3: S1 -> acta -> Detener (job #6) -> Eliminar silo sin
+     confirmacion 422 y con gracia vigente 422 -> confirmacion -> gracia
+     adelantada en la BD (solo esta prueba) -> ELIMINAR sin `bajas/` (job #7
+     FALLIDO en X2, borde intacto) -> `bajas/desechable` con el hash del acta
+     -> reintento desde X2 (OK, solo se borro `erp-desechable`) -> acta S7
+     (detenido, volumenes y respaldos del host marcados `job:7`, evidencia de
+     7 lineas; repetida: mismo hash) -> correo del acta de eliminacion al
+     contacto en Mailpit. La lista de Salidas muestra la eliminada y las dos
+     revertidas como historial.
+   - Observado: `eliminacionJobId` se guarda solo cuando ELIMINAR termina OK.
+     Con el job #7 FALLIDO en X2 (sin borrar nada) la reversion queda
+     bloqueada ("ya empezo a borrar"): conservador, se deja asi.
+   - Limpieza: centro 2, sus jobs, metricas, alertas y la fila `desechable` de
+     `silos` borrados; operador de pruebas desactivado y sin sesiones; la
+     auditoria se conserva. Contenedor de relleno de Traefik y
+     `bajas/desechable` borrados.
+4. **Monitoreo durante la gracia.** Hecho 2026-11-15: al detener, la S3 abierta
+   del silo se cerro en la siguiente revision (30 s) y no se abrieron alertas
+   con los contenedores detenidos; al revertir el silo vuelve a adoptarse.
+   **Hallazgo del ERP (R14):** `respaldar.sh` con la db detenida no falla:
+   `openssl` cifra la entrada vacia, deja 32 bytes que pasan `[ -s ]`, se
+   suben al destino y la rotacion de 7 dias borra los respaldos reales del
+   host. Requisito en `docs/requisitos-erp.md`. En el control: alerta S2
+   `respaldo_vacio:<slug>` si el ultimo respaldo pesa menos de 1 KiB (test en
+   `alertas/reglas.spec.ts`).
+5. **Vistas con datos reales.** Hecho 2026-11-15: 12 vistas (Salidas con la
+   eliminada y una revertida, Silos, Silo, Jobs, Job, Resumen, Monitoreo,
+   Auditoria, Incidentes, Configuracion, Solicitudes) medidas a 1280, 1536 y
+   1920 px. Corregido: Auditoria desbordaba 12 px a 1280 por correos, IPs y
+   hashes sin espacios (clase `.partir` con `overflow-wrap: anywhere`), y el
+   tamano del exporte decia "0.0 GiB" para 2 MiB (nuevo `tamano()` en
+   `lib/api.ts`, tambien en el respaldo del silo).
+6. **ERP sin cobros (front, 2026-11-14):** reescribir y correr los e2e de
+   pedir hora que pasaban por el paso de pago (detalle en
+   `SW Proyecto/docs/roadmap_mvp.md`, seccion "Front sin cobros ni finanzas").
+
 ## Decisiones de esta etapa (2026-11-12)
 
 | Tema | Decision |
@@ -21,7 +102,7 @@ escritura en Docker: `docs/propuesta-escritura-docker.md`.
 | Acceso a la consola | Cloudflare Access delante + login propio (correo, contrasena, codigo de 6 digitos por correo). Sin red privada Tailscale/WireGuard |
 | Fase 2: anti-spam del formulario publico | Limite por IP (5 por hora) + campo trampa (honeypot). Turnstile queda para despues |
 | Fase 2: requisito para APROBADO | El operador registra version y fecha del contrato de encargo firmado fuera de la plataforma. La aceptacion del ADMIN dentro del silo se registra despues de aprovisionar |
-| Fase 2: exposicion publica | Apps separadas: `apps/sitio` (landing, formulario fase 1, enlace fase 2; publica) y `apps/web` (solo consola, tras Cloudflare Access + login). Cada una llega a la API con su propio secreto |
+| Fase 2: exposicion publica | Apps separadas: `apps/sitio` (landing, formulario fase 1, enlace fase 2; publica) y `apps/web` (solo consola, tras Cloudflare Access + login). Cada una llega a la API con su propio secreto | Desde 2026-11-15 hay un solo sitio publico, `apps/landing`, con la landing, el formulario compartido y el enlace de fase 2 (`apps/sitio` se junto con ella): ver Fase 6
 | Fase 2: slug del centro | Lo fija el operador al pasar a fase 2 (propuesto desde el nombre), unico e inmutable desde APROBADO |
 | Estilos (2026-11-12) | Fase 1 ofrece moderno, cuaderno, editorial, "tenemos nuestros colores" y "aun no lo se" (con aviso: se define en la primera sesion). El manifiesto solo aprueba temas que existen en el ERP: moderno y cuaderno |
 | Compartir el formulario (2026-11-12) | Boton "Compartir solicitud" en la barra lateral de la consola |
@@ -122,7 +203,7 @@ Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 fal
 ## Tests de integracion de la API (Hecho 2026-11-14)
 
 Plan aprobado 2026-11-14, antes de los jobs que escriben (`aprovisionar`,
-`eliminar`). 51 tests en 4 archivos, unos 15 s; estables en 3 corridas
+`eliminar`). 51 tests en 4 archivos al cerrar (89 en 7 desde 2026-11-15), estables en 3 corridas
 seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 
 | Pieza | Estado | Nota |
@@ -135,8 +216,9 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | Solicitudes de modulo + RECONFIGURAR (8): punta a punta, entrega de a un paso, `aplicar` no repite revision ni job, APLICADA a mano con centro aprobado 409, rechazo 4xx revierte y 5xx se reintenta, camino manual | Hecho | |
 | Centros (8): fase 1 crea SOLICITUD + revision 1 + auditoria + aviso, transiciones invalidas sin rastro, descartar con motivo, carrera entre dos operadores | Hecho | |
 | BUG: dos reportes finales simultaneos del mismo paso cierran el job dos veces (`job.ok` x2; en RECONFIGURAR, `cerrarSolicitudes` x2) | Hecho | Encontrado y corregido 2026-11-14 (fallaba 10 de 10). El cierre del job ahora es `updateMany({ where: { id, estado: 'EN_CURSO' } })` y solo sigue (auditoria, `cerrarSolicitudes`) si `count === 1`. Test en `jobs.int-spec.ts` |
-| Pipeline de Bitbucket con Postgres como servicio | Pendiente | Aun no hay `bitbucket-pipelines.yml` |
-| Siguientes coberturas: fase 2 (enlace, guardar, aprobar), incidentes y soporte, reporte del agente (`/agente/reporte`) | Pendiente | |
+| Pipeline de Bitbucket con Postgres como servicio | Hecho | 2026-11-15. `bitbucket-pipelines.yml`: en cada push y PR, install congelado, `prisma generate`, build del manifiesto, `pnpm -r test`, integracion con Postgres 18 como servicio (`TEST_DATABASE_URL`), tipos de web y sitio y `pnpm -r build`. Simulado en contenedores sobre una copia limpia: OK. La primera corrida encontro que agente y API necesitan `packages/manifest/dist` (en el PC ya estaba compilado). Sin publicar imagenes: depende de R1 y de como llega CI al host B sin puertos abiertos (decision abierta) |
+| Coberturas: reporte del agente (`agente.int-spec.ts`, 7: token, cuerpo solo con campos de la lista, escritura, reporte -> alertas), fase 2 (`fase2.int-spec.ts`, 6: slug, enlace rotado/vencido/revocado, solo sha256 del token, borrador por ambas partes, envio, P0 y aprobacion, dos aprobaciones a la vez) e incidentes y soporte (`incidentes.int-spec.ts`, 6) | Hecho | 2026-11-15. 89 de integracion en 7 archivos (unos 26 s), estables en 3 corridas |
+| BUG: dos registros simultaneos del mismo hito de un incidente creaban dos eventos; dos cierres de soporte quedaban los dos auditados | Hecho | Encontrado y corregido 2026-11-15 (misma clase que la carrera de los jobs). `registrar` usa `updateMany` condicionado al estado revisado (hito sin fecha, no cerrado, informe para cerrar) y el que pierde recibe 409 sin evento; `cerrarSoporte` condiciona a `ABIERTA` |
 
 ## Fase 5. Resto de la consola (Pendiente)
 
@@ -156,7 +238,7 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | Soporte: ticket con la autorizacion del ADMIN (alcance, 1 a 72 h), vencimiento y resultado sin datos del centro | Hecho | La autorizacion la declara el operador: verificarla contra el silo requiere `/api/internal/*` |
 | Configuracion: plazos, seguridad, correo (con prueba), sesiones abiertas (revocar), operadores, cambio de la propia contrasena | Hecho | 2026-11-13. Cierra el pendiente de la fase 1 (revocar y rotar desde la consola) |
 | `reiniciar_demo` | Bloqueado (ERP) | R10. Ver fase 4 |
-| Dias habiles con feriados de Chile en los plazos de incidentes | Pendiente | Hoy cuenta lunes a viernes |
+| Dias habiles con feriados de Chile en los plazos de incidentes | Hecho | 2026-11-15. `incidentes/feriados.ts`: port de `feriados_legales` del ERP (Pascua, solsticio por Meeus, traslados de las leyes 19.668, 20.299, 20.983 y 20.215); igual al ERP en 2024-2040 (comparado contra su BD). Los de una ley puntual o regionales van en `FERIADOS_EXTRA` del .env del host A. 7 tests |
 
 ## Salidas (etapa 1 Hecha 2026-11-14)
 
@@ -178,13 +260,28 @@ contenido del exporte ni su clave.
 | Copia del acta de eliminacion al centro por correo | Hecho | 2026-11-14, decidido por el usuario. Al eliminar se envia al responsable de datos del manifiesto aprobado (si no hay, al contacto); solo metadatos y hash. Si falla, la eliminacion queda igual, el fallo queda en la auditoria y se reenvia desde la consola. 3 tests de integracion |
 | Revertir una salida (baja por error o arrepentimiento) | Hecho | 2026-11-14. Con la solicitud escrita del centro y el slug. EN_SALIDA/EXPORTADO: vuelve al estado previo en el acto; GRACIA con silo detenido: job REANUDAR_SILO y vuelve al quedar sano (o a mano si el agente lo ve en marcha). Acta de reversion con hash y copia por correo. Bloqueada tras empezar ELIMINAR. Varias salidas por centro (una abierta: unico `(centro_id, abierta)`); la maquina de estados suma EN_SALIDA/EXPORTADO/GRACIA -> estado previo. Migracion `20261114210000_salidas_reversion_y_ejecutor` (aditiva) |
 
-## Fase 6. Landing (Pendiente)
+## Fase 6. Landing (Hecha 2026-11-15)
+
+Decision del usuario (2026-11-15): la landing es el sitio para vender y donde el
+centro hace su solicitud. Ese mismo dia, tambien por decision del usuario, el
+formulario compartido y el enlace de fase 2 (antes `apps/sitio`, `:3200`) se
+juntaron en la landing: un solo sitio publico, un contenedor y un dominio
+menos. `apps/sitio`, su red, `SITIO_SECRETO` y `/publico/*` de la API ya no
+existen; `SITIO_URL` paso a ser `LANDING_URL`.
 
 | Pieza | Estado | Nota |
 |---|---|---|
-| Landing SSG por bloques con dependencias como conexiones | Pendiente | Seccion 9. Tokens `data-tema`, estilo "Moderno A" |
-| Por modulo: problema, flujo, captura del Centro de Prueba, quien lo usa | Pendiente | |
-| Formulario de fase 1 precargado con los bloques elegidos | Pendiente | Depende de fase 2 |
+| App propia `apps/landing` (127.0.0.1:3300), SSG, contenedor y red Docker propios | Hecho | Desde la landing solo se alcanza la API (probado: no llega a db, web ni mailpit). Cabeceras: `frame-ancestors 'self'`, nosniff, Referrer-Policy, Permissions-Policy |
+| Canal propio en la API: `POST /landing/solicitudes` con `LANDING_SECRETO` (header `x-landing-secreto`), limite 5 por hora por IP con contador propio, campo trampa, origen `landing` | Hecho | Probado contra la API real. El proxy de la landing exige mismo origen y JSON en las escrituras y acota el cuerpo; fuera de `/landing/*` no llega a nada |
+| Secciones del boceto: inicio con tablero de bloques, un dia por rol, cada bloque explicado (problema, flujo, quien lo usa, maqueta), seleccion, estilos (Moderno, Cuaderno, Editorial en preparacion, color propio) con vista de la pagina en ese estilo, como trabajamos + seguridad, conversacion | Hecho | Sin Cobros (MVP sin finanzas). "Demo" y "Ver demo en vivo" llevan a `https://demo.charlielearns.work` (silo de demostracion de estilos; `NEXT_PUBLIC_DEMO_URL` al compilar). `estres.charlielearns.work` es solo para estresar y monitorear el servidor: no se enlaza. Las "capturas" son maquetas con datos ficticios, no pantallas reales. Todos los colores son tokens de `globals.css` |
+| Dependencias de bloques desde `@vinculos/manifest` (las mismas de P0): agregar Match trae Equipo, quitar Equipo quita Match y Sitio | Hecho | Probado en el navegador |
+| Conversacion = solicitud de fase 1 con la seleccion de la pagina; valida con `fase1Schema` antes de enviar | Hecho | Probado de punta a punta 2026-11-15: la solicitud llego a la BD `control` (SOLICITUD, origen `landing`, revision 1 con los 5 bloques, tamano, sitio y estilo elegidos), con auditoria y correo "nueva solicitud" al operador en Mailpit. La consola muestra el origen como "Landing publica" |
+| Anchos: 375, 1280, 1536 y 1920 px en los 5 estilos | Hecho | Sin desborde horizontal |
+| Formulario compartido y fase 2 en la landing | Hecho | 2026-11-15. El enlace que comparte el operador es una pagina aparte dentro de la landing, `<LANDING_URL>/solicitud` (misma conversacion y misma API `/landing/solicitudes`, sin bloques marcados: los elige el centro; `noindex`), y llega con origen `enlace`. En la consola, "Compartir solicitud" solo copia, abre o cierra el enlace (decision del usuario: precargar modulos no sirve si no se sabe que quiere el centro). El enlace de fase 2 es `<LANDING_URL>/manifiesto/<token>` (misma pagina que tenia el sitio, clases `f2-` y tokens Moderno A acotados) por `GET/PUT/POST /landing/manifiesto/...`, 120 intentos por hora por IP, `no-referrer` y `noindex`. Probado en el navegador: `/solicitud` parte sin bloques, la seleccion agrega requisitos y la solicitud llega con origen `enlace`; enlace de fase 2 por correo (apunta a :3300) -> datos enviados (DATOS_COMPLETOS) -> contrato y aprobacion en la consola (APROBADO, revision 4) -> el enlace responde 410. `landing.int-spec.ts`: 9 tests |
+| BUG: guardar el manifiesto desde la consola daba 404 | Hecho | Hallado 2026-11-15 en esa prueba: el editor manda POST, la API solo tenia PUT y el proxy de la web reenvia solo GET y POST. La API acepta ahora POST (y sigue aceptando PUT) en `/consola/centros/:id/manifiesto` |
+| Publicar la landing (tunel de Cloudflare, dominio) | Pendiente | Infra |
+| Textos legales del pie (privacidad, terminos, tratamiento de datos) | Pendiente | Hoy son texto sin enlace: faltan los documentos (seccion 12 del contexto) |
+| Contacto | Pendiente | Decidido 2026-11-15: por ahora la comunicacion es por correo (sin WhatsApp), pero toda solicitud entra por la plataforma. Falta la direccion de correo para mostrarla |
 
 ## Fase 7. Pruebas de capacidad (Pendiente)
 
@@ -210,6 +307,7 @@ contenido del exporte ni su clave.
 | R12 | Modo solo lectura del silo por `/api/internal/*` (S2 de la salida) | Salidas S2 |
 | R13 | `/api/internal/exportaciones`: estado, fecha, tamano y huella del ultimo exporte, sin contenido | Salidas S3 automatico; bloquear `actualizar` durante un exporte |
 | R11 | Identidad del silo y redes propias (`identidad_silo`, `_interna`/`_silo`/`_borde`) | Hecho 2026-11-13 |
+| R14 | `respaldar.sh` no debe dejar un respaldo vacio con la db detenida (pipe sin `pipefail`; 32 bytes pasan `[ -s ]`) ni rotar los buenos | Respaldos fiables en la gracia y con la db caida (alerta S2 en el control mientras tanto) |
 
 ## Bocetos de `system-reference/` contra lo construido
 
@@ -227,26 +325,26 @@ contenido del exporte ni su clave.
 | Panel de acceso | Releases | Pendiente (fase 5; depende de R1) |
 | Panel de acceso | Monitoreo | Hecho (version basica) |
 | Panel de acceso | Auditoria | Hecho |
-| Landing | Todo | Pendiente (fase 6) |
+| Landing | Todo | Hecho 2026-11-15 (`apps/landing`, sin Cobros ni demo; ver fase 6) |
 
 ## Diferencias encontradas con el ERP
 
 - Temas: el ERP tiene "Moderno A" y "Cuaderno"; los docs decian solo Moderno (corregido 2026-11-12). "editorial" esta disenado (boceto del landing) pero no implementado en el ERP: requisito R8.
 - `CLAUDE.md` dice que el default de `modulos_activos` es "todos menos WHATSAPP"; en el ERP hoy (MVP 2026-11-11) COBROS tambien viene apagado. El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
 
-## Siguiente paso (2026-11-14)
+## Siguiente paso (2026-11-15)
 
 1. Hecho: tests de integracion de la API (y arreglo de la carrera de
    reportes finales simultaneos).
 2. Hecho: Salidas completas (expediente, actas por correo, ejecutor B + C,
-   reversion). Sin bloqueos, en el control: feriados de Chile en los plazos
-   de incidentes (portar `generar_feriados` del ERP), landing (fase 6),
-   pipeline de Bitbucket. Abierto: plazo de gracia por defecto en los
-   terminos. Probar los verbos nuevos del ejecutor contra un silo de prueba
-   real en el PC (hoy solo con Docker simulado).
+   reversion). Hecho 2026-11-15: feriados de Chile en los plazos
+   de incidentes, pipeline de Bitbucket y coberturas de integracion. Sin
+   bloqueos: landing (fase 6). Abierto: plazo de gracia por defecto en los
+   terminos. Hecho 2026-11-15: verbos del ejecutor y salida de punta a punta
+   contra Docker real (ver "Revisiones pendientes al retomar").
 3. En el ERP: R1 (CI + compose por digest) habilita `preparar`/`levantar` del
    ejecutor, `aprovisionar` y releases. R10 habilita `reiniciar_demo`. R12 y
-   R13 (salidas). R6
+   R13 (salidas). R14 (respaldar.sh con la db detenida). R6
    (notas de version) y R8 (tema editorial).
 4. Infra: Cloudflare Access delante de la consola.
 5. Pendiente del ERP (experiencia): paginas de un modulo apagado abiertas por

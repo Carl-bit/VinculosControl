@@ -2,25 +2,16 @@
 
 import { useState } from 'react';
 
-/* Modulos del MVP (sin COBROS ni WHATSAPP); MATCH y PAGINA_PUBLICA traen EQUIPO solos en el formulario. */
-const MODULOS = [
-  { v: 'FICHAS', l: 'Fichas' },
-  { v: 'AGENDA', l: 'Agenda' },
-  { v: 'EQUIPO', l: 'Equipo' },
-  { v: 'MATCH', l: 'Match' },
-  { v: 'PAGINA_PUBLICA', l: 'Pagina publica' },
-];
-
 /**
- * Enlace al formulario de solicitud (el mismo del final del landing) para que
- * el operador lo comparta directo con un centro. Puede precargar modulos; la
- * solicitud llega marcada con origen "enlace".
+ * Enlace al formulario de solicitud para que el operador lo comparta con un
+ * centro. Es una pagina aparte dentro de la landing (`/solicitud`), con la
+ * misma API de solicitud; los modulos los elige el centro ahi. La solicitud
+ * llega con origen "enlace".
  */
 export function CompartirFormulario({ sitioUrl, lateral = false }: { sitioUrl: string; lateral?: boolean }) {
   const [abierto, setAbierto] = useState(false);
-  const [sel, setSel] = useState<string[]>([]);
   const [copiado, setCopiado] = useState(false);
-  const url = `${sitioUrl}/solicitud?via=enlace${sel.length ? `&modulos=${sel.join(',')}` : ''}`;
+  const url = `${sitioUrl}/solicitud`;
 
   const copiar = async () => {
     try {
@@ -52,21 +43,8 @@ export function CompartirFormulario({ sitioUrl, lateral = false }: { sitioUrl: s
     <section className={`panel${lateral ? ' compartir-flotante' : ''}`} aria-label="Compartir formulario">
       <h2>Compartir formulario</h2>
       <p className="sub" style={{ marginTop: 0 }}>
-        Envia este enlace al centro. Lo que complete llega aqui como solicitud nueva (origen: enlace). No pidas datos de pacientes.
+        Envia este enlace al centro: abre el formulario de solicitud y el centro elige sus modulos. Lo que complete llega aqui como solicitud nueva (origen: enlace). No pidas datos de pacientes.
       </p>
-      <div className="filtros" role="group" aria-label="Precargar modulos">
-        {MODULOS.map((m) => (
-          <button
-            key={m.v}
-            type="button"
-            className="boton"
-            aria-pressed={sel.includes(m.v)}
-            onClick={() => setSel((s) => (s.includes(m.v) ? s.filter((x) => x !== m.v) : [...s, m.v]))}
-          >
-            {m.l}
-          </button>
-        ))}
-      </div>
       <div className="acciones" style={{ marginTop: 10 }}>
         <input className="campo-texto" readOnly value={url} aria-label="Enlace al formulario" onFocus={(e) => e.currentTarget.select()} />
         <button type="button" className="boton primario" onClick={() => void copiar()}>

@@ -48,7 +48,7 @@ export function DatosFormales({ token }: { token: string }) {
   const [elegidos, setElegidos] = useState<Modulo[]>([]);
 
   const cargar = useCallback(async () => {
-    const r = await fetch(`/api/publico/manifiesto/${token}`, { cache: 'no-store' });
+    const r = await fetch(`/api/manifiesto/${token}`, { cache: 'no-store' });
     const j = (await r.json().catch(() => ({}))) as Datos & { mensaje?: string };
     if (!r.ok) {
       setError(j.mensaje ?? 'Este enlace ya no es valido.');
@@ -64,12 +64,12 @@ export function DatosFormales({ token }: { token: string }) {
 
   if (error)
     return (
-      <section className="panel exito">
+      <section className="f2-panel f2-exito">
         <h2>Enlace no disponible</h2>
-        <p className="bajada">{error}</p>
+        <p className="f2-bajada">{error}</p>
       </section>
     );
-  if (!d) return <p className="nota">Cargando…</p>;
+  if (!d) return <p className="f2-nota">Cargando...</p>;
 
   const b = d.borrador;
   const modulos = completarDependencias(elegidos);
@@ -102,7 +102,7 @@ export function DatosFormales({ token }: { token: string }) {
     setAviso(undefined);
     setFaltan([]);
     try {
-      const r = await fetch(`/api/publico/manifiesto/${token}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(leerForm(f)) });
+      const r = await fetch(`/api/manifiesto/${token}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(leerForm(f)) });
       const j = (await r.json().catch(() => ({}))) as { mensaje?: string };
       if (!r.ok) {
         setAviso(j.mensaje ?? 'No se pudo guardar.');
@@ -112,7 +112,7 @@ export function DatosFormales({ token }: { token: string }) {
         setAviso('Guardado. Puedes volver a este enlace cuando quieras.');
         return;
       }
-      const e = await fetch(`/api/publico/manifiesto/${token}/enviar`, { method: 'POST', headers: { 'content-type': 'application/json' } });
+      const e = await fetch(`/api/manifiesto/${token}/enviar`, { method: 'POST', headers: { 'content-type': 'application/json' } });
       const je = (await e.json().catch(() => ({}))) as { mensaje?: string; campos?: { campo: string; mensaje: string }[] };
       if (!e.ok) {
         setFaltan(je.campos ?? []);
@@ -138,36 +138,36 @@ export function DatosFormales({ token }: { token: string }) {
   return (
     <>
       <div>
-        <h1 className="titulo">Datos de {d.nombre}</h1>
-        <p className="bajada">
+        <h1 className="f2-titulo">Datos de {d.nombre}</h1>
+        <p className="f2-bajada">
           Con esto preparamos tu plataforma. Puedes guardar y volver cuantas veces quieras hasta el {new Date(d.venceEn).toLocaleDateString('es-CL', { dateStyle: 'long' })}.
           {d.enviado && ' Ya nos enviaste los datos; si corriges algo, vuelve a enviarlos.'}
         </p>
       </div>
       {!d.editable && (
-        <p className="aviso" role="status">
+        <p className="f2-aviso" role="status">
           Tu plataforma ya esta en preparacion; estos datos ya no se editan aqui.
         </p>
       )}
-      <form className="panel formulario" onSubmit={onSubmit} noValidate>
+      <form className="f2-panel f2-formulario" onSubmit={onSubmit} noValidate>
         <fieldset disabled={dis}>
           <legend>Entidad</legend>
-          <div className="fila">
-            <label className="campo">
+          <div className="f2-fila">
+            <label className="f2-campo">
               Nombre del centro
               <input name="nombre" defaultValue={b.centro?.nombre ?? ''} maxLength={120} aria-invalid={mal('centro.nombre')} />
             </label>
-            <label className="campo">
+            <label className="f2-campo">
               Razon social
               <input name="razon_social" defaultValue={b.centro?.razon_social ?? ''} maxLength={200} aria-invalid={mal('centro.razon_social')} />
             </label>
           </div>
-          <div className="fila">
-            <label className="campo">
+          <div className="f2-fila">
+            <label className="f2-campo">
               RUT
               <input name="rut" defaultValue={b.centro?.rut ?? ''} maxLength={14} placeholder="76.123.456-7" aria-invalid={mal('centro.rut')} />
             </label>
-            <label className="campo">
+            <label className="f2-campo">
               Tipo de entidad
               <Selector
                 name="tipo_entidad"
@@ -177,9 +177,9 @@ export function DatosFormales({ token }: { token: string }) {
               />
             </label>
           </div>
-          <label className="campo">
+          <label className="f2-campo">
             <span>
-              Direccion <span className="opcional">(opcional)</span>
+              Direccion <span className="f2-opcional">(opcional)</span>
             </span>
             <input name="direccion" defaultValue={b.centro?.direccion ?? ''} maxLength={200} />
           </label>
@@ -187,37 +187,37 @@ export function DatosFormales({ token }: { token: string }) {
 
         <fieldset disabled={dis}>
           <legend>Responsables</legend>
-          <p className="ayuda">El admin inicial recibe la invitacion a la plataforma. El responsable de datos recibe los exportes si algun dia el centro se va.</p>
-          <div className="fila">
-            <label className="campo">
+          <p className="f2-ayuda">El admin inicial recibe la invitacion a la plataforma. El responsable de datos recibe los exportes si algun dia el centro se va.</p>
+          <div className="f2-fila">
+            <label className="f2-campo">
               Admin inicial: nombre
               <input name="admin_nombre" defaultValue={b.centro?.admin?.nombre ?? ''} maxLength={120} aria-invalid={mal('centro.admin')} />
             </label>
-            <label className="campo">
+            <label className="f2-campo">
               Admin inicial: correo
               <input name="admin_correo" type="email" defaultValue={b.centro?.admin?.correo ?? ''} maxLength={200} aria-invalid={mal('centro.admin')} />
             </label>
           </div>
-          <div className="fila">
-            <label className="campo">
+          <div className="f2-fila">
+            <label className="f2-campo">
               Responsable de datos: nombre
               <input name="resp_nombre" defaultValue={b.centro?.responsable_datos?.nombre ?? ''} maxLength={120} aria-invalid={mal('centro.responsable_datos')} />
             </label>
-            <label className="campo">
+            <label className="f2-campo">
               Responsable de datos: correo
               <input name="resp_correo" type="email" defaultValue={b.centro?.responsable_datos?.correo ?? ''} maxLength={200} aria-invalid={mal('centro.responsable_datos')} />
             </label>
           </div>
-          <div className="fila">
-            <label className="campo">
+          <div className="f2-fila">
+            <label className="f2-campo">
               <span>
-                Custodio de la llave de recuperacion <span className="opcional">(opcional)</span>
+                Custodio de la llave de recuperacion <span className="f2-opcional">(opcional)</span>
               </span>
               <input name="cust_nombre" defaultValue={b.centro?.custodio?.nombre ?? ''} maxLength={120} placeholder="Nombre" />
             </label>
-            <label className="campo">
+            <label className="f2-campo">
               <span>
-                Rol del custodio <span className="opcional">(opcional)</span>
+                Rol del custodio <span className="f2-opcional">(opcional)</span>
               </span>
               <input name="cust_rol" defaultValue={b.centro?.custodio?.rol ?? ''} maxLength={80} placeholder="Ej.: directora" />
             </label>
@@ -226,19 +226,19 @@ export function DatosFormales({ token }: { token: string }) {
 
         <fieldset disabled={dis}>
           <legend>Dominio</legend>
-          <div className="opciones" role="radiogroup">
-            <label className="opcion">
+          <div className="f2-opciones" role="radiogroup">
+            <label className="f2-opcion">
               <input type="radio" name="dominio_tipo" value="subdominio" defaultChecked={b.dominio?.tipo !== 'propio'} />
               {d.subdominioSugerido}
             </label>
-            <label className="opcion">
+            <label className="f2-opcion">
               <input type="radio" name="dominio_tipo" value="propio" defaultChecked={b.dominio?.tipo === 'propio'} />
               Dominio propio
             </label>
           </div>
-          <label className="campo">
+          <label className="f2-campo">
             <span>
-              Dominio propio <span className="opcional">(solo si elegiste esa opcion)</span>
+              Dominio propio <span className="f2-opcional">(solo si elegiste esa opcion)</span>
             </span>
             <input name="dominio_propio" defaultValue={b.dominio?.tipo === 'propio' ? (b.dominio.valor ?? '') : ''} placeholder="plataforma.micentro.cl" aria-invalid={mal('dominio')} />
           </label>
@@ -246,14 +246,14 @@ export function DatosFormales({ token }: { token: string }) {
 
         <fieldset disabled={dis}>
           <legend>Modulos</legend>
-          <p className="ayuda">Los que otro necesita se agregan solos (borde verde).</p>
-          <div className="bloques">
+          <p className="f2-ayuda">Los que otro necesita se agregan solos (borde verde).</p>
+          <div className="f2-bloques">
             {MODULOS_MVP.map((m) => {
               const activo = modulos.includes(m);
               const requerido = activo && !elegidos.includes(m);
               const por = modulos.filter((x) => DEPENDENCIAS[x].requiere.includes(m));
               return (
-                <button key={m} type="button" className="bloque" aria-pressed={activo} data-requerido={requerido} onClick={() => (requerido ? undefined : alternar(m))}>
+                <button key={m} type="button" className="f2-bloque" aria-pressed={activo} data-requerido={requerido} onClick={() => (requerido ? undefined : alternar(m))}>
                   <b>{NOMBRE_MODULO[m]}</b>
                   {requerido && <small>Lo necesita {por.map((x) => NOMBRE_MODULO[x]).join(' y ')}</small>}
                 </button>
@@ -264,17 +264,17 @@ export function DatosFormales({ token }: { token: string }) {
 
         <fieldset disabled={dis}>
           <legend>Color de marca</legend>
-          <label className="campo">
+          <label className="f2-campo">
             <span>
-              Color principal <span className="opcional">(opcional, #RRGGBB)</span>
+              Color principal <span className="f2-opcional">(opcional, #RRGGBB)</span>
             </span>
             <input name="color" defaultValue={b.estilo?.marca?.principal ?? ''} maxLength={7} placeholder="#2E6E6E" aria-invalid={mal('estilo')} />
           </label>
-          <p className="nota">No incluyas datos de pacientes en ningun campo.</p>
+          <p className="f2-nota">No incluyas datos de pacientes en ningun campo.</p>
         </fieldset>
 
         {faltan.length > 0 && (
-          <ul className="aviso" role="alert">
+          <ul className="f2-aviso" role="alert">
             {faltan.map((f) => (
               <li key={f.campo + f.mensaje}>
                 {f.campo}: {f.mensaje}
@@ -283,15 +283,15 @@ export function DatosFormales({ token }: { token: string }) {
           </ul>
         )}
         {aviso && faltan.length === 0 && (
-          <p className="nota" role="status">
+          <p className="f2-nota" role="status">
             {aviso}
           </p>
         )}
         {d.editable && (
-          <div className="opciones">
+          <div className="f2-opciones">
             <button
               type="button"
-              className="opcion"
+              className="f2-opcion"
               disabled={ocupado}
               onClick={(e) => {
                 const f = e.currentTarget.form;
@@ -300,8 +300,8 @@ export function DatosFormales({ token }: { token: string }) {
             >
               Guardar sin enviar
             </button>
-            <button type="submit" className="enviar" disabled={ocupado}>
-              {ocupado ? 'Enviando…' : 'Enviar datos'}
+            <button type="submit" className="f2-enviar" disabled={ocupado}>
+              {ocupado ? 'Enviando...' : 'Enviar datos'}
             </button>
           </div>
         )}

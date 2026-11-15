@@ -64,10 +64,10 @@ export function Selector({
   };
 
   return (
-    <div ref={raiz} className="selector">
+    <div ref={raiz} className="f2-selector">
       <button
         type="button"
-        className="selector-boton"
+        className="f2-selector-boton"
         aria-haspopup="listbox"
         aria-expanded={abierto}
         aria-controls={id}
@@ -80,20 +80,20 @@ export function Selector({
           }
         }}
       >
-        <span className={actual < 0 ? 'selector-vacio' : undefined}>{actual < 0 ? placeholder : opciones[actual].etiqueta}</span>
-        <span aria-hidden="true" className="selector-flecha">
+        <span className={actual < 0 ? 'f2-selector-vacio' : undefined}>{actual < 0 ? placeholder : opciones[actual].etiqueta}</span>
+        <span aria-hidden="true" className="f2-selector-flecha">
           ▾
         </span>
       </button>
       {/* Lo lee FormData; `required` bloquea el envio si queda vacio. */}
-      <input className="selector-oculto" name={name} value={valor} required={required} tabIndex={-1} aria-hidden="true" onChange={() => undefined} />
+      <input className="f2-selector-oculto" name={name} value={valor} required={required} tabIndex={-1} aria-hidden="true" onChange={() => undefined} />
       {abierto && (
         <ul
           ref={lista}
           id={id}
           role="listbox"
           tabIndex={-1}
-          className="selector-lista"
+          className="f2-selector-lista"
           aria-activedescendant={`${id}-${activa}`}
           onKeyDown={tecla}
           // Dentro de un <label>, un clic aqui reactivaria el boton.

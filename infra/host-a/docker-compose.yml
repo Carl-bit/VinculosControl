@@ -40,12 +40,16 @@ services:
     environment:
       DATABASE_URL: postgresql://control:${CONTROL_DB_PASSWORD}@db:5432/control
       CONSOLA_SECRETO: ${CONSOLA_SECRETO:?CONSOLA_SECRETO es obligatoria}
-      SITIO_SECRETO: ${SITIO_SECRETO:?SITIO_SECRETO es obligatoria}
-      # Enlace de fase 2 (lo arma la API) y dominio base de los subdominios de los silos.
-      SITIO_URL: ${SITIO_URL:-http://127.0.0.1:3200}
+      LANDING_SECRETO: ${LANDING_SECRETO:?LANDING_SECRETO es obligatoria}
+      # Direccion publica de la landing (alli vive el enlace de fase 2 que arma la API) y dominio
+      # base de los subdominios de los silos.
+      LANDING_URL: ${LANDING_URL:-http://127.0.0.1:3300}
       DOMINIO_BASE: ${DOMINIO_BASE:-vinculos.cl}
       SALUD_INTERVALO_S: ${SALUD_INTERVALO_S:-60}
       TZ: America/Santiago
+      # Feriados puntuales o regionales (YYYY-MM-DD, separados por coma) para los dias habiles
+      # de los incidentes. Los de ley se calculan solos (apps/api/src/incidentes/feriados.ts).
+      FERIADOS_EXTRA: ${FERIADOS_EXTRA:-}
       # Codigo del login. Local: Mailpit; produccion: SMTP de SES (587 + usuario/clave) y su configuration set.
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PUERTO: ${SMTP_PUERTO:-1025}
@@ -55,6 +59,11 @@ services:
       SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
     ports:
       - '${API_PUERTO:-4000}:4000'
+    # La API es la unica que esta en las dos redes: la landing la alcanza a ella y a nada mas
+    # (ni la base, ni la consola, ni Mailpit).
+    networks:
+      - default
+      - landing
 
   web:
     build:
@@ -66,26 +75,30 @@ services:
     environment:
       API_URL: http://api:4000
       CONSOLA_SECRETO: ${CONSOLA_SECRETO}
-      # Direccion publica del formulario (para el enlace que comparte el operador).
-      SITIO_URL: ${SITIO_URL:-http://127.0.0.1:3200}
+      # Direccion publica de la landing (para el enlace que comparte el operador).
+      LANDING_URL: ${LANDING_URL:-http://127.0.0.1:3300}
     ports:
       - '127.0.0.1:${WEB_PUERTO:-3100}:3000'
 
-  # Sitio publico (landing + formulario fase 1). App y puerto propios, separado de la consola:
-  # solo habla con /publico/* de la API, con su propio secreto. En pruebas, 127.0.0.1:3200;
-  # publicarlo (tunel o ruta de Cloudflare) se decide cuando el landing exista.
-  sitio:
+  # Landing publica (apps/landing): unico sitio publico del plano de control. La pagina para
+  # vender Vinculos, la solicitud del centro (tambien por el enlace que comparte el operador,
+  # ?via=enlace) y el enlace privado de fase 2 (/manifiesto/<token>). Red propia y secreto
+  # propio; solo llega a /landing/* de la API. En pruebas, 127.0.0.1:3300; publicarla (tunel de
+  # Cloudflare) es un paso de infra.
+  landing:
     build:
       context: ../..
-      dockerfile: apps/sitio/Dockerfile
+      dockerfile: apps/landing/Dockerfile
     restart: unless-stopped
     depends_on:
       - api
     environment:
       API_URL: http://api:4000
-      SITIO_SECRETO: ${SITIO_SECRETO}
+      LANDING_SECRETO: ${LANDING_SECRETO}
     ports:
-      - '127.0.0.1:${SITIO_PUERTO:-3200}:3000'
+      - '127.0.0.1:${LANDING_PUERTO:-3300}:3000'
+    networks:
+      - landing
 
   # Correo local del login (codigos de acceso). Puertos distintos a los del Mailpit del ERP (1025/8025).
   # En produccion no se levanta: SMTP_HOST apunta a SES.
@@ -98,3 +111,9 @@ services:
 
 volumes:
   db_control:
+
+networks:
+  # db, api, web y mailpit.
+  default:
+  # api <-> landing: el sitio publico solo ve a la API.
+  landing:

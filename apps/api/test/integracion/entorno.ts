@@ -66,6 +66,7 @@ export interface Entorno {
   correo: CorreoFalso;
   acceso: AccesoService;
   centros: CentrosService;
+  fase2: Fase2Service;
   jobs: JobsService;
   solicitudes: SolicitudesService;
   salidas: SalidasService;
@@ -84,6 +85,7 @@ export async function crearEntorno(): Promise<Entorno> {
     correo,
     acceso: mod.get(AccesoService),
     centros: mod.get(CentrosService),
+    fase2: mod.get(Fase2Service),
     jobs: mod.get(JobsService),
     solicitudes: mod.get(SolicitudesService),
     salidas: mod.get(SalidasService),

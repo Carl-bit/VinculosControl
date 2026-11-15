@@ -35,7 +35,8 @@ const parteCentro = (b: Borrador) => Object.fromEntries(CAMPOS_CENTRO.filter((k)
  */
 @Injectable()
 export class Fase2Service {
-  private readonly sitioUrl = (process.env.SITIO_URL ?? 'http://127.0.0.1:3200').replace(/\/$/, '');
+  /** Direccion publica de la landing: alli vive el enlace privado de fase 2 (/manifiesto/<token>). */
+  private readonly sitioUrl = (process.env.LANDING_URL ?? 'http://127.0.0.1:3300').replace(/\/$/, '');
   readonly dominioBase = process.env.DOMINIO_BASE ?? 'vinculos.cl';
 
   constructor(

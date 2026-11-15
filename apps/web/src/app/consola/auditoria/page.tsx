@@ -57,12 +57,12 @@ export default function Auditoria() {
               {eventos.map((e) => (
                 <tr key={e.id}>
                   <td className="nowrap">{new Date(e.en).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'medium' })}</td>
-                  <td>{e.actor}</td>
+                  <td className="partir">{e.actor}</td>
                   <td>
                     <span className={`chip ${tono(e.accion)}`}>{e.accion}</span>
                   </td>
-                  <td>{e.objeto ?? '-'}</td>
-                  <td className="sub">{e.detalle ?? ''}</td>
+                  <td className="partir">{e.objeto ?? '-'}</td>
+                  <td className="sub partir">{e.detalle ?? ''}</td>
                 </tr>
               ))}
             </tbody>

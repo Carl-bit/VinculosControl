@@ -16,6 +16,12 @@ export const UMBRAL = {
   p95Ms: 300,
   p95MinPeticiones: 20,
   respaldoHoras: 26,
+  /**
+   * Un pg_dump -Fc cifrado de verdad pesa varios KiB. respaldar.sh del ERP con la
+   * db detenida deja un archivo de 32 bytes (openssl cifra la entrada vacia) que
+   * pasa su chequeo `-s` (R14 del ERP, hallado 2026-11-15).
+   */
+  respaldoMinBytes: 1024,
   latidoSegundos: 120,
 } as const;
 
@@ -44,7 +50,7 @@ export interface EstadoSilo {
     estado: string;
   }[];
   latencias: { ruta: string; n: number; p95: number }[];
-  respaldo: { fecha: Date } | null;
+  respaldo: { fecha: Date; bytes?: number | bigint } | null;
 }
 
 export interface Estado {
@@ -117,6 +123,15 @@ export function evaluar(e: Estado): AlertaActiva[] {
         severidad: 'S3',
         slug: s.slug,
         mensaje: s.respaldo ? `Ultimo respaldo hace ${Math.round(horas)} h` : 'Sin respaldos (instalar.sh no corre en este silo)',
+      });
+    }
+    if (s.respaldo?.bytes !== undefined && Number(s.respaldo.bytes) < UMBRAL.respaldoMinBytes) {
+      abrir({
+        clave: `respaldo_vacio:${s.slug}`,
+        tipo: 'respaldo',
+        severidad: 'S2',
+        slug: s.slug,
+        mensaje: `Ultimo respaldo de ${Number(s.respaldo.bytes)} bytes: pg_dump no corrio (db detenida?). Revisar antes de que la rotacion borre los buenos`,
       });
     }
   }

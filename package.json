@@ -6,7 +6,7 @@
     "api": "pnpm --filter @vc/api",
     "agente": "pnpm --filter @vc/agente",
     "web": "pnpm --filter @vc/web",
-    "sitio": "pnpm --filter @vc/sitio",
+    "landing": "pnpm --filter @vc/landing",
     "manifest": "pnpm --filter @vinculos/manifest",
     "test": "pnpm -r test"
   },

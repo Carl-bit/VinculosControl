@@ -1,11 +1,11 @@
 {
-  "name": "@vc/sitio",
+  "name": "@vc/landing",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3200",
+    "dev": "next dev -p 3300",
     "build": "next build",
-    "start": "next start -p 3200",
-    "test": "echo sin tests del sitio todavia"
+    "start": "next start -p 3300",
+    "test": "echo sin tests de la landing todavia"
   },
   "dependencies": {
     "@vinculos/manifest": "workspace:*",

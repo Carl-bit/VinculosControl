@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { detener, type Disco, type DockerCiclo, eliminar, reanudar, type RedProyecto, type Volumen } from './ciclo';
+import { conPrevia, detener, type Disco, type DockerCiclo, eliminacionPrevia, eliminar, reanudar, type RedProyecto, type Volumen } from './ciclo';
 import { type Contenedor, ErrorVerbo } from './verbos';
 
 const DIA = new Date('2026-11-14T15:00:00Z'); // 12:00 Chile: fuera de la ventana
@@ -128,6 +128,23 @@ describe('eliminar (C)', () => {
     assert.deepEqual(hechos, []);
   });
 
+  it('rechazado (403, 409, 400) no suelta el borde; aceptado lo suelta antes de borrar', async () => {
+    let soltados = 0;
+    const soltar = async () => {
+      soltados++;
+      return ['traefik separado'];
+    };
+    const enMarcha = falso([c('db'), c('backend'), c('frontend')], { vols, redes });
+    assert.equal(await status(eliminar(enMarcha.d, disco(null).x, 'kibou', ACTA, DIA, soltar)), 403);
+    assert.equal(await status(eliminar(enMarcha.d, disco('cd'.repeat(32)).x, 'kibou', ACTA, DIA, soltar)), 403);
+    assert.equal(await status(eliminar(enMarcha.d, disco(ACTA).x, 'kibou', ACTA, DIA, soltar)), 409);
+    assert.equal(await status(eliminar(enMarcha.d, disco(ACTA).x, 'kibou', 'xyz', DIA, soltar)), 400);
+    assert.equal(soltados, 0);
+    const r = await eliminar(falso(detenido(), { vols, redes }).d, disco(ACTA).x, 'kibou', ACTA, DIA, soltar);
+    assert.equal(soltados, 1);
+    assert.equal(r.log[0], 'traefik separado');
+  });
+
   it('con el silo en marcha: 409 y no borra nada', async () => {
     const { d, hechos } = falso([c('db'), c('backend', 'exited')], { vols, redes });
     assert.equal(await status(eliminar(d, disco(ACTA).x, 'kibou', ACTA, DIA)), 409);
@@ -153,6 +170,25 @@ describe('eliminar (C)', () => {
   it('idempotente: sin nada que borrar no falla', async () => {
     const r = await eliminar(falso([]).d, disco(ACTA, null).x, 'kibou', ACTA, DIA);
     assert.deepEqual(r.inventario, { contenedores: [], volumenes: [], redes: [], respaldos: { archivos: 0, bytes: 0 } });
+  });
+
+  it('reintento sin nada que borrar: el log trae lo que borro la corrida previa (auditoria local)', async () => {
+    const inv = { contenedores: ['db aaa'], volumenes: ['erp-kibou_db_data'], redes: ['erp-kibou_borde'], respaldos: { archivos: 2, bytes: 10 } };
+    const vacioInv = { contenedores: [], volumenes: [], redes: [], respaldos: { archivos: 0, bytes: 0 } };
+    const auditoria = [
+      JSON.stringify({ en: 'T1', verbo: 'eliminar', slug: 'kibou', ok: true, inventario: inv }),
+      JSON.stringify({ en: 'T0', verbo: 'eliminar', slug: 'otro', ok: true, inventario: inv }),
+      '{"cortada',
+      JSON.stringify({ en: 'T2', verbo: 'eliminar', slug: 'kibou', ok: true, inventario: vacioInv }),
+      JSON.stringify({ en: 'T3', verbo: 'eliminar', slug: 'kibou', ok: false, error: 'x' }),
+    ].join('\n');
+    assert.deepEqual(eliminacionPrevia(auditoria, 'kibou'), { en: 'T1', inventario: inv });
+    assert.equal(eliminacionPrevia(auditoria, 'nadie'), null);
+    const r = conPrevia(await eliminar(falso([]).d, disco(ACTA, null).x, 'kibou', ACTA, DIA), auditoria, 'kibou');
+    assert.ok(r.log.at(-1)!.startsWith('eliminacion previa (T1): 1 contenedor(es); volumenes: erp-kibou_db_data'));
+    // Una corrida que si borro no se toca.
+    const conAlgo = { log: ['x'], inventario: inv };
+    assert.equal(conPrevia(conAlgo, auditoria, 'kibou'), conAlgo);
   });
 
   it('hash invalido, slug invalido y ventana de respaldo', async () => {

@@ -37,7 +37,7 @@ export class CentrosService {
   }
 
   /** Fase 1 desde el sitio: centro en SOLICITUD + revision 1 del manifiesto (solo la fase 1). */
-  async crearSolicitud(f: Fase1, origen = 'formulario'): Promise<void> {
+  async crearSolicitud(f: Fase1, origen = 'landing'): Promise<void> {
     const centro = await this.prisma.$transaction(async (tx) => {
       const c = await tx.centro.create({
         data: {
@@ -49,13 +49,13 @@ export class CentrosService {
           origen,
         },
       });
-      await tx.transicionCentro.create({ data: { centroId: c.id, desde: null, hacia: 'SOLICITUD', actor: 'sitio' } });
+      await tx.transicionCentro.create({ data: { centroId: c.id, desde: null, hacia: 'SOLICITUD', actor: 'landing' } });
       await tx.revisionManifiesto.create({
         data: { centroId: c.id, numero: 1, fase: 1, contenido: f as unknown as Prisma.InputJsonValue, hash: hashManifiesto(f), autor: 'centro:fase1' },
       });
       return c;
     });
-    await this.auditoria.registrar('sitio', 'centro.solicitud', `centro:${centro.id}`, centro.nombre);
+    await this.auditoria.registrar('landing', 'centro.solicitud', `centro:${centro.id}`, centro.nombre);
     await this.avisarOperadores(centro.nombre, f.tamano_equipo ?? null, f.modulos_interes ?? []);
   }
 
