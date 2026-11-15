@@ -56,7 +56,7 @@ Reglas de la arquitectura:
 - El agente usa Docker a traves de `docker-socket-proxy`, que limita los endpoints permitidos.
 
 ### Registro de imagenes
-- Registro privado en el host B (`registry:2` o Zot) detras de Traefik, con TLS y usuario. Bitbucket Pipelines construye y hace push.
+- Registro privado en el host B (`registry:2`, decidido 2026-11-15), solo en 127.0.0.1 (sin TLS ni usuario: solo lo usan el daemon y el script de publicacion, que ya tienen el socket), sin borrado. Hoy publica `publicar.sh` del ERP en el host B; despues GitHub Actions publica en GHCR y el host B importa por digest (conexiones salientes). Ver `docs/operacion/imagenes.md` del ERP.
 - Mismas reglas para cuando se migre a AWS ECR: tags inmutables (`0.1.0` nunca se republica), cada silo registra el digest `sha256:...` ademas del tag.
 - La consola lista los releases leyendo la API del registro (`/v2/vinculos/tags/list`; con ECR, su API equivalente) a traves del agente.
 
@@ -302,7 +302,7 @@ Reglas de la cascada:
 - No se actualiza un silo con una exportacion del centro en curso (job del ERP, por defecto en ventana nocturna segun el horario del centro) ni en la ventana de respaldo de las 02:00. El estado de exportaciones se consulta por `/api/internal/*` (requisito del ERP).
 - Las migraciones son solo aditivas desde el primer silo real: agregar columnas o tablas, nunca renombrar ni borrar en la misma version. Borrar algo se hace en una version posterior, cuando ningun silo usa ya la anterior. Asi la vuelta atras de imagen es segura. El historial actual del ERP tiene migraciones destructivas anteriores a esta regla.
 - El admin de cada centro ve las notas de la version en su panel (requisito del ERP: pantalla y endpoint interno aun no existen).
-- Origen de las imagenes: CI en Bitbucket construye y publica `vinculos-api:<version>` y `vinculos-web:<version>` en el registro privado del host B. La consola registra los releases y su canal; cada silo guarda tag y digest.
+- Origen de las imagenes: `publicar.sh` del ERP (despues, CI en GitHub Actions + importacion por digest) publica `vinculos-api:<version>` y `vinculos-web:<version>` en el registro privado del host B. La consola registra los releases y su canal; cada silo guarda tag y digest.
 
 ---
 
@@ -394,7 +394,7 @@ Decisiones previas: el panel maestro era una capa delgada construida al final, y
 Tomadas (nov 2026):
 | Tema | Decision |
 |---|---|
-| Registro de imagenes | Privado en el propio host de silos (`registry:2` o Zot). Mismas reglas (tags inmutables + digest) al migrar a AWS ECR |
+| Registro de imagenes | Privado en el propio host de silos (`registry:2`, 2026-11-15). Mismas reglas (tags inmutables + digest) al migrar a AWS ECR |
 | Plano de control | Host separado desde el inicio, con agente en modelo pull en el host de silos. El costo extra se asume por seguridad |
 | Gracia y respaldos | 30 dias de gracia; respaldos por silo cifrados con openssl AES-256 (`respaldo.key`), borrados directamente en la eliminacion |
 | Cifrado | `.vxp` AES-256-GCM con clave del ADMIN para el exporte al centro; HTTPS + AES-256-GCM en reposo para importaciones; openssl AES-256 PBKDF2 para respaldos internos; columnas sensibles con DEK envueltas por la KEK del silo |
@@ -410,7 +410,7 @@ Pendientes:
 - Precios y planes para centros.
 - Modelo para profesionales independientes (futuro): es una persona, no una organizacion. Requiere adaptar el apartado del profesional y probablemente un silo compartido con aislamiento por fila, porque un silo completo por persona no se paga.
 - Actualizar el capitulo de la tesis con el nuevo alcance (seccion 11) al retomar la redaccion.
-- Requisitos en el ERP antes de automatizar: imagenes unicas por digest (configuracion en runtime ya hecha, R9/R11, 2026-11-13; falta registro + CI, R1), modulo `/api/internal/*` (base, R2 y R3 hechos 2026-11-13; faltan R4 y R5), notas de version en el panel del ADMIN, funcion de agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion del centro; acordarlo en el DPA). Estado al dia en `docs/roadmap.md`.
+- Requisitos en el ERP antes de automatizar: imagenes unicas por digest (configuracion en runtime ya hecha, R9/R11, 2026-11-13; R1 hecho 2026-11-15 sin CI), modulo `/api/internal/*` (base, R2 y R3 hechos 2026-11-13; faltan R4 y R5), notas de version en el panel del ADMIN, funcion de agregados periodicos para la consola (hoy `soporte_resumen()` exige autorizacion del centro; acordarlo en el DPA). Estado al dia en `docs/roadmap.md`.
 - Dominio propio de un centro tras el tunel Cloudflare: custom hostnames (Cloudflare for SaaS) o DNS delegado.
 - Texto legal final de terminos y DPA, si la aceptacion de un ADMIN basta como firma, y el plazo de eliminacion por defecto.
 

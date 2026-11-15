@@ -341,3 +341,28 @@ error o arrepentimiento en la gracia); enviar las actas por correo.
 
 Pruebas: API 74 unitarios y 70 de integracion; agente 13; ejecutor 22. Los
 verbos nuevos no se probaron aun contra Docker real.
+
+### R1: imagenes por digest y registro del host B (2026-11-15)
+
+Decisiones del usuario: `registry:2`; por ahora se publica con un script en el
+host B (la CI de publicacion despues); la CI del ERP sera GitHub Actions (el
+ERP esta en GitHub, no en Bitbucket). Ruta real del ERP:
+`Repositorios/Vinculos/Vinculos` (CLAUDE.md decia `Desktop/SW Proyecto`).
+
+- ERP: `infra/docker-compose.yml` sin `build` (`${REGISTRO}/vinculos-api@${API_DIGEST}`,
+  `${REGISTRO}/vinculos-web@${WEB_DIGEST}`); override `infra/docker-compose.build.yml`
+  para desarrollo y silos de prueba (`servidor.sh`, `stress/`);
+  `infra/scripts/imagenes/publicar.sh`; `docs/operacion/imagenes.md`.
+- Control: servicio `registro` (`registry:2.8.3`, 127.0.0.1:5000, sin borrado,
+  sin TLS ni usuario por estar solo en loopback) en `infra/host-b`;
+  `generar.mjs` reemplaza a `generar.py` (no hay Python en el PC); la plantilla
+  queda igual al compose del ERP.
+
+Pruebas (Docker 29, containerd store): rechazos de version (sin sufijo con
+arbol sucio, otra version, `dev`); publicacion real de `0.1.0-prueba.1`
+(digests en `infra/imagenes/0.1.0-prueba.1.env`); republicar el mismo tag:
+rechazado; silo desechable `r1prueba` solo con el compose base: imagen bajada
+por digest, `migrate` aplico las migraciones e `identidad_silo`, label OCI con
+el commit; `API_DIGEST` vacio: `invalid reference format` (falla cerrado).
+Silo borrado al terminar. La imagen `0.1.0-prueba.1` queda en el registro (no
+hay borrado por API; se pierde solo si se borra el volumen `registro_datos`).

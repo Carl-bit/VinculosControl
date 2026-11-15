@@ -1,15 +1,14 @@
 # =============================================================================
 # silo.compose.tpl: plantilla del stack erp-<slug> que usara el job
-# `aprovisionar` (P3). GENERADA por infra/templates/generar.py desde
-# SW Proyecto/infra/docker-compose.yml (R11). No editar a mano: regenerar.
-# Diferencias con el original, y nada mas:
-#   - sin `build`: imagenes por digest del registro del host B (R1):
-#       ${REGISTRO}/vinculos-api@${API_DIGEST}, ${REGISTRO}/vinculos-web@${WEB_DIGEST}
-#   - VINCULOS_VERSION es el tag que corresponde al digest (label informativa).
+# `aprovisionar` (P3). GENERADA por infra/templates/generar.mjs desde
+# infra/docker-compose.yml del ERP (R11, R1). No editar a mano: regenerar.
+# Es el compose del ERP sin cambios: imagenes por digest del registro del
+# host B (${REGISTRO}/vinculos-api@${API_DIGEST}, ${REGISTRO}/vinculos-web@${WEB_DIGEST}),
+# sin `build`. VINCULOS_VERSION es el tag de esos digests (label informativa).
 # Se renderiza dentro de infra/ del repo del ERP en el host B (mismas rutas
 # relativas: ./postgres/init, ./secrets/<slug>/).
-# Variables del .env del silo: las de SW Proyecto/infra/.env.example, mas
-# REGISTRO, API_DIGEST, WEB_DIGEST.
+# Variables del .env del silo: las de infra/.env.example del ERP; REGISTRO,
+# API_DIGEST y WEB_DIGEST salen de infra/imagenes/<version>.env (publicar.sh).
 # =============================================================================
 # Un silo = un cliente = este compose desplegado con su propio .env.
 # La DB es de este silo y de nadie mas: cero queries entre silos.
@@ -39,6 +38,14 @@
 #     (prisma/scripts/identidad_silo.js).
 # Traefik se une a erp-<slug>_borde despues del `up` (servidor.sh, o el
 # ejecutor del plano de control): sin esa union el silo no recibe trafico.
+#
+# Imagenes por digest (R1, 2026-11-15): migrate, backend y frontend corren
+# ${REGISTRO}/vinculos-api@${API_DIGEST} y ${REGISTRO}/vinculos-web@${WEB_DIGEST},
+# sin `build`: corre exactamente lo publicado. Las publica
+# infra/scripts/imagenes/publicar.sh (tag inmutable; deja los digests en
+# infra/imagenes/<version>.env). VINCULOS_VERSION es el tag de esos digests
+# (label informativa). Desarrollo y silos de prueba construyen en local con el
+# override infra/docker-compose.build.yml (docs/operacion/imagenes.md).
 
 name: erp-${CLIENTE_SLUG}
 
@@ -97,6 +104,7 @@ services:
   # Corre y termina: migraciones + contraseña de app_user. Idempotente, corre
   # en cada `up`. Unico servicio con credenciales del dueño.
   migrate:
+    # Imagen comun a todos los silos (R11), fijada por digest (R1).
     image: ${REGISTRO}/vinculos-api@${API_DIGEST}
     restart: 'no'
     depends_on:
@@ -201,6 +209,8 @@ services:
       - traefik.http.services.${CLIENTE_SLUG}-api.loadbalancer.server.port=3001
 
   frontend:
+    # Imagen comun (R11), fijada por digest (R1): nombre, tema y dominio del
+    # centro entran en runtime.
     image: ${REGISTRO}/vinculos-web@${WEB_DIGEST}
     restart: unless-stopped
     mem_limit: 256m

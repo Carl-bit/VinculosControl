@@ -186,16 +186,38 @@ Confirmado 2026-11-12: una sola imagen para todos los centros (`vinculos-api`,
 `vinculos-web`), identificada por tag inmutable + digest. El aislamiento de cada
 centro esta en sus contenedores, red, base, volumenes y secretos.
 
-- R1: CI construye y publica las imagenes en el registro privado del host B;
-  el compose del silo usa `image: registro/vinculos-api@sha256:...`, sin `build`.
+- R1 (**hecho 2026-11-15**, sin CI todavia). Decisiones del usuario:
+  `registry:2`; por ahora las imagenes se publican con un script en el host B
+  (la CI de publicacion viene despues); la CI del ERP sera GitHub Actions (el
+  repo del ERP esta en GitHub).
+  - ERP `infra/docker-compose.yml`: `migrate`, `backend` y `frontend` sin
+    `build`, con `image: ${REGISTRO}/vinculos-api@${API_DIGEST}` y
+    `${REGISTRO}/vinculos-web@${WEB_DIGEST}`. Vacias, el `up` falla (referencia
+    invalida). El `build` paso al override `infra/docker-compose.build.yml`,
+    que usan `servidor.sh` y `stress/` (silos de prueba).
+  - ERP `infra/scripts/imagenes/publicar.sh [<version>]`: version de
+    `package.json` (o con sufijo de prueba), arbol limpio (o sufijo +
+    `PERMITIR_SUCIO=1`), rechaza un tag existente (antes de construir y antes
+    de subir), construye sin atestaciones, sube, toma el digest del registro,
+    baja por digest y escribe `infra/imagenes/<version>.env` (`REGISTRO`,
+    `API_DIGEST`, `WEB_DIGEST`, `VINCULOS_COMMIT`, `VINCULOS_PUBLICADO`).
+    Doc: `docs/operacion/imagenes.md` del ERP.
+  - Plano de control: servicio `registro` (`registry:2.8.3`) en
+    `infra/host-b/docker-compose.yml`, solo en `127.0.0.1:5000`, sin borrado,
+    sin TLS ni usuario (diferencia con la seccion 1 del contexto, que lo ponia
+    detras de Traefik con TLS y usuario: en loopback solo lo usan el daemon y
+    el script, que ya tienen el socket). `infra/templates/silo.compose.tpl`
+    regenerada con `generar.mjs` (reemplaza a `generar.py`): ahora es el
+    compose del ERP sin cambios.
+  - Falta (no bloquea aprovisionar): CI en GitHub Actions que publique en
+    GHCR e `importar.sh` en el host B que copie por digest al registro local
+    (conexiones salientes, sin abrir puertos).
 - R9 (hecho 2026-11-13, con R11): el front lee en runtime el nombre
   (`configuracion_centro.nombre_centro` via `/api/publico/centro`, respaldo
   `CENTRO_NOMBRE`), el tema (`TEMA`) y el dominio (`SITE_URL`). La imagen ya no
   recibe build args del centro. El tema pasara a `configuracion_centro` con R4.
-- Falta de R1: CI que publique en el registro del host B y compose con
-  `image: <registro>/vinculos-api@sha256:...` sin `build`.
 - Habilita en el ejecutor los verbos `preparar` y `levantar`, y el job
-  `aprovisionar`.
+  `aprovisionar` (siguiente pieza en el plano de control).
 
 ## R4 y R5. Modulo `/api/internal/*`
 

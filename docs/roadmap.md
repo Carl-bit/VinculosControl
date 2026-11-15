@@ -195,7 +195,7 @@ entorno real, en este orden:
 | Ejecutor de silos (`apps/ejecutor`, opcion C): unico con el socket de Docker, verbos cerrados `estado` y `reiniciar`, red interna con el agente, token propio, sin puertos, filesystem de solo lectura, auditoria local en JSON | Hecho | 5 tests. Sin verbo de borrado. Respeta la ventana de respaldo (01:45 a 02:30 Chile) |
 | Job REINICIAR_SILO: P0 en el plano de control (silo reportado, sin job activo, fuera de la ventana de respaldo) + E1 estado, E2 reiniciar backend y frontend, E3 en marcha; boton "Reiniciar" en Silos | Hecho | Migracion `20261113013203_job_reiniciar_silo`. Probado con un stack de prueba (db no se reinicio) |
 | Job `reiniciar_demo` | Bloqueado (ERP) | Decidido 2026-11-13, enfoque B: resembrar los datos ficticios conservando llaves (sin borrar volumenes, sin P5 en cada reinicio). Requiere R10. Precauciones: doble marca de demo (BD + `EJECUTOR_DEMOS` del host B), fuera de la ventana de respaldo, confirmacion escribiendo el slug, uno por hora, auditoria doble, comprobar salud y conteos |
-| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Bloqueado (ERP) | Solo falta R1 (R4 y R5 hechos en el ERP 2026-11-13); el ejecutor necesita los verbos `preparar` y `levantar` (sin build: imagenes por digest) |
+| Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Pendiente | Desbloqueado 2026-11-15: R1, R4 y R5 hechos en el ERP. Siguiente pieza: verbos `preparar` y `levantar` del ejecutor (plantilla `silo.compose.tpl` + `.env` con los digests de `infra/imagenes/<version>.env`) y P0 contra el registro (tag + digest) |
 | Job `reconfigurar` (P0, C1 aplicar y C2 confirmar por `/api/internal/config`) | Hecho | R4 del ERP. Probado 2026-11-14 en local (job #3) |
 
 Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 falla (umbral 80 %, el mismo de la alerta S2). Es correcto: hay que liberar disco antes de aprovisionar otro silo.
@@ -231,7 +231,7 @@ seguidas. Como correrlos: `apps/api/test/integracion/README.md`.
 | Espacios para notebooks de 13 a 16" (1920x1200 a 150/125/100 % = 1280, 1536 y 1920 px CSS): lateral fijo de 240 a 280 px, margenes fluidos, columna lateral acotada, texto 14 px desde 1680 px, menos aire vertical en pantallas bajas | Hecho | 2026-11-14. Revisado en Resumen, Silo, Manifiesto y Job a 1280, 1536 y 1920: sin desborde horizontal. `Dialogo` reutilizable para modales |
 | Pasar a `Dialogo` los otros `window.confirm`/`prompt` (reiniciar silo x2, cancelar job, aprobar manifiesto, abrir incidente) | Hecho | Revisado 2026-11-14: en `apps/` no queda ningun `window.confirm/prompt/alert`, `<select>` ni input de fecha/numero nativo |
 | Silo detalle: centro y manifiesto aprobado, jobs recientes, acciones (reiniciar contenedores, abrir incidente) | Hecho | 2026-11-13. Faltan version/digest (R1) y suspender. "Iniciar salida" hecho 2026-11-14 |
-| Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. Bloqueado por R1 |
+| Releases y canales: registro, promover, cascada (`actualizar`) | Pendiente | Seccion 7. R1 hecho 2026-11-15: el agente puede leer `infra/imagenes/<version>.env` del host B (solo lectura) para informar releases |
 | Salidas, etapa 1: expediente y actas en la consola (S1 a S8) | Hecho | 2026-11-14. Ver "Salidas" abajo |
 | Salidas, etapa 2: S6-S7 por el ejecutor y reversion | Hecho | 2026-11-14 (opciones B + C). S2 y S3 automaticos siguen bloqueados por R12 y R13 |
 | Incidentes S1/S2/S3: hitos (contencion, aviso al centro, actualizaciones, informe final, cierre) con plazos en horas y dias habiles, semaforo, bitacora; abrir desde una alerta del monitoreo o desde el silo | Hecho | 2026-11-13. Migracion `20261113035502_incidentes_y_soporte`. Dias habiles sin feriados (pendiente) |
@@ -294,7 +294,7 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 
 | ID | Requisito | Bloquea |
 |---|---|---|
-| R1 | Imagenes unicas (`vinculos-api`, `vinculos-web`): falta CI que publique en el registro del host B y compose con `image: ...@sha256:` sin `build` | Aprovisionar, releases |
+| R1 | Imagenes unicas por digest: compose sin `build`, `publicar.sh` y registro `registry:2` en el host B (`docs/requisitos-erp.md`) | Hecho 2026-11-15 (sin CI: GitHub Actions + GHCR + `importar.sh` despues, no bloquea) |
 | R2 | `/api/internal/solicitudes`: solicitudes de modulo del ADMIN (modulo, accion, rol, fecha), token por silo | Hecho 2026-11-13 |
 | R3 | `/api/internal/solicitudes/:id` para devolver el estado (aprobada, rechazada, aplicada) | Hecho 2026-11-13 |
 | R4 | `/api/internal/config` con funciones SECURITY DEFINER para `modulos_activos` y reglas | Hecho 2026-11-13 (tema y marca aun no se aplican por aqui) |
@@ -322,7 +322,7 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 | Panel de acceso | Silos, Silo detalle | Parcial |
 | Panel de acceso | Configuracion | Hecho |
 | Panel de acceso | Salidas | Hecho (etapa 1, 2026-11-14) |
-| Panel de acceso | Releases | Pendiente (fase 5; depende de R1) |
+| Panel de acceso | Releases | Pendiente (fase 5; R1 hecho 2026-11-15) |
 | Panel de acceso | Monitoreo | Hecho (version basica) |
 | Panel de acceso | Auditoria | Hecho |
 | Landing | Todo | Hecho 2026-11-15 (`apps/landing`, sin Cobros ni demo; ver fase 6) |
@@ -348,8 +348,9 @@ la reversion bloqueada si un ELIMINAR fallo en X2 (aunque no haya borrado).
    bloqueos: landing (fase 6). Abierto: plazo de gracia por defecto en los
    terminos. Hecho 2026-11-15: verbos del ejecutor y salida de punta a punta
    contra Docker real (ver "Revisiones pendientes al retomar").
-3. En el ERP: R1 (CI + compose por digest) habilita `preparar`/`levantar` del
-   ejecutor, `aprovisionar` y releases. R10 habilita `reiniciar_demo`. R12 y
+3. Hecho 2026-11-15: R1 (compose por digest, `publicar.sh`, registro en el
+   host B). Siguiente: `preparar`/`levantar` del ejecutor y el job
+   `aprovisionar`; despues releases. En el ERP: R10 habilita `reiniciar_demo`. R12 y
    R13 (salidas). R14 (respaldar.sh con la db detenida). R6
    (notas de version) y R8 (tema editorial).
 4. Infra: Cloudflare Access delante de la consola.

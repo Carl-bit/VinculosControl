@@ -100,11 +100,41 @@ services:
     networks:
       - ejecutor
 
+  # Registro privado de imagenes (R1, 2026-11-15): vinculos-api y vinculos-web,
+  # tags inmutables, cada silo corre por digest. Solo en 127.0.0.1 del host B:
+  # lo usan el daemon de Docker (pull) y publicar.sh del ERP (push), los dos en
+  # el mismo host y con acceso al socket. No se publica por el tunel ni por
+  # Traefik, y ningun contenedor lo alcanza por red. Por eso va sin TLS ni
+  # usuario (Docker acepta HTTP en 127.0.0.0/8); si algun dia sale del loopback,
+  # necesita TLS y usuario. Sin borrado por API: un tag publicado no se reemplaza
+  # (publicar.sh ademas rechaza un tag existente).
+  registro:
+    image: registry:2.8.3
+    restart: unless-stopped
+    mem_limit: 64m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: 'false'
+      REGISTRY_HTTP_ADDR: 0.0.0.0:5000
+    ports:
+      - 127.0.0.1:${REGISTRO_PUERTO:-5000}:5000
+    volumes:
+      - registro_datos:/var/lib/registry
+    networks:
+      - registro
+
 networks:
   agente:
   # Solo agente <-> ejecutor. internal: sin salida a internet ni al host.
   ejecutor:
     internal: true
+  # Solo el registro (el puerto publicado en 127.0.0.1 no necesita otra red).
+  registro:
 
 volumes:
   ejecutor_log:
+  # Capas y manifiestos de las imagenes publicadas. Perderlo obliga a republicar
+  # con el mismo digest (no hay rebuild reproducible): respaldarlo con el host.
+  registro_datos:
