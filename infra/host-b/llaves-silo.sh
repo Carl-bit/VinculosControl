@@ -35,6 +35,10 @@ SCRIPT="$ERP/infra/scripts/llaves/aprovisionar.sh"
 head -n 1 "$ENV_SILO" | grep -q '^# Generado por el ejecutor' || falla "$ENV_SILO no lo creo el ejecutor"
 [ ! -f "$ERP/infra/secrets/$SLUG/kek" ] || falla "$SLUG ya tiene KEK: no se vuelve a generar"
 
+if [ "$PRUEBA" = --prueba ]; then
+  echo "AVISO --prueba: al terminar se BORRAN las 3 partes de la llave de recuperacion y nadie podra recuperarla." >&2
+  echo "Solo para silos de prueba; con un centro real, correr sin --prueba y entregar las partes." >&2
+fi
 echo "Llaves de $SLUG con el script del ERP ($SCRIPT)"
 CLIENTE_SLUG=$SLUG MODO=docker ENV_SILO=$ENV_SILO ACTOR=${ACTOR:-$(whoami)} CUSTODIOS=$CUSTODIOS MSYS_NO_PATHCONV=1 sh "$SCRIPT"
 
@@ -43,6 +47,14 @@ if [ "$PRUEBA" = --prueba ]; then
   rm -rf "$PARTES"
   echo "Silo de prueba: partes borradas ($PARTES)."
 else
-  echo "Entrega cada parte de $PARTES a su custodio por un canal distinto y despues borrala (shred -u)."
+  echo
+  echo "Partes para entregar (una por custodio, por canales distintos), en $PARTES:"
+  # parte_N va al custodio N, en el orden en que se escribieron (cli-llaves del ERP).
+  i=1
+  echo "$CUSTODIOS" | tr ',' '\n' | while IFS=: read -r nombre rol; do
+    echo "  parte_$i.shamir  ->  $nombre ($rol)"
+    i=$((i + 1))
+  done
+  echo "Despues de entregarlas: shred -u $PARTES/* && rmdir $PARTES"
 fi
 echo "Luego, en la consola: job de $SLUG -> 'Llaves listas' con los mismos custodios."

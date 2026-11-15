@@ -52,6 +52,9 @@ if (-not ((Get-Content $envSilo -TotalCount 1) -like '# Generado por el ejecutor
 if (-not (Test-Path $bash)) { throw "Falta Git Bash en $bash" }
 if (Test-Path (Join-Path $Erp "infra\secrets\$Slug\kek")) { throw "El silo $Slug ya tiene KEK: no se vuelve a generar (rotar es otro runbook)" }
 
+if ($Prueba) {
+  Write-Warning "-Prueba: al terminar se BORRAN las 3 partes de la llave de recuperacion y nadie podra recuperarla. Solo para silos de prueba; con un centro real, correr sin -Prueba y entregar las partes."
+}
 Write-Host "Llaves de $Slug con el script del ERP ($script)"
 $nombres = 'CLIENTE_SLUG', 'MODO', 'ENV_SILO', 'ACTOR', 'CUSTODIOS', 'MSYS_NO_PATHCONV'
 try {
@@ -72,6 +75,15 @@ if ($Prueba) {
   Remove-Item -Recurse -Force $partes -ErrorAction SilentlyContinue
   Write-Host "Silo de prueba: partes borradas ($partes)."
 } else {
-  Write-Host "Entrega cada parte de $partes a su custodio por un canal distinto y despues borra la carpeta."
+  Write-Host ''
+  Write-Host "Partes para entregar (una por custodio, por canales distintos), en ${partes}:"
+  $nombresCustodios = $Custodios -split ','
+  $i = 0
+  foreach ($a in (Get-ChildItem $partes -File | Sort-Object Name)) {
+    $quien = if ($i -lt $nombresCustodios.Count) { $nombresCustodios[$i] -replace ':', ' (' } else { '?' }
+    Write-Host "  $($a.Name)  ->  $quien)"
+    $i++
+  }
+  Write-Host 'Despues de entregarlas, borra la carpeta (Remove-Item -Recurse -Force <ruta de arriba>).'
 }
 Write-Host "Luego, en la consola: job de $Slug -> 'Llaves listas' con los mismos custodios."
