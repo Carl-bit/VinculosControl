@@ -115,7 +115,7 @@ export interface CentroDetalle extends Omit<FilaCentro, 'tamanoEquipo' | 'modulo
   puedeDescartar: boolean;
 }
 
-export type EstadoJob = 'PENDIENTE' | 'EN_CURSO' | 'ESPERANDO_LLAVES' | 'FALLIDO' | 'OK' | 'CANCELADO';
+export type EstadoJob = 'PENDIENTE' | 'EN_CURSO' | 'ESPERANDO_LLAVES' | 'ESPERANDO_OPERADOR' | 'FALLIDO' | 'OK' | 'CANCELADO';
 export type EstadoPaso = 'PENDIENTE' | 'EN_CURSO' | 'OK' | 'FALLIDO' | 'OMITIDO';
 export interface PasoJob {
   id: number;
@@ -123,7 +123,7 @@ export interface PasoJob {
   codigo: string;
   nombre: string;
   detalle: string;
-  ejecutor: 'control' | 'agente';
+  ejecutor: 'control' | 'agente' | 'operador';
   estado: EstadoPaso;
   intentos: number;
   inicioEn: string | null;

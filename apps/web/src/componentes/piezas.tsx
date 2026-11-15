@@ -213,6 +213,7 @@ export const claseJob: Record<string, string> = {
   PENDIENTE: 'neu',
   EN_CURSO: 'info',
   ESPERANDO_LLAVES: 'warn',
+  ESPERANDO_OPERADOR: 'warn',
   FALLIDO: 'danger',
   OK: 'ok',
   OMITIDO: 'warn',

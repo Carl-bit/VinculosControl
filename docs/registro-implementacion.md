@@ -366,3 +366,100 @@ por digest, `migrate` aplico las migraciones e `identidad_silo`, label OCI con
 el commit; `API_DIGEST` vacio: `invalid reference format` (falla cerrado).
 Silo borrado al terminar. La imagen `0.1.0-prueba.1` queda en el registro (no
 hay borrado por API; se pierde solo si se borra el volumen `registro_datos`).
+
+### Ejecutor: preparar y levantar (2026-11-15)
+
+Etapa 2 de la opcion C. `apps/ejecutor/src/aprovisionar.ts` (logica, inyectable)
+y `silos.ts` (disco y CLI reales); rutas `POST /v1/silos/<slug>/preparar` y
+`/levantar` en `index.ts`.
+
+- El ejecutor corre el CLI de `docker compose` (apk `docker-cli-compose`), sin
+  shell, con argumentos fijos y entorno minimo. Probado antes en un contenedor:
+  las rutas de los bind mounts y de los secrets del compose las resuelve el
+  daemon en el host, asi que basta con escribir en el compose renderizado la
+  ruta del ERP en el host (`ERP_INFRA_HOST`; en Docker Desktop
+  `/run/desktop/mnt/host/c/...`). `infra/secrets/` no se monta en el ejecutor.
+- Sin KEK el daemon rechaza el bind (`bind source path does not exist`) y no
+  crea backend ni frontend; no crea carpetas en el host. `levantar` lo traduce
+  a 409 ESPERANDO_LLAVES.
+- `compose wait migrate` imprime `container "<id>" exited with status code N`:
+  se exige esa linea con 0 (una salida vacia no cuenta como exito).
+- El script de llaves del ERP no lo corrio el asistente (bloqueado, y es del
+  operador por regla): falta probar `levantar todo` con llaves.
+
+Silo de prueba `r1prueba` (db + migrate) queda arriba para esa prueba.
+
+### Job APROVISIONAR (2026-11-15)
+
+Decisiones del usuario: version solo `fija` hasta releases; P8 verificado por
+el agente con espera manual si el dominio no responde (nunca
+ACTIVO_SIN_DOMINIO); P9 verifica un respaldo con su `.sha256`. Sobre canales:
+el usuario observo que `fija` no puede ser permanente (los parches de seguridad
+deben llegar); se propuso que con releases pase a ser una retencion temporal.
+
+- API: `jobs/aprovisionar.service.ts` (P0 extra, P1, datos de P2, cierre ACTIVO,
+  cancelacion a APROBADO), pasos con ejecutor `operador` (P5), esperas
+  `LLAVES` (P6 -> reabre P5) y `DOMINIO` (P8, estado `ESPERANDO_OPERADOR`),
+  orden de pasos impuesto en `reportarPaso`, `POST /consola/jobs/:id/confirmar`
+  y `POST /agente/jobs/:id/reserva`. Maquina de estados: APROVISIONANDO ->
+  APROBADO (cancelacion).
+- Agente: P2, P4, P6, P7, P8, P9, P10; renueva la reserva cada minuto mientras
+  corre un paso.
+- Ejecutor: `preparar` devuelve version y digests; nombre hasta 120.
+- Consola: boton Aprovisionar en el manifiesto aprobado; paneles "Llaves
+  listas" (custodios) y "Dominio listo" en el job.
+
+Hallazgos de la prueba real: (1) la API no arrancaba: un DTO usado como tipo de
+parametro estaba declarado despues del controlador (los tests no cargan
+controladores); corregido. (2) El schema del manifiesto acepta solo X.Y.Z en
+`fija`: la corrida completa necesita `0.1.0` publicada (primer tag real e
+inmutable; exige commitear el ERP). Centro de prueba `e2eprov` (id 6) sembrado
+en APROBADO con `fija: 0.1.0` en la BD local para esa corrida.
+
+Envoltorio de P5 (2026-11-15, pedido del usuario tras errores de PowerShell):
+`infra/host-b/llaves-silo.ps1` (Windows) y `llaves-silo.sh` (Linux). No generan
+nada por su cuenta: validan slug y custodios, ubican la raiz del ERP
+(IMAGENES_HOST) y el .env del silo (SILOS_HOST), se niegan si el .env no es del
+ejecutor o si ya hay KEK, y llaman a `infra/scripts/llaves/aprovisionar.sh` del
+ERP con MODO=docker. `-Prueba`/`--prueba` borra las partes (solo silos de
+prueba). El panel P5 de la consola muestra este comando.
+
+Corrida real de APROVISIONAR (job #8, `e2eprov`, 2026-11-15), con `0.1.0`
+publicada desde el commit `2ede6f1` del ERP (rama `r1-imagenes-por-digest`):
+- P0, P1, P2 (secretos, compose, digests de 0.1.0) y P4 (migrate en 0): OK.
+- P5: llaves con `llaves-silo.ps1` (operador) y "Llaves listas" con custodios.
+- P6, primer intento: FALLIDO `ECONNREFUSED`. Causa: el atajo de desarrollo
+  `SILO_INTERNO_URL` del agente era global y mandaba `/api/salud` del silo
+  nuevo al PC. Corregido: el atajo aplica solo a `SILO_INTERNO_SLUGS`
+  (centro-prueba); test nuevo en el agente (17). Reintento desde P6: OK
+  (borde unido, `/api/salud` 200 con bd y canarios, KEK verificada).
+- P7: APLICADA rev 1 (AGENDA, EQUIPO, FICHAS) y confirmada por el silo.
+- P8: `e2eprov.vinculos.example` no resuelve (ENOTFOUND) -> job en
+  ESPERANDO_OPERADOR, como se diseno. P9, P10 y el cierre ACTIVO quedan para
+  cuando haya un dominio que llegue por el tunel.
+
+Formulario de custodios en P5 (2026-11-15, pedido del usuario): 3 filas fijas
+(una por parte Shamir, 2 de 3) con nombre y rol (`Selector` propio: Proveedor,
+Centro, Sobre offline u Otro con texto). La consola arma el comando de
+`llaves-silo` con esos custodios y un selector "Centro real / Silo de prueba"
+(aviso: `-Prueba` borra las partes). "Llaves listas" manda `custodios` (3, sin
+`:` ni `,`, validados en la API) y P5 guarda una linea por parte. Sin busqueda
+en el silo: en P5 aun no hay usuarios y el plano de control no lee personas.
+`apps/web/src/app/consola/jobs/[id]/llaves.tsx`.
+
+Simulacion de P8 en el PC (scratchpad, sin tocar los repos): Traefik v3.6 real
+con el nombre `vinculos-servidor-traefik-1`, mismas opciones TLS que el ERP,
+certificado de una CA local, alias de red para el dominio y el agente con
+`NODE_EXTRA_CA_CERTS`. Comprobado: `https://e2eprov.vinculos.example/api/salud`
+200 y `/api/internal/*` 403 por Traefik. Envoltorio de P9:
+`infra/host-b/respaldo-silo.ps1` / `.sh` (crea `respaldo.key` solo si falta y
+corre `respaldar.sh` del ERP).
+
+Cierre de la corrida real (job #8): P8 OK por el Traefik simulado, P9 OK
+(respaldo de 1,4 MB con `.sha256`), P10 OK (invitacion del ADMIN; correo
+simulado sin SMTP), centro ACTIVO y silo adoptado con 0.1.0 y sus digests.
+Hallazgos en el camino: `respaldar.sh` del ERP fallaba en un host B Windows
+(rutas `/c/...` para docker y openssl nativos); corregido con `pwd -W` como
+`llaves/comun.sh` (cambio en el ERP). Cronometros de los pasos en la consola:
+corren en vivo (cada 100 ms) mientras el paso esta EN_CURSO y se detienen al
+terminar; un paso reabierto por una espera no muestra la duracion vieja.

@@ -80,6 +80,21 @@ export const docker: Docker = {
   },
 };
 
+/** Referencia <registro>/vinculos-(api|web)@sha256:... (lo unico que se consulta). */
+const REF_DIGEST = /^[a-z0-9.-]+(:[0-9]{2,5})?\/vinculos-(api|web)@sha256:[0-9a-f]{64}$/;
+
+/** Aprovisionamiento: el daemon pregunta al registro si existe la imagen (sin bajarla). */
+export const dockerApr = {
+  listar: (p: string) => docker.listar(p),
+  async existeEnRegistro(ref: string) {
+    if (!REF_DIGEST.test(ref)) throw new Error('referencia invalida');
+    const r = await llamar('GET', `/distribution/${ref}/json`, 30_000);
+    if (r.status === 200) return true;
+    if (r.status === 404 || r.status === 401 || r.status === 403) return false;
+    throw new Error(`docker distribution: ${r.status} ${r.cuerpo.slice(0, 200)}`);
+  },
+};
+
 const PROYECTO = /^erp-[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 const NOMBRE_VOLUMEN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$/;
 const filtroProyecto = (p: string) => {

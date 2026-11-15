@@ -12,8 +12,8 @@
 import { createHash } from 'node:crypto';
 
 import { getJson, listar } from './docker';
-import { host } from './host';
-import { llamarSilo, tokenDe } from './solicitudes';
+import { host, ultimoRespaldo } from './host';
+import { llamarSilo, tokenDe, urlSilo } from './solicitudes';
 
 /**
  * Ejecutor de silos (opcion C): unico con el socket de Docker. El agente le
@@ -25,7 +25,7 @@ const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
 /** RECONFIGURAR no usa el ejecutor: habla con /api/internal del silo (token por silo). */
 export const TIPOS = EJECUTOR
-  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'] as const)
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR'] as const)
   : (['VERIFICAR', 'RECONFIGURAR'] as const);
 
 interface EstadoContenedor {
@@ -35,19 +35,32 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar';
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar';
 
-/** Unico cuerpo que acepta el ejecutor: { actaHash } en eliminar. */
-async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEjecutor, envio?: { actaHash: string }): Promise<T> {
+/** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar y levantar. */
+type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' };
+
+/** Error del ejecutor con su status HTTP (409 de levantar sin llaves = esperar al operador). */
+export class ErrorEjecutor extends Error {
+  constructor(
+    readonly status: number,
+    mensaje: string,
+  ) {
+    super(mensaje);
+  }
+}
+
+async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEjecutor, envio?: EnvioEjecutor): Promise<T> {
   if (!EJECUTOR) throw new Error('EJECUTOR_URL sin definir');
   const r = await fetch(`${EJECUTOR}/v1/silos/${encodeURIComponent(slug)}/${verbo}`, {
     method: metodo,
     headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
     body: envio ? JSON.stringify(envio) : undefined,
-    signal: AbortSignal.timeout(180_000),
+    // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min).
+    signal: AbortSignal.timeout(verbo === 'levantar' ? 30 * 60_000 : 180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
-  if (!r.ok) throw new Error(`ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
+  if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
   return cuerpo;
 }
 
@@ -78,7 +91,43 @@ export interface Resultado {
   estado: 'OK' | 'FALLIDO' | 'OMITIDO';
   log: string[];
   error?: string;
+  /** APROVISIONAR: el paso necesita al operador (P6 sin llaves, P8 sin dominio); el job queda esperando. */
+  espera?: 'LLAVES' | 'DOMINIO';
+  /** APROVISIONAR P2: version y digests que preparo el ejecutor (el silo guarda tag + digest). */
+  datos?: { version: string; apiDigest: string; webDigest: string };
 }
+
+/** Lo que APROVISIONAR lee del manifiesto aprobado (ya validado en P0 por el plano de control). */
+interface ManifiestoAprov {
+  centro?: { nombre?: string; admin?: { nombre?: string; correo?: string } };
+  dominio?: { valor?: string };
+  version?: { fija?: string };
+  estilo?: { tema?: string };
+  modulos?: string[];
+  reglas?: Record<string, unknown>;
+}
+
+/** /api/salud del silo por su red de borde (mismo backend que /api/internal). */
+const urlSalud = (slug: string) => urlSilo(slug).replace(/\/internal$/, '/salud');
+
+interface Salud {
+  estado?: string;
+  bd?: boolean;
+  canarios?: boolean;
+}
+
+async function salud(url: string, ms = 10_000): Promise<{ http: number; s: Salud } | { http: 0; error: string }> {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(ms), redirect: 'manual' });
+    return { http: r.status, s: (await r.json().catch(() => ({}))) as Salud };
+  } catch (e) {
+    const causa = (e as { cause?: { code?: string } }).cause?.code;
+    return { http: 0, error: causa ?? (e instanceof Error ? e.message : String(e)) };
+  }
+}
+const lineaSalud = (r: Awaited<ReturnType<typeof salud>>) =>
+  'error' in r ? `sin respuesta (${r.error})` : `HTTP ${r.http} estado ${r.s.estado ?? '?'} bd ${r.s.bd ?? '?'} canarios ${r.s.canarios ?? '?'}`;
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** JSON canonico (claves ordenadas): mismo algoritmo que @vinculos/manifest/hash (lo prueba agente.test.ts). */
 export function jsonCanonico(v: unknown): string {
@@ -257,6 +306,92 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     if (libre < RAM_SILO) return { estado: 'FALLIDO', log, error: 'Menos de 1 GiB de RAM libre para un silo nuevo' };
     return { estado: 'OK', log };
   },
+
+  // ---------- APROVISIONAR (CONTEXTO.md seccion 5; por el ejecutor y /api/internal) ----------
+  async P2(j) {
+    // Integridad y capacidad primero (como VERIFICAR V1 y V5): nada se crea si fallan.
+    const integridad = await EJECUTORES.V1(j);
+    if (integridad.estado !== 'OK') return integridad;
+    const capacidad = await EJECUTORES.V5(j);
+    if (capacidad.estado !== 'OK') return capacidad;
+    const m = (j.manifiesto ?? {}) as ManifiestoAprov;
+    const pedido = { version: m.version?.fija ?? '', dominio: m.dominio?.valor ?? '', nombre: m.centro?.nombre ?? '', tema: m.estilo?.tema ?? 'moderno' };
+    const r = await ejecutor<{ log: string[]; imagenes: { version: string; apiDigest: string; webDigest: string } }>('POST', j.slug, 'preparar', pedido);
+    return { estado: 'OK', log: [...integridad.log, ...capacidad.log, ...r.log], datos: r.imagenes };
+  },
+
+  async P4(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'levantar', { fase: 'bd' });
+    return { estado: 'OK', log };
+  },
+
+  async P6(j) {
+    let log: string[];
+    try {
+      log = (await ejecutor<{ log: string[] }>('POST', j.slug, 'levantar', { fase: 'todo' })).log;
+    } catch (e) {
+      // Sin KEK el ejecutor responde 409 ESPERANDO_LLAVES: vuelve a P5 (manual), no es un fallo del job.
+      if (e instanceof ErrorEjecutor && e.status === 409 && e.message.includes('ESPERANDO_LLAVES')) {
+        return { estado: 'FALLIDO', log: [], error: e.message, espera: 'LLAVES' };
+      }
+      throw e;
+    }
+    // La API arranca solo si la huella de la KEK y los canarios coinciden: hasta 3 min a /api/salud 200.
+    let ultimo = await salud(urlSalud(j.slug));
+    for (let i = 0; i < 36 && !(ultimo.http === 200 && !('error' in ultimo) && ultimo.s.estado === 'ok'); i++) {
+      await esperar(5_000);
+      ultimo = await salud(urlSalud(j.slug));
+    }
+    log.push(`/api/salud por el borde: ${lineaSalud(ultimo)}`);
+    return ultimo.http === 200 && !('error' in ultimo) && ultimo.s.estado === 'ok'
+      ? { estado: 'OK', log }
+      : { estado: 'FALLIDO', log, error: 'La API del silo no respondio /api/salud 200 en 3 min (revisar llaves y canarios: logs de erp-<slug>-backend-1)' };
+  },
+
+  async P7(j) {
+    // Carga inicial = la revision aprobada por /api/internal/config (R4); igual que RECONFIGURAR C1 + C2.
+    const aplicar = await EJECUTORES.C1(j);
+    if (aplicar.estado !== 'OK') return aplicar;
+    const confirmar = await EJECUTORES.C2(j);
+    return { ...confirmar, log: [...aplicar.log, ...confirmar.log] };
+  },
+
+  async P8(j) {
+    const dominio = ((j.manifiesto ?? {}) as ManifiestoAprov).dominio?.valor ?? '';
+    if (!/^[a-z0-9.-]{4,253}$/.test(dominio)) return { estado: 'FALLIDO', log: [], error: 'El manifiesto no trae un dominio valido' };
+    // Por fuera, como un usuario: tunel de Cloudflare -> Traefik -> silo (con certificado valido).
+    const r = await salud(`https://${dominio}/api/salud`, 15_000);
+    const log = [`https://${dominio}/api/salud: ${lineaSalud(r)}`];
+    if (r.http === 200 && !('error' in r) && r.s.estado === 'ok') return { estado: 'OK', log };
+    return { estado: 'FALLIDO', log, error: `El dominio ${dominio} aun no llega al silo: configurar la ruta en el tunel y confirmar en la consola`, espera: 'DOMINIO' };
+  },
+
+  async P9(j) {
+    const r = await ultimoRespaldo(j.slug);
+    if (!r) return { estado: 'FALLIDO', log: [`respaldos/${j.slug}/ sin respaldos`], error: `Sin respaldo: correr infra/scripts/continuidad/instalar.sh del ERP para ${j.slug} (respaldo.key, cron 02:00) y un primer respaldar.sh; luego reintentar desde P9` };
+    const log = [`ultimo respaldo ${r.archivo} (${r.bytes} bytes, ${r.fecha})`];
+    // respaldar.sh deja 32 bytes con la db detenida (R14 del ERP): un respaldo real pesa mas.
+    if (r.bytes < 1024) return { estado: 'FALLIDO', log, error: 'El respaldo es demasiado chico para ser real (R14)' };
+    if (!r.sha256) return { estado: 'FALLIDO', log, error: `Falta ${r.archivo}.sha256` };
+    log.push(`sha256 ${r.sha256.slice(0, 12)}`);
+    return { estado: 'OK', log };
+  },
+
+  async P10(j) {
+    const admin = ((j.manifiesto ?? {}) as ManifiestoAprov).centro?.admin;
+    if (!admin?.correo || !admin.nombre) return { estado: 'FALLIDO', log: [], error: 'El manifiesto no trae el ADMIN inicial' };
+    let r: { invitada: boolean; vence?: string };
+    try {
+      // Mismo correo pendiente: el ERP renueva la invitacion (reintento idempotente).
+      r = await llamarSilo<{ invitada: boolean; vence?: string }>(j.slug, await tokenDe(j.slug), 'POST', '/admin-inicial', { email: admin.correo, nombre: admin.nombre });
+    } catch (e) {
+      // Reintento despues de que el ADMIN activo su cuenta: el objetivo del paso ya se cumplio.
+      if (e instanceof Error && e.message.includes('cuenta madre activa')) return { estado: 'OK', log: ['el centro ya tiene su cuenta madre activa'] };
+      throw e;
+    }
+    // Solo el resultado: el enlace de la invitacion nunca sale del silo (va por correo al ADMIN).
+    return { estado: 'OK', log: [`invitacion del ADMIN inicial enviada (vence ${r.vence ?? '?'})`] };
+  },
 };
 
 type Enviar = (ruta: string, cuerpo: unknown) => Promise<Response>;
@@ -273,10 +408,14 @@ export async function ejecutar(j: JobReclamado, enviar: Enviar, log: (m: string)
     if (!(await reportar({ estado: 'EN_CURSO' }))) return log(`job ${j.id} detenido por el plano de control`);
     const ejecutor = EJECUTORES[p.codigo];
     let res: Resultado;
+    // Un paso largo (levantar baja imagenes y espera migrate) renueva la reserva cada minuto.
+    const reserva = setInterval(() => void enviar(`jobs/${j.id}/reserva`, {}).catch(() => undefined), 60_000);
     try {
       res = ejecutor ? await ejecutor(j) : { estado: 'FALLIDO', log: [], error: `Paso ${p.codigo} fuera de la lista cerrada del agente` };
     } catch (e) {
       res = { estado: 'FALLIDO', log: [], error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      clearInterval(reserva);
     }
     log(`job ${j.id} ${p.codigo} ${res.estado}${res.error ? `: ${res.error}` : ''}`);
     const seguir = await reportar(res);

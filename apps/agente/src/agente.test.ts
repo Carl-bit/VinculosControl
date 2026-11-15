@@ -98,3 +98,56 @@ describe('jobs del agente', () => {
     assert.deepEqual([...new Set(rutas)], ['jobs/7/pasos/V4']);
   });
 });
+
+describe('APROVISIONAR en el agente', () => {
+  const job = (manifiesto: unknown): JobReclamado => ({ id: 7, tipo: 'APROVISIONAR', slug: 'kibou', revision: 1, hashManifiesto: 'x', manifiesto, pasos: [] });
+  const conFetch = async <T>(f: typeof fetch, cuerpo: () => Promise<T>): Promise<T> => {
+    const antes = globalThis.fetch;
+    globalThis.fetch = f;
+    try {
+      return await cuerpo();
+    } finally {
+      globalThis.fetch = antes;
+    }
+  };
+
+  it('P8: dominio que responde /api/salud 200 = OK', async () => {
+    const r = await conFetch(
+      (async (url: string) => {
+        assert.equal(url, 'https://kibou.vinculos.cl/api/salud');
+        return new Response(JSON.stringify({ estado: 'ok', bd: true, canarios: true }), { status: 200 });
+      }) as typeof fetch,
+      () => EJECUTORES.P8(job({ dominio: { valor: 'kibou.vinculos.cl' } })),
+    );
+    assert.equal(r.estado, 'OK');
+    assert.equal(r.espera, undefined);
+  });
+
+  it('P8: sin respuesta del dominio = espera al operador (nunca ACTIVO_SIN_DOMINIO)', async () => {
+    const r = await conFetch(
+      (async () => {
+        throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } });
+      }) as typeof fetch,
+      () => EJECUTORES.P8(job({ dominio: { valor: 'kibou.vinculos.cl' } })),
+    );
+    assert.equal(r.estado, 'FALLIDO');
+    assert.equal(r.espera, 'DOMINIO');
+    assert.match(r.log[0], /ENOTFOUND/);
+  });
+
+  it('ejecutar manda espera y datos tal cual en el reporte final', async () => {
+    const enviados: { ruta: string; cuerpo: unknown }[] = [];
+    const enviar = async (ruta: string, cuerpo: unknown) => {
+      enviados.push({ ruta, cuerpo });
+      return new Response(JSON.stringify({ seguir: (cuerpo as { estado: string }).estado === 'EN_CURSO' }), { status: 200 });
+    };
+    const antes = EJECUTORES.P8;
+    EJECUTORES.P8 = async () => ({ estado: 'FALLIDO', log: ['x'], error: 'sin dominio', espera: 'DOMINIO' });
+    try {
+      await ejecutar({ ...job({}), pasos: [{ codigo: 'P8', estado: 'PENDIENTE' }] }, enviar, () => undefined);
+    } finally {
+      EJECUTORES.P8 = antes;
+    }
+    assert.deepEqual(enviados.at(-1), { ruta: 'jobs/7/pasos/P8', cuerpo: { estado: 'FALLIDO', log: ['x'], error: 'sin dominio', espera: 'DOMINIO' } });
+  });
+});

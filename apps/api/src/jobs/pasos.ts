@@ -9,8 +9,12 @@ export interface DefPaso {
   codigo: string;
   nombre: string;
   detalle: string;
-  /** control = lo corre la API al crear el job; agente = el agente del host B. */
-  ejecutor: 'control' | 'agente';
+  /**
+   * control = lo corre la API al crear el job; agente = el agente del host B;
+   * operador = accion manual que el operador confirma en la consola (el job
+   * espera en ESPERANDO_LLAVES u ESPERANDO_OPERADOR).
+   */
+  ejecutor: 'control' | 'agente' | 'operador';
 }
 
 /**
@@ -71,23 +75,46 @@ const ELIMINAR: DefPaso[] = [
   { codigo: 'X3', nombre: 'Comprobar', detalle: 'sin contenedores de erp-<slug>', ejecutor: 'agente' },
 ];
 
-/** Pasos de aprovisionar (para mostrarlos y documentar el bloqueo; aun no se encolan). */
+/**
+ * APROVISIONAR (CONTEXTO.md seccion 5; habilitado 2026-11-15 con R1, R4 y R5).
+ * P3 (compose) va dentro de P2: el verbo preparar del ejecutor renderiza y
+ * valida el compose en la misma llamada. P5 es manual (llaves: solo el
+ * operador). P8 lo verifica el agente; si el dominio no responde, el job espera
+ * al operador (ESPERANDO_OPERADOR) y nunca queda ACTIVO_SIN_DOMINIO.
+ */
 export const PASOS_APROVISIONAR: DefPaso[] = [
-  { codigo: 'P0', nombre: 'Validar', detalle: 'schema, dependencias, dominio, imagen', ejecutor: 'control' },
-  { codigo: 'P1', nombre: 'Reservar', detalle: 'registro del silo y red', ejecutor: 'agente' },
-  { codigo: 'P2', nombre: 'Secretos generables', detalle: 'contrasenas de BD y JWT en silos/<slug>/.env (600)', ejecutor: 'agente' },
-  { codigo: 'P3', nombre: 'Compose', detalle: 'render de silo.compose.tpl y docker compose config', ejecutor: 'agente' },
-  { codigo: 'P4', nombre: 'BD y migraciones', detalle: 'up db migrate', ejecutor: 'agente' },
-  { codigo: 'P5', nombre: 'Llaves (manual)', detalle: 'el operador corre infra/scripts/llaves/aprovisionar.sh', ejecutor: 'agente' },
-  { codigo: 'P6', nombre: 'Levantar', detalle: 'up -d y /api/salud 200', ejecutor: 'agente' },
-  { codigo: 'P7', nombre: 'Carga inicial', detalle: '/api/internal/config (requisito R4)', ejecutor: 'agente' },
-  { codigo: 'P8', nombre: 'Dominio', detalle: 'ruta en el tunel y certificado', ejecutor: 'agente' },
-  { codigo: 'P9', nombre: 'Continuidad', detalle: 'instalar.sh, primer respaldo y restauracion de prueba', ejecutor: 'agente' },
-  { codigo: 'P10', nombre: 'Admin y cierre', detalle: '/api/internal/admin-inicial (requisito R5) y ACTIVO', ejecutor: 'agente' },
+  { codigo: 'P0', nombre: 'Validar', detalle: 'manifiesto (schema, dependencias, hash), version fija, slug y dominio libres, nombre y tema aceptados por el ejecutor', ejecutor: 'control' },
+  { codigo: 'P1', nombre: 'Reservar', detalle: 'centro APROVISIONANDO y registro del silo', ejecutor: 'control' },
+  { codigo: 'P2', nombre: 'Preparar', detalle: 'capacidad del host; imagen por digest en el registro; .env (600) con secretos generados en el host B; compose renderizado y validado (ejecutor: preparar)', ejecutor: 'agente' },
+  { codigo: 'P4', nombre: 'BD y migraciones', detalle: 'up db migrate; migrate termina en 0 (ejecutor: levantar bd)', ejecutor: 'agente' },
+  { codigo: 'P5', nombre: 'Llaves (manual)', detalle: 'el operador corre infra/scripts/llaves/aprovisionar.sh del ERP y lo confirma aqui', ejecutor: 'operador' },
+  { codigo: 'P6', nombre: 'Levantar', detalle: 'up del silo completo, borde unido y /api/salud 200 (ejecutor: levantar todo)', ejecutor: 'agente' },
+  { codigo: 'P7', nombre: 'Carga inicial', detalle: 'POST /api/internal/config con modulos y reglas de la revision (R4) y confirmacion', ejecutor: 'agente' },
+  { codigo: 'P8', nombre: 'Dominio', detalle: 'https://<dominio>/api/salud 200 por el tunel; si no responde, espera al operador', ejecutor: 'agente' },
+  { codigo: 'P9', nombre: 'Continuidad', detalle: 'respaldos/<slug>/ con un respaldo y su .sha256 (instalar.sh del ERP)', ejecutor: 'agente' },
+  { codigo: 'P10', nombre: 'Admin y cierre', detalle: 'invitacion del ADMIN inicial por /api/internal/admin-inicial (R5); centro ACTIVO', ejecutor: 'agente' },
 ];
 
 /** Tipos que hoy se pueden encolar, con sus pasos. El resto responde por que no. */
-export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR, DETENER_SILO, REANUDAR_SILO, ELIMINAR };
+export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR, DETENER_SILO, REANUDAR_SILO, ELIMINAR, APROVISIONAR: PASOS_APROVISIONAR };
+
+/** Esperas que el agente puede pedir en un paso (y solo en ese paso) de APROVISIONAR. */
+export const ESPERAS: Record<string, { paso: string; estado: EstadoJob; reabre: string }> = {
+  /** P6 sin KEK: el ejecutor no crea backend ni frontend. Vuelve a P5 (manual). */
+  LLAVES: { paso: 'P6', estado: 'ESPERANDO_LLAVES', reabre: 'P5' },
+  /** P8 sin respuesta del dominio: el operador configura la ruta del tunel. */
+  DOMINIO: { paso: 'P8', estado: 'ESPERANDO_OPERADOR', reabre: 'P8' },
+};
+
+/** Siguiente paso sin terminar, en orden. */
+export function siguientePaso<T extends { orden: number; estado: EstadoPaso }>(pasos: T[]): T | undefined {
+  return [...pasos].sort((a, b) => a.orden - b.orden).find((p) => p.estado !== 'OK' && p.estado !== 'OMITIDO');
+}
+
+/** Un paso solo se reporta cuando todos los anteriores terminaron bien (el orden lo impone la API). */
+export function anterioresListos(pasos: { orden: number; estado: EstadoPaso }[], orden: number): boolean {
+  return pasos.filter((p) => p.orden < orden).every((p) => p.estado === 'OK' || p.estado === 'OMITIDO');
+}
 
 /** Jobs sobre un silo existente (no nacen de un manifiesto aprobado). */
 export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO'];
@@ -106,13 +133,12 @@ export function enVentanaRespaldo(ahora: Date): boolean {
 }
 
 export const BLOQUEO: Partial<Record<TipoJob, string>> = {
-  APROVISIONAR: 'Bloqueado: requiere imagenes unicas (R1), /api/internal/* (R4, R5) y escritura en el docker-socket-proxy',
   ACTUALIZAR: 'Bloqueado: requiere imagenes unicas y registro de releases (R1)',
   REINICIAR_DEMO: 'Bloqueado: requiere demo:resembrar en el ERP (R10: resembrar datos ficticios conservando llaves). Para reiniciar contenedores sin tocar datos: REINICIAR_SILO',
   EXPORTAR: 'No aplica como job: el exporte lo genera el ADMIN en su silo (S3-S4) y la consola registra el acta en Salidas. Traer la huella sola requiere R13 en el ERP',
 };
 
-export const ACTIVOS: readonly EstadoJob[] = ['PENDIENTE', 'EN_CURSO', 'ESPERANDO_LLAVES'];
+export const ACTIVOS: readonly EstadoJob[] = ['PENDIENTE', 'EN_CURSO', 'ESPERANDO_LLAVES', 'ESPERANDO_OPERADOR'];
 export const FINALES_PASO: readonly EstadoPaso[] = ['OK', 'FALLIDO', 'OMITIDO'];
 
 /** Reserva del agente sobre un job: se renueva con cada reporte de paso. */

@@ -44,3 +44,5 @@ pnpm-debug.log*
 # Sistema operativo
 .DS_Store
 Thumbs.db
+infra/host-b/silos/
+infra/host-b/imagenes/

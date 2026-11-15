@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { useConfirmacion } from '@/componentes/dialogo';
 import { claseEstado, Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type CentroDetalle, type DetalleJob, type EstadoCentro, type Resumen } from '@/lib/api';
 import { useRouter } from 'next/navigation';
@@ -22,6 +23,7 @@ export default function Manifiesto() {
   const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok: boolean }>();
   const [url, setUrl] = useState<string>();
+  const [confirmar, dialogo] = useConfirmacion();
 
   useEffect(() => {
     if (c && !slug) setSlug(c.slug ?? c.fase2.slugSugerido);
@@ -141,11 +143,25 @@ export default function Manifiesto() {
         <button type="button" className="boton primario" disabled={ocupado} onClick={() => void crearJob('VERIFICAR')}>
           Verificar en el host B
         </button>
-        <button type="button" className="boton" disabled title="Requiere imagenes unicas (R1), /api/internal/* (R4, R5) y escritura en el docker-socket-proxy">
-          Aprovisionar (bloqueado)
+        <button
+          type="button"
+          className="boton"
+          disabled={ocupado}
+          onClick={async () => {
+            const ok = await confirmar({
+              etiqueta: `erp-${c.slug}`,
+              titulo: 'Aprovisionar el silo',
+              texto:
+                'Crea el silo en el host B con la revision aprobada: secretos, base, migraciones y, despues de que generes las llaves (P5, manual), la API, la carga inicial, el dominio, el respaldo y la invitacion del ADMIN. El manifiesto debe pedir una version fija publicada en el host B.',
+              boton: 'Aprovisionar',
+            });
+            if (ok !== null) void crearJob('APROVISIONAR');
+          }}
+        >
+          Aprovisionar
         </button>
       </div>
-      <p className="mono-corto">Verificar es solo lectura: valida el manifiesto, la red de Traefik, el nombre del stack y la capacidad del host.</p>
+      <p className="mono-corto">Verificar es solo lectura: valida el manifiesto, la red de Traefik, el nombre del stack y la capacidad del host. Aprovisionar crea el silo.</p>
       {msg && (
         <p role="status" className={`chip ${msg.ok ? 'ok' : 'danger'}`} style={{ whiteSpace: 'normal' }}>
           {msg.t}
@@ -191,6 +207,7 @@ export default function Manifiesto() {
           alGuardar={recargar}
         />
       )}
+      {dialogo}
     </Shell>
   );
 }

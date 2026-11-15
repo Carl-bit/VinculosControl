@@ -61,3 +61,17 @@ test('sincronizarSilo: R2 -> plano de control -> R3; un R3 fallido viaja en el s
   // El segundo GET pide solo lo actualizado despues de lo ya visto.
   assert.ok(llamadas.some((l) => l.startsWith('GET /solicitudes?desde=')));
 });
+
+test('SILO_INTERNO_URL (atajo de desarrollo) solo para los slugs de SILO_INTERNO_SLUGS; el resto por su red de borde', async () => {
+  // La configuracion se lee al cargar el modulo: se prueba en un proceso aparte.
+  const { execFileSync } = await import('node:child_process');
+  const ver = (env: Record<string, string>) =>
+    execFileSync(process.execPath, ['--import', 'tsx', '-e', "import('./src/solicitudes.ts').then((m) => console.log(m.urlSilo('centro-prueba') + ' ' + m.urlSilo('e2eprov')))"], {
+      env: { ...process.env, ...env },
+      encoding: 'utf8',
+    }).trim();
+  const atajo = 'http://host.docker.internal:3001/api/internal';
+  assert.equal(ver({ SILO_INTERNO_URL: atajo, SILO_INTERNO_SLUGS: 'centro-prueba' }), `${atajo} http://erp-e2eprov-backend-1:3001/api/internal`);
+  // Sin lista, el atajo no aplica a nadie (antes era global y rompio P6 de un silo aprovisionado).
+  assert.equal(ver({ SILO_INTERNO_URL: atajo, SILO_INTERNO_SLUGS: '' }), 'http://erp-centro-prueba-backend-1:3001/api/internal http://erp-e2eprov-backend-1:3001/api/internal');
+});

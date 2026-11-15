@@ -51,6 +51,8 @@ services:
       # Solo desarrollo local: /api/internal de la API del ERP fuera de Docker
       # (http://host.docker.internal:3001/api/internal). Vacio = red de borde.
       SILO_INTERNO_URL: ${SILO_INTERNO_URL:-}
+      # Slugs (coma) a los que aplica SILO_INTERNO_URL; el resto, siempre por su red de borde.
+      SILO_INTERNO_SLUGS: ${SILO_INTERNO_SLUGS:-}
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes:
@@ -69,7 +71,8 @@ services:
   # estado, reiniciar (backend y frontend de erp-<slug>), conectar_borde, soltar_borde,
   # reconectar_bordes (R11), detener y reanudar (salida, opcion B: no borran) y eliminar
   # (opcion C, 2026-11-14: unico verbo que borra; exige bajas/<slug> con el hash del acta de
-  # recepcion y el silo detenido; no toca llaves). Sin puertos publicados: solo lo alcanza el
+  # recepcion y el silo detenido; no toca llaves), preparar y levantar (aprovisionamiento,
+  # R1: imagenes solo por digest, sin build; src/aprovisionar.ts). Sin puertos publicados: solo lo alcanza el
   # agente por la red interna "ejecutor", con token propio.
   ejecutor:
     build:
@@ -88,6 +91,22 @@ services:
       # Verbo eliminar (opcion C, 2026-11-14): sin estas dos rutas queda deshabilitado.
       EJECUTOR_BAJAS_DIR: /bajas
       EJECUTOR_RESPALDOS_DIR: /respaldos
+      # preparar y levantar (R1): sin ERP_INFRA_HOST quedan deshabilitados.
+      # infra/ del repo del ERP tal como la ve el daemon de Docker (Linux: la ruta
+      # absoluta; Docker Desktop: /run/desktop/mnt/host/c/...). El compose del silo
+      # monta de ahi postgres/init y referencia secrets/<slug>/ (KEK): las lee el
+      # daemon, nunca el ejecutor (secrets/ no se monta aqui).
+      EJECUTOR_ERP_INFRA: ${ERP_INFRA_HOST:-}
+      EJECUTOR_REGISTRO: 127.0.0.1:${REGISTRO_PUERTO:-5000}
+      EJECUTOR_SILOS_DIR: /silos
+      EJECUTOR_IMAGENES_DIR: /imagenes
+      EJECUTOR_TOKENS_DIR: /tokens
+      # SMTP de los silos (SES en produccion; vacio = correo simulado).
+      EJECUTOR_SMTP_URL: ${SILOS_SMTP_URL:-}
+      EJECUTOR_SES_CONFIGURATION_SET: ${SILOS_SES_CONFIGURATION_SET:-}
+    # read_only: compose escribe su configuracion en HOME=/tmp.
+    tmpfs:
+      - /tmp
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Auditoria local de cada verbo (JSON por linea, solo agregar).
@@ -97,6 +116,12 @@ services:
       - ${BAJAS_HOST:-./bajas}:/bajas:ro
       # respaldos/<slug>/ del ERP: eliminar borra solo la carpeta del silo dado de baja.
       - ${RESPALDOS_HOST:?RESPALDOS_HOST es obligatoria}:/respaldos
+      # silos/<slug>/.env (600, secretos generados en P2) y docker-compose.yml renderizado.
+      - ${SILOS_HOST:-./silos}:/silos
+      # infra/imagenes del ERP: <version>.env con los digests (publicar.sh). Solo lectura.
+      - ${IMAGENES_HOST:-./imagenes}:/imagenes:ro
+      # Tokens internos: el ejecutor escribe <slug>.token en P2; el agente los lee (solo lectura).
+      - ${TOKENS_INTERNOS_HOST:-./internos}:/tokens
     networks:
       - ejecutor
 

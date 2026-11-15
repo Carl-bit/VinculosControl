@@ -149,6 +149,7 @@ Valores para local:
 | `EJECUTOR_TOKEN` | `openssl rand -hex 32` |
 | `TOKENS_INTERNOS_HOST` | vacio (usa `infra/host-b/internos/`) |
 | `SILO_INTERNO_URL` | `http://host.docker.internal:3001/api/internal` (la API del ERP corre fuera de Docker) |
+| `SILO_INTERNO_SLUGS` | `centro-prueba`: el atajo aplica solo a esos slugs; un silo aprovisionado va siempre por su red de borde |
 | `EJECUTOR_UNIR_BORDE` | sin cambios (solo importa con silos completos, seccion 8) |
 
 ```sh

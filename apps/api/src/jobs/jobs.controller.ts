@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { EstadoPaso, TipoJob } from '@prisma/client';
-import { ArrayMaxSize, IsArray, IsEnum, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsEnum, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import type { Request } from 'express';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
@@ -24,6 +25,50 @@ class CrearJobDto {
   @IsString()
   @MaxLength(40)
   siloSlug?: string;
+}
+
+// Los DTO van antes de los controladores: Nest lee el tipo de cada parametro al definir la clase.
+/** Custodio de una parte de la llave de recuperacion (nunca la parte). Sin ':' ni ',' (formato del script del ERP). */
+class CustodioDto {
+  @IsString()
+  @Matches(/^[^:,\r\n]{2,80}$/)
+  nombre: string;
+
+  @IsString()
+  @Matches(/^[^:,\r\n]{2,40}$/)
+  rol: string;
+}
+
+class ConfirmarDto {
+  @IsIn(['P5', 'P8'])
+  paso: string;
+
+  /** P5: los 3 custodios, uno por parte (2 de 3). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(3)
+  @ArrayMaxSize(3)
+  @ValidateNested({ each: true })
+  @Type(() => CustodioDto)
+  custodios?: CustodioDto[];
+
+  /** P8: nota opcional. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  nota?: string;
+}
+
+/** Version y digests que preparo el ejecutor (P2 de APROVISIONAR). Solo eso. */
+class DatosP2Dto {
+  @Matches(/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$/)
+  version: string;
+
+  @Matches(/^sha256:[0-9a-f]{64}$/)
+  apiDigest: string;
+
+  @Matches(/^sha256:[0-9a-f]{64}$/)
+  webDigest: string;
 }
 
 /** Vista Aprovisionamiento de la consola. */
@@ -59,6 +104,13 @@ export class JobsConsolaController {
   cancelar(@Param('id', ParseIntPipe) id: number, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
     return this.jobs.cancelar(id, op, ip);
   }
+
+  /** APROVISIONAR: el operador confirma P5 (llaves, con custodios) o P8 (ruta del dominio). */
+  @Post(':id/confirmar')
+  @HttpCode(200)
+  confirmar(@Param('id', ParseIntPipe) id: number, @Body() b: ConfirmarDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
+    return this.jobs.confirmar(id, b.paso, b.nota ?? '', op, ip, b.custodios);
+  }
 }
 
 class ReclamarDto {
@@ -83,6 +135,16 @@ class ReportePasoDto {
   @IsString()
   @MaxLength(500)
   error?: string;
+
+  /** APROVISIONAR: el paso necesita al operador (P6 sin llaves, P8 sin dominio). */
+  @IsOptional()
+  @IsIn(['LLAVES', 'DOMINIO'])
+  espera?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosP2Dto)
+  datos?: DatosP2Dto;
 }
 
 /** Endpoints del agente (modelo pull: reclama y reporta; el host A nunca llama al host B). */
@@ -97,9 +159,16 @@ export class JobsAgenteController {
     return (await this.jobs.reclamar(req.agenteId, b.tipos)) ?? { job: null };
   }
 
+  /** Renueva la reserva mientras un paso largo corre (sin cambiar el paso). */
+  @Post(':id/reserva')
+  @HttpCode(200)
+  reserva(@Req() req: Request & { agenteId: number }, @Param('id', ParseIntPipe) id: number) {
+    return this.jobs.renovarReserva(req.agenteId, id);
+  }
+
   @Post(':id/pasos/:codigo')
   @HttpCode(200)
   paso(@Req() req: Request & { agenteId: number }, @Param('id', ParseIntPipe) id: number, @Param('codigo') codigo: string, @Body() b: ReportePasoDto) {
-    return this.jobs.reportarPaso(req.agenteId, id, codigo.slice(0, 8), b.estado, b.log, b.error);
+    return this.jobs.reportarPaso(req.agenteId, id, codigo.slice(0, 8), b.estado, b.log, b.error, { espera: b.espera, datos: b.datos });
   }
 }

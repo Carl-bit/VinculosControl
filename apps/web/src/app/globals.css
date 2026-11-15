@@ -1349,3 +1349,22 @@ tr[aria-selected='true'] td {
 .calendario-hora .boton {
   margin-left: auto;
 }
+
+/* P5 de APROVISIONAR: 3 custodios (parte, nombre, rol, rol libre, estado). */
+.custodios {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.custodio-fila {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 10px;
+  align-items: end;
+}
+.custodio-fila .campo-consola {
+  min-width: 0;
+}
+.custodio-fila > .mono-corto {
+  padding-bottom: 8px;
+}

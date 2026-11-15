@@ -16,7 +16,7 @@ export default function Jobs() {
       <div>
         <h1>Aprovisionamiento</h1>
         <span className="sub">
-          Cola de jobs: el agente del host B los reclama y reporta cada paso. Hoy se ejecuta VERIFICAR (solo lectura){error && ` · error: ${error}`}
+          Cola de jobs: el agente del host B los reclama y reporta cada paso. VERIFICAR (solo lectura), APROVISIONAR, RECONFIGURAR, REINICIAR_SILO y los de Salidas{error && ` · error: ${error}`}
         </span>
       </div>
       <section className="panel">

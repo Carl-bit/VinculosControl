@@ -243,6 +243,8 @@ Cola de jobs en el Postgres del plano de control (tabla `job` + `SELECT ... FOR 
 | P9 Continuidad y contrato | `infra/scripts/continuidad/instalar.sh` (`respaldo.key`, cron de respaldo 02:00, `salud.sh` cada 5 min, recordatorio de prueba mensual); primer respaldo y restauracion de prueba. Publicar TERMINOS_SERVICIO y DPA en `politicas` | Respaldo con sha256; restauracion OK; politicas publicadas | Reintentar |
 | P10 Admin y cierre | Admin inicial via `/api/internal/admin-inicial` (requisito del ERP: invitacion de un solo uso, 72 h; hoy por seed). Silo ACTIVO; registrar version, digest, modulos, hash del manifiesto; evento de auditoria | Correo enviado (SES; Mailpit en local) | Reenviar |
 
+Implementado 2026-11-15 (`apps/api/src/jobs/pasos.ts`): P3 va dentro de P2 (el verbo `preparar` del ejecutor renderiza y valida el compose); la version debe ser `fija` hasta que exista el registro de releases; P8 no deja ACTIVO_SIN_DOMINIO: si el dominio no responde, el job espera al operador (`ESPERANDO_OPERADOR`) y el agente vuelve a verificar; P9 exige un respaldo con su `.sha256`; si P6 no encuentra la KEK, el job vuelve a ESPERANDO_LLAVES. Cancelar deja el centro en APROBADO y no borra nada del host B.
+
 Rollback: solo se deshace lo que creo el mismo job. Si ya existen datos cargados por el centro, nunca se borra nada automaticamente.
 
 Otros jobs que reutilizan los mismos pasos:

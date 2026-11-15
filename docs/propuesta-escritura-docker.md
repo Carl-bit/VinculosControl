@@ -85,6 +85,13 @@ Etapas:
    soltar a Traefik y al agente de `erp-<slug>_borde`.
 2. `aprovisionar` completo, cuando el ERP tenga R1 (imagenes unicas por
    digest), R4 (`/api/internal/config`) y R5 (`/api/internal/admin-inicial`).
+   Hecho 2026-11-15 (R1, R4 y R5 listos): verbos `preparar` y `levantar`
+   (`apps/ejecutor/src/aprovisionar.ts`). El ejecutor corre el CLI de
+   `docker compose` (sin shell, argumentos fijos) sobre el compose renderizado
+   en `silos/<slug>/`. Las rutas de `postgres/init` y `secrets/<slug>/` son las
+   del ERP en el host (`ERP_INFRA_HOST`) y las resuelve el daemon, asi que
+   `infra/secrets/` no se monta en el ejecutor. Falta el job en la API y el
+   agente.
 
 ## Decisiones (2026-11-12)
 

@@ -18,6 +18,10 @@ model Silo {
   creadoEn   DateTime  @default(now()) @map("creado_en")
   vistoEn    DateTime? @map("visto_en")
   adoptadoEn DateTime? @map("adoptado_en")
+  /// Version y digests que corre (R1). Los fija el job APROVISIONAR en P2 (y despues ACTUALIZAR).
+  version    String?
+  apiDigest  String?   @map("api_digest")
+  webDigest  String?   @map("web_digest")
 
   @@map("silos")
 }
@@ -317,6 +321,8 @@ enum EstadoJob {
   PENDIENTE
   EN_CURSO
   ESPERANDO_LLAVES
+  /// Espera una accion del operador que no son llaves (APROVISIONAR P8: ruta del dominio en el tunel).
+  ESPERANDO_OPERADOR
   FALLIDO
   OK
   CANCELADO

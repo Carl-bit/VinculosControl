@@ -42,8 +42,16 @@ const fallidas = new Map<string, { id: string; error: string }[]>();
  * {slug} como marcador; solo para desarrollo local, contra la API del ERP
  * corriendo fuera de Docker (http://host.docker.internal:3001/api/internal).
  */
-const PLANTILLA = process.env.SILO_INTERNO_URL || 'http://erp-{slug}-backend-1:3001/api/internal';
-export const urlSilo = (slug: string) => PLANTILLA.replaceAll('{slug}', slug);
+const BORDE = 'http://erp-{slug}-backend-1:3001/api/internal';
+/**
+ * El atajo de desarrollo vale solo para los slugs de SILO_INTERNO_SLUGS (por
+ * ejemplo centro-prueba con la API del ERP fuera de Docker). Un silo
+ * aprovisionado siempre se alcanza por su red de borde (hallado 2026-11-15: el
+ * atajo global mandaba /api/salud de e2eprov al PC y P6 fallaba).
+ */
+const ATAJO = process.env.SILO_INTERNO_URL ?? '';
+const SLUGS_ATAJO = new Set((process.env.SILO_INTERNO_SLUGS ?? '').split(',').map((x) => x.trim()).filter(Boolean));
+export const urlSilo = (slug: string) => (ATAJO && SLUGS_ATAJO.has(slug) ? ATAJO : BORDE).replaceAll('{slug}', slug);
 
 export async function silosConToken(dir = DIR): Promise<{ slug: string; token: string }[]> {
   if (!dir) return [];

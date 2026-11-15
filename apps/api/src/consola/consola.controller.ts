@@ -29,7 +29,7 @@ export class ConsolaController {
       this.prisma.silo.findMany({ orderBy: [{ adoptado: 'desc' }, { slug: 'asc' }] }),
       this.prisma.alerta.findMany({ where: { cerradaEn: null }, orderBy: [{ severidad: 'asc' }, { abiertaEn: 'desc' }] }),
       this.prisma.centro.count({ where: { estado: 'SOLICITUD' } }),
-      this.prisma.job.count({ where: { estado: { in: ['PENDIENTE', 'EN_CURSO', 'ESPERANDO_LLAVES'] } } }),
+      this.prisma.job.count({ where: { estado: { in: ['PENDIENTE', 'EN_CURSO', 'ESPERANDO_LLAVES', 'ESPERANDO_OPERADOR'] } } }),
       this.prisma.incidente.count({ where: { cerradoEn: null } }),
       // Eventos recientes para el Resumen (sin los de acceso, que son ruido aqui).
       this.prisma.eventoAuditoria.findMany({ where: { NOT: { accion: { startsWith: 'auth.' } } }, orderBy: { id: 'desc' }, take: 6 }),

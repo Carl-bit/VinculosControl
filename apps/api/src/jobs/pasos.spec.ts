@@ -1,4 +1,4 @@
-import { EJECUTABLES, enVentanaRespaldo, estadoTrasPasos, limpiarLog, pasosAReintentar, puedeCancelar } from './pasos';
+import { ACTIVOS, anterioresListos, EJECUTABLES, enVentanaRespaldo, ESPERAS, estadoTrasPasos, limpiarLog, pasosAReintentar, puedeCancelar, siguientePaso } from './pasos';
 
 describe('cola de jobs: reglas', () => {
   it('un paso FALLIDO detiene el job', () => {
@@ -26,8 +26,20 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('OK')).toBe(false);
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
-  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4) y los de la salida, todos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR']);
+  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4), los de la salida y APROVISIONAR, todos con P0 en el plano de control', () => {
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR']);
+    expect(EJECUTABLES.APROVISIONAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual([
+      'P0:control',
+      'P1:control',
+      'P2:agente',
+      'P4:agente',
+      'P5:operador',
+      'P6:agente',
+      'P7:agente',
+      'P8:agente',
+      'P9:agente',
+      'P10:agente',
+    ]);
     expect(EJECUTABLES.RECONFIGURAR?.map((p) => p.codigo)).toEqual(['P0', 'C1', 'C2']);
     expect(EJECUTABLES.ELIMINAR?.map((p) => p.codigo)).toEqual(['P0', 'X1', 'X2', 'X3']);
     for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: 'P0', ejecutor: 'control' });
@@ -35,6 +47,24 @@ describe('cola de jobs: reglas', () => {
   it('el agente despacha por codigo: un codigo de paso del agente no se repite entre tipos', () => {
     const codigos = Object.values(EJECUTABLES).flatMap((d) => d!.filter((p) => p.ejecutor === 'agente').map((p) => p.codigo));
     expect(new Set(codigos).size).toBe(codigos.length);
+  });
+  it('orden: un paso corre solo con los anteriores OK u OMITIDO (incluido el manual)', () => {
+    const pasos = [
+      { orden: 0, estado: 'OK' as const },
+      { orden: 1, estado: 'OMITIDO' as const },
+      { orden: 2, estado: 'PENDIENTE' as const },
+      { orden: 3, estado: 'PENDIENTE' as const },
+    ];
+    expect(anterioresListos(pasos, 2)).toBe(true);
+    expect(anterioresListos(pasos, 3)).toBe(false);
+    expect(siguientePaso(pasos)?.orden).toBe(2);
+    expect(siguientePaso([{ orden: 0, estado: 'OK' as const }])).toBeUndefined();
+  });
+  it('esperas de APROVISIONAR: P6 sin llaves vuelve a P5; P8 sin dominio espera al operador en P8', () => {
+    expect(ESPERAS.LLAVES).toEqual({ paso: 'P6', estado: 'ESPERANDO_LLAVES', reabre: 'P5' });
+    expect(ESPERAS.DOMINIO).toEqual({ paso: 'P8', estado: 'ESPERANDO_OPERADOR', reabre: 'P8' });
+    expect(ACTIVOS).toContain('ESPERANDO_OPERADOR');
+    expect(puedeCancelar('ESPERANDO_OPERADOR')).toBe(true);
   });
   it('ventana de respaldo: 01:45 a 02:30 en Chile', () => {
     expect(enVentanaRespaldo(new Date('2026-11-12T05:00:00Z'))).toBe(true); // 02:00 Chile

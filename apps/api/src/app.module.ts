@@ -18,6 +18,7 @@ import { ConfiguracionController } from './configuracion/configuracion.controlle
 import { OperacionController } from './incidentes/operacion.controller';
 import { OperacionService } from './incidentes/operacion.service';
 import { JobsAgenteController, JobsConsolaController } from './jobs/jobs.controller';
+import { AprovisionarService } from './jobs/aprovisionar.service';
 import { JobsService } from './jobs/jobs.service';
 import { ConsolaController } from './consola/consola.controller';
 import { LandingController, LandingGuard } from './publico/landing.controller';
@@ -32,6 +33,6 @@ import { SolicitudesService } from './solicitudes/solicitudes.service';
 @Module({
   imports: [ScheduleModule.forRoot()],
   controllers: [AgenteController, ConsolaController, AccesoController, AuditoriaController, CentrosController, LandingController, JobsConsolaController, JobsAgenteController, OperacionController, ConfiguracionController, SolicitudesAgenteController, SolicitudesConsolaController, SalidasController],
-  providers: [PrismaService, AgenteGuard, AlertasService, SaludService, AuditoriaService, CorreoService, AccesoService, SesionGuard, CentrosService, Fase2Service, LandingGuard, JobsService, OperacionService, SolicitudesService, SalidasService, SalidasCierre],
+  providers: [PrismaService, AgenteGuard, AlertasService, SaludService, AuditoriaService, CorreoService, AccesoService, SesionGuard, CentrosService, Fase2Service, LandingGuard, JobsService, AprovisionarService, OperacionService, SolicitudesService, SalidasService, SalidasCierre],
 })
 export class AppModule {}

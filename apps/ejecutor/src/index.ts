@@ -12,6 +12,8 @@
  *     POST /v1/silos/<slug>/detener          (B: para, no borra)
  *     POST /v1/silos/<slug>/reanudar         (B: arranca lo detenido)
  *     POST /v1/silos/<slug>/eliminar         (C: { actaHash } + consentimiento bajas/<slug>)
+ *     POST /v1/silos/<slug>/preparar         (P0 imagen, P2, P3: { version, dominio, nombre, tema })
+ *     POST /v1/silos/<slug>/levantar         (P4 / P6: { fase: "bd" | "todo" })
  * - A quien se une a las redes de borde lo fija EJECUTOR_UNIR_BORDE del .env del
  *   host B (Traefik y el agente), nunca el plano de control.
  * - Una operacion de escritura a la vez.
@@ -21,8 +23,10 @@ import { timingSafeEqual } from 'node:crypto';
 import { appendFile, readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
+import { type Config, levantar, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
 import { conPrevia, detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
-import { docker, dockerCiclo } from './docker';
+import { docker, dockerApr, dockerCiclo } from './docker';
+import { composeReal, discoSilosReal } from './silos';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
 
 const TOKEN = Buffer.from(process.env.EJECUTOR_TOKEN ?? '');
@@ -32,34 +36,68 @@ const UNIR_BORDE = contenedoresBorde(process.env.EJECUTOR_UNIR_BORDE);
 /** Consentimiento local de bajas (solo lectura) y respaldos del host (ver ciclo.ts). Sin ellos, eliminar no corre. */
 const BAJAS_DIR = process.env.EJECUTOR_BAJAS_DIR ?? '';
 const RESPALDOS_DIR = process.env.EJECUTOR_RESPALDOS_DIR ?? '';
-const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar)$/;
+/**
+ * Aprovisionamiento (R1): sin EJECUTOR_ERP_INFRA, EJECUTOR_SILOS_DIR,
+ * EJECUTOR_IMAGENES_DIR y EJECUTOR_TOKENS_DIR, preparar y levantar no corren.
+ */
+const APR = (() => {
+  const e = process.env;
+  if (!e.EJECUTOR_ERP_INFRA || !e.EJECUTOR_SILOS_DIR || !e.EJECUTOR_IMAGENES_DIR || !e.EJECUTOR_TOKENS_DIR) return null;
+  const cfg: Config = validarConfig({
+    erpInfra: e.EJECUTOR_ERP_INFRA,
+    registro: e.EJECUTOR_REGISTRO ?? '127.0.0.1:5000',
+    silosDir: e.EJECUTOR_SILOS_DIR,
+    smtpUrl: e.EJECUTOR_SMTP_URL ?? '',
+    sesConfigurationSet: e.EJECUTOR_SES_CONFIGURATION_SET ?? '',
+  });
+  const disco = discoSilosReal({
+    silosDir: e.EJECUTOR_SILOS_DIR,
+    imagenesDir: e.EJECUTOR_IMAGENES_DIR,
+    tokensDir: e.EJECUTOR_TOKENS_DIR,
+    plantilla: e.EJECUTOR_PLANTILLA ?? '/app/plantilla/silo.compose.tpl',
+    uidAgente: Number(e.EJECUTOR_UID_AGENTE ?? 1000),
+  });
+  return { cfg, disco };
+})();
+const SIN_APR = 'aprovisionamiento deshabilitado: faltan EJECUTOR_ERP_INFRA, EJECUTOR_SILOS_DIR, EJECUTOR_IMAGENES_DIR o EJECUTOR_TOKENS_DIR';
+const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar)$/;
 const RUTA_BORDES = '/v1/bordes/reconectar';
 
-type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar';
+type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar';
 
-/** Cuerpo de eliminar: solo { actaHash }, maximo 200 bytes. El resto de los verbos no lleva cuerpo. */
-function leerActaHash(req: IncomingMessage): Promise<string> {
+/** Cuerpo JSON acotado (eliminar, preparar, levantar). El resto de los verbos no lleva cuerpo. */
+function leerJson(req: IncomingMessage, max: number): Promise<unknown> {
   return new Promise((ok, falla) => {
     let cuerpo = '';
     req.setEncoding('utf8');
     req.on('data', (d: string) => {
       cuerpo += d;
-      if (cuerpo.length > 200) {
+      if (cuerpo.length > max) {
         req.destroy();
         falla(new ErrorVerbo(413, 'cuerpo demasiado grande'));
       }
     });
     req.on('end', () => {
       try {
-        const j = JSON.parse(cuerpo) as Record<string, unknown>;
-        const h = j.actaHash;
-        if (Object.keys(j).length !== 1 || typeof h !== 'string' || !HASH.test(h)) throw new Error();
-        ok(h);
+        ok(JSON.parse(cuerpo));
       } catch {
-        falla(new ErrorVerbo(400, 'se espera { actaHash: <sha256 hex> }'));
+        falla(new ErrorVerbo(400, 'cuerpo JSON invalido'));
       }
     });
   });
+}
+
+/** Cuerpo de eliminar: solo { actaHash }, maximo 200 bytes. */
+async function leerActaHash(req: IncomingMessage): Promise<string> {
+  const j = (await leerJson(req, 200).catch((e) => {
+    if (e instanceof ErrorVerbo && e.status === 413) throw e;
+    return null;
+  })) as Record<string, unknown> | null;
+  const h = j?.actaHash;
+  if (!j || typeof j !== 'object' || Object.keys(j).length !== 1 || typeof h !== 'string' || !HASH.test(h)) {
+    throw new ErrorVerbo(400, 'se espera { actaHash: <sha256 hex> }');
+  }
+  return h;
 }
 
 let ocupado = false;
@@ -109,6 +147,20 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       const r = await eliminar(dockerCiclo, discoReal(BAJAS_DIR, RESPALDOS_DIR), slug, actaHash, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
       // Reintento tras un exito cuya respuesta se perdio: el log lleva lo que borro la corrida previa.
       return conPrevia(r, await readFile(LOG, 'utf8').catch(() => ''), slug);
+    }
+    case 'preparar': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      const pedido = validarPedido(await leerJson(req, 1024));
+      // imagenes: version y digests que el agente reporta en P2 (el silo los guarda: tag + digest).
+      return preparar(dockerApr, APR.disco, composeReal, APR.cfg, slug, pedido);
+    }
+    case 'levantar': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      const fase = validarFase(await leerJson(req, 100));
+      const log = await levantar(APR.disco, composeReal, APR.cfg, slug, fase);
+      // P6: con el silo completo arriba, Traefik y el agente entran a su red de borde (R11).
+      if (fase === 'todo') log.push(...(UNIR_BORDE.length ? await conectarBorde(docker, slug, UNIR_BORDE) : ['EJECUTOR_UNIR_BORDE vacio: borde sin unir']));
+      return { log };
     }
     default:
       return { log: await escribirSimple(verbo, slug) };
@@ -160,5 +212,5 @@ if (TOKEN.length < 32) {
   process.exit(1);
 }
 servidor.listen(PUERTO, '0.0.0.0', () =>
-  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
+  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}, preparar y levantar${APR ? '' : ' (deshabilitados)'}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
 );

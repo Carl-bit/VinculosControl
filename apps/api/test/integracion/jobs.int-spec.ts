@@ -73,7 +73,7 @@ describe('jobs: P0 al crear', () => {
 
   it('tipos bloqueados no se encolan', async () => {
     const c = await crearCentroAprobado(e.prisma);
-    expect((await errorDe(e.jobs.crear('APROVISIONAR', { centroId: c.id }, op, null))).status).toBe(422);
+    expect((await errorDe(e.jobs.crear('ACTUALIZAR', { centroId: c.id }, op, null))).status).toBe(422);
   });
 });
 

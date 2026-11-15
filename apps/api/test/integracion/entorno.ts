@@ -15,6 +15,7 @@ import { AuditoriaService } from '../../src/auditoria/auditoria.service';
 import { CentrosService } from '../../src/centros/centros.service';
 import { Fase2Service } from '../../src/centros/fase2.service';
 import { PrismaService } from '../../src/comun/prisma.service';
+import { AprovisionarService } from '../../src/jobs/aprovisionar.service';
 import { JobsService } from '../../src/jobs/jobs.service';
 import { SalidasCierre } from '../../src/salidas/cierre.service';
 import { SalidasService } from '../../src/salidas/salidas.service';
@@ -68,6 +69,7 @@ export interface Entorno {
   centros: CentrosService;
   fase2: Fase2Service;
   jobs: JobsService;
+  aprovisionar: AprovisionarService;
   solicitudes: SolicitudesService;
   salidas: SalidasService;
   cerrar: () => Promise<void>;
@@ -76,7 +78,7 @@ export interface Entorno {
 export async function crearEntorno(): Promise<Entorno> {
   const correo = new CorreoFalso();
   const mod = await Test.createTestingModule({
-    providers: [PrismaService, AuditoriaService, AccesoService, Fase2Service, CentrosService, JobsService, SolicitudesService, SalidasService, SalidasCierre, { provide: CorreoService, useValue: correo }],
+    providers: [PrismaService, AuditoriaService, AccesoService, Fase2Service, CentrosService, JobsService, AprovisionarService, SolicitudesService, SalidasService, SalidasCierre, { provide: CorreoService, useValue: correo }],
   }).compile();
   const prisma = mod.get(PrismaService);
   await prisma.$connect();
@@ -87,6 +89,7 @@ export async function crearEntorno(): Promise<Entorno> {
     centros: mod.get(CentrosService),
     fase2: mod.get(Fase2Service),
     jobs: mod.get(JobsService),
+    aprovisionar: mod.get(AprovisionarService),
     solicitudes: mod.get(SolicitudesService),
     salidas: mod.get(SalidasService),
     cerrar: () => mod.close(),
