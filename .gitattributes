@@ -1,0 +1,26 @@
+# Fin de linea LF en el repo y en el checkout de todo lo que corre en Linux
+# (contenedores Docker y el host B). Mismas reglas que el ERP: con
+# core.autocrlf=true en Windows, un .sh con CRLF falla ("\r: not found"),
+# tambien en Git Bash (llaves-silo.sh, respaldo-silo.sh).
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.sql text eol=lf
+*.prisma text eol=lf
+*.tpl text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+# PowerShell 5.1 lee LF sin problema; se fija igual para no mezclar.
+*.ps1 text eol=lf
+
+# Binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
