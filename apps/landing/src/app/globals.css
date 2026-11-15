@@ -1306,21 +1306,72 @@ h4 {
 
 .pie {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  align-items: center;
-  padding: 32px 0 8px;
+  flex-direction: column;
+  gap: 24px;
+  padding: 40px 0 12px;
   border-top: 1px solid var(--line);
   font-size: 14px;
   color: var(--ink2);
 }
-.pie strong {
+.pie-columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: 24px 32px;
+}
+.pie-marca {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+.pie-marca strong {
   font-family: var(--display);
-  font-size: 18px;
+  font-size: 22px;
   color: var(--ink);
 }
-.pie-legal {
-  margin-left: auto;
+.pie-columna {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pie-columna a {
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.pie-columna a:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.pie-nota a {
+  color: var(--brand);
+}
+.pie-final {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+/* ---------- paginas legales provisorias ---------- */
+.legal {
+  max-width: 760px;
+  padding: 32px 0 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.legal h1 {
+  font-size: clamp(32px, 4vw, 44px);
+  line-height: 1.05;
+}
+.legal p {
+  margin: 0;
+  color: var(--ink2);
+  font-size: 17px;
 }
 
 /* ---------- adornos de cada tema (todo decorativo) ---------- */
@@ -1415,6 +1466,9 @@ h4 {
   }
 }
 @media (max-width: 960px) {
+  .pie-columnas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .inicio,
   .dia,
   .explicacion,
@@ -1465,8 +1519,8 @@ h4 {
   .detalle {
     padding: 20px;
   }
-  .pie-legal {
-    margin-left: 0;
+  .pie-columnas {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -235,3 +235,22 @@ export const SEGURIDAD: [string, string][] = [
  * de estres no se enlaza: es solo para pruebas y monitoreo del servidor.
  */
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL || 'https://demo.charlielearns.work';
+
+/*
+ * Datos provisorios del pie (2026-11-15): todo en un solo lugar para cambiarlo
+ * cuando existan. El correo es ficticio (dominio .example, reservado: no llega
+ * a nadie). Por ahora la comunicacion es por correo, pero toda solicitud entra
+ * por la plataforma.
+ */
+export const CONTACTO_CORREO = process.env.NEXT_PUBLIC_CONTACTO_CORREO || 'contacto@vinculos.example';
+export const PIE = {
+  razonSocial: 'Vinculos (razón social por definir)',
+  ubicacion: 'Santiago, Chile',
+  horario: 'Lunes a viernes, 9:00 a 18:00',
+  anio: 2026,
+};
+export const LEGALES = [
+  { id: 'privacidad', l: 'Política de privacidad' },
+  { id: 'terminos', l: 'Términos y condiciones' },
+  { id: 'tratamiento', l: 'Tratamiento de datos (Ley 21.719)' },
+] as const;

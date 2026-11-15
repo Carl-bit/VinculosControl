@@ -280,8 +280,8 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 | Formulario compartido y fase 2 en la landing | Hecho | 2026-11-15. El enlace que comparte el operador es una pagina aparte dentro de la landing, `<LANDING_URL>/solicitud` (misma conversacion y misma API `/landing/solicitudes`, sin bloques marcados: los elige el centro; `noindex`), y llega con origen `enlace`. En la consola, "Compartir solicitud" solo copia, abre o cierra el enlace (decision del usuario: precargar modulos no sirve si no se sabe que quiere el centro). El enlace de fase 2 es `<LANDING_URL>/manifiesto/<token>` (misma pagina que tenia el sitio, clases `f2-` y tokens Moderno A acotados) por `GET/PUT/POST /landing/manifiesto/...`, 120 intentos por hora por IP, `no-referrer` y `noindex`. Probado en el navegador: `/solicitud` parte sin bloques, la seleccion agrega requisitos y la solicitud llega con origen `enlace`; enlace de fase 2 por correo (apunta a :3300) -> datos enviados (DATOS_COMPLETOS) -> contrato y aprobacion en la consola (APROBADO, revision 4) -> el enlace responde 410. `landing.int-spec.ts`: 9 tests |
 | BUG: guardar el manifiesto desde la consola daba 404 | Hecho | Hallado 2026-11-15 en esa prueba: el editor manda POST, la API solo tenia PUT y el proxy de la web reenvia solo GET y POST. La API acepta ahora POST (y sigue aceptando PUT) en `/consola/centros/:id/manifiesto` |
 | Publicar la landing (tunel de Cloudflare, dominio) | Pendiente | Infra |
-| Textos legales del pie (privacidad, terminos, tratamiento de datos) | Pendiente | Hoy son texto sin enlace: faltan los documentos (seccion 12 del contexto) |
-| Contacto | Pendiente | Decidido 2026-11-15: por ahora la comunicacion es por correo (sin WhatsApp), pero toda solicitud entra por la plataforma. Falta la direccion de correo para mostrarla |
+| Pie provisorio y paginas legales | Hecho (provisorio) | 2026-11-15, pedido del usuario: pie con Plataforma, Legal (`/legal/privacidad`, `/legal/terminos`, `/legal/tratamiento`, paginas "documento en preparacion", `noindex`) y Contacto, en la landing, `/solicitud` y las legales. Datos provisorios en un solo lugar (`datos.ts`: `CONTACTO_CORREO`, `PIE`, `LEGALES`). Falta el texto legal real (seccion 12 del contexto) |
+| Contacto | Hecho (provisorio) | Decidido 2026-11-15: por ahora la comunicacion es por correo (sin WhatsApp) y toda solicitud entra por la plataforma (el pie lo dice). Correo ficticio `contacto@vinculos.example` (dominio reservado, no llega a nadie) hasta tener el real; se cambia con `NEXT_PUBLIC_CONTACTO_CORREO` al compilar |
 
 ## Fase 7. Pruebas de capacidad (Pendiente)
 
@@ -333,6 +333,12 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 - `CLAUDE.md` dice que el default de `modulos_activos` es "todos menos WHATSAPP"; en el ERP hoy (MVP 2026-11-11) COBROS tambien viene apagado. El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
 
 ## Siguiente paso (2026-11-15)
+
+Prioridad (decision del usuario, 2026-11-15): terminar el MVP antes de buscar
+infra. Mientras no este completo no se publica la landing ni se arma el VPS.
+Para la demostracion se mantienen como estan: gracia de 30 dias por defecto y
+la reversion bloqueada si un ELIMINAR fallo en X2 (aunque no haya borrado).
+
 
 1. Hecho: tests de integracion de la API (y arreglo de la carrera de
    reportes finales simultaneos).

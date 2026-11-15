@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { Pie } from '../pie';
 import { FormularioSolicitud } from './formulario';
 
 export const metadata: Metadata = { title: 'Solicitud · Vinculos', robots: { index: false, follow: false } };
@@ -25,6 +26,7 @@ export default function Solicitud() {
           </a>
         </header>
         <FormularioSolicitud />
+        <Pie inicio="/" />
       </div>
     </div>
   );

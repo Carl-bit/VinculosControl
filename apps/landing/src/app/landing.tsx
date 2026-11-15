@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { Conversemos } from './conversemos';
+import { Pie } from './pie';
 import {
   ACENTOS,
   activar,
@@ -428,11 +429,7 @@ export function Landing() {
         {/* 7. Conversemos: la solicitud */}
         <Conversemos sel={sel} alternar={alternar} msg={msg} via="landing" />
 
-        <footer className="pie">
-          <strong>Vinculos</strong>
-          <span>Tu plataforma se arma por vínculos</span>
-          <span className="pie-legal">Privacidad · Términos · Tratamiento de datos</span>
-        </footer>
+        <Pie />
       </div>
     </div>
   );
