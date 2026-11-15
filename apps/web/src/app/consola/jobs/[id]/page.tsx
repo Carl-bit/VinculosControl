@@ -121,7 +121,32 @@ export default function Job() {
           {j.estado === 'ESPERANDO_LLAVES' && j.siloSlug && (
             <PanelLlaves jobId={j.id} slug={j.siloSlug} ocupado={ocupado} confirmar={confirmar} enviar={(custodios) => void hacer('confirmar', { paso: 'P5', custodios })} />
           )}
-          {j.estado === 'ESPERANDO_OPERADOR' && (
+          {j.estado === 'ESPERANDO_OPERADOR' && j.tipo === 'ACTUALIZAR' && (
+            <section className="panel" aria-label="Confirmar minor">
+              <h2>UC · Confirmar el minor en este silo</h2>
+              <p className="mono-corto" style={{ marginTop: 0 }}>
+                {j.pasos.find((p) => p.codigo === 'U0')?.log.find((l) => l.includes('->')) ?? `Version ${j.referencia}`}. En 0.x un minor puede traer cambios incompatibles: confirma
+                para este silo (revisa las notas de la version). Si algo falla, el silo vuelve solo a su version anterior.
+              </p>
+              <button
+                type="button"
+                className="boton primario"
+                disabled={ocupado}
+                onClick={async () => {
+                  const ok = await confirmar({
+                    etiqueta: `Job #${j.id} · erp-${j.siloSlug}`,
+                    titulo: `Confirmar ${j.referencia}`,
+                    texto: 'El agente sigue con el respaldo, las migraciones, recrear backend y frontend y /api/salud.',
+                    boton: 'Confirmar minor',
+                  });
+                  if (ok !== null) void hacer('confirmar', { paso: 'UC' });
+                }}
+              >
+                Confirmar minor
+              </button>
+            </section>
+          )}
+          {j.estado === 'ESPERANDO_OPERADOR' && j.tipo === 'APROVISIONAR' && (
             <section className="panel" aria-label="Dominio del silo">
               <h2>P8 · Dominio</h2>
               <p className="mono-corto" style={{ marginTop: 0 }}>

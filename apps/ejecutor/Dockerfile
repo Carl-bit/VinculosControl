@@ -11,7 +11,8 @@ FROM node:22-alpine
 WORKDIR /app
 # preparar y levantar (R1) corren `docker compose` sobre el compose renderizado
 # del silo, sin shell y con argumentos fijos (src/aprovisionar.ts).
-RUN apk add --no-cache docker-cli docker-cli-compose
+# openssl: el mismo contenedor, sin red y con solo respaldo.key montada, cifra los respaldos (actualizar.ts).
+RUN apk add --no-cache docker-cli docker-cli-compose openssl
 ENV NODE_ENV=production HOME=/tmp
 COPY --from=build /app/dist ./dist
 # Plantilla del silo (generada desde el compose del ERP): fija por imagen del ejecutor.

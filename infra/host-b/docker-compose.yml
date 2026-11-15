@@ -48,6 +48,8 @@ services:
       # Tokens de /api/internal/* por silo (uno por archivo, <slug>.token). Sin la
       # carpeta, el agente no sincroniza solicitudes de modulos (R2/R3).
       TOKENS_INTERNOS_DIR: /tokens
+      # Releases (seccion 7): <version>.env de publicar.sh, en solo lectura.
+      IMAGENES_DIR: /imagenes
       # Solo desarrollo local: /api/internal de la API del ERP fuera de Docker
       # (http://host.docker.internal:3001/api/internal). Vacio = red de borde.
       SILO_INTERNO_URL: ${SILO_INTERNO_URL:-}
@@ -62,6 +64,8 @@ services:
       # en pruebas (infra/servidor/internos/) y el job aprovisionar en P2. Sin
       # TOKENS_INTERNOS_HOST: infra/host-b/internos/ (ignorada por git).
       - ${TOKENS_INTERNOS_HOST:-./internos}:/tokens:ro
+      # infra/imagenes del ERP (publicar.sh): el agente informa las versiones a la consola (Releases).
+      - ${IMAGENES_HOST:-./imagenes}:/imagenes:ro
     networks:
       - agente
       - ejecutor
@@ -78,6 +82,8 @@ services:
     build:
       context: ../..
       dockerfile: apps/ejecutor/Dockerfile
+    # Nombre fijo: la misma imagen sirve de auxiliar sin red para cifrar los respaldos (EJECUTOR_IMAGEN_AYUDANTE).
+    image: vinculos-agente-ejecutor:local
     restart: unless-stopped
     mem_limit: 64m
     read_only: true
@@ -104,6 +110,8 @@ services:
       # SMTP de los silos (SES en produccion; vacio = correo simulado).
       EJECUTOR_SMTP_URL: ${SILOS_SMTP_URL:-}
       EJECUTOR_SES_CONFIGURATION_SET: ${SILOS_SES_CONFIGURATION_SET:-}
+      # ACTUALIZAR U1: imagen del auxiliar que cifra el respaldo (monta solo secrets/<slug>/respaldo.key).
+      EJECUTOR_IMAGEN_AYUDANTE: vinculos-agente-ejecutor:local
     # read_only: compose escribe su configuracion en HOME=/tmp.
     tmpfs:
       - /tmp

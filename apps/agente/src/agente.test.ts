@@ -151,3 +151,21 @@ describe('APROVISIONAR en el agente', () => {
     assert.deepEqual(enviados.at(-1), { ruta: 'jobs/7/pasos/P8', cuerpo: { estado: 'FALLIDO', log: ['x'], error: 'sin dominio', espera: 'DOMINIO' } });
   });
 });
+
+describe('releases del host B', () => {
+  it('lee un <version>.env de publicar.sh y descarta lo que no tiene la forma esperada', async () => {
+    const { leerRelease } = await import('./releases');
+    const ok = `# Publicado por publicar.sh\nVINCULOS_VERSION=0.1.0\nREGISTRO=127.0.0.1:5000\nAPI_DIGEST=sha256:${'a'.repeat(64)}\nWEB_DIGEST=sha256:${'b'.repeat(64)}\nVINCULOS_COMMIT=2ede6f13127ad0d59090649b5924494a79a50045\nVINCULOS_PUBLICADO=2026-11-15T15:39:00Z\n`;
+    assert.deepEqual(leerRelease('0.1.0.env', ok), {
+      version: '0.1.0',
+      apiDigest: `sha256:${'a'.repeat(64)}`,
+      webDigest: `sha256:${'b'.repeat(64)}`,
+      commit: '2ede6f13127ad0d59090649b5924494a79a50045',
+      publicada: '2026-11-15T15:39:00Z',
+    });
+    assert.equal(leerRelease('0.1.1.env', ok), null, 'el nombre no coincide con la version');
+    assert.equal(leerRelease('0.1.0.env', ok.replace(/API_DIGEST=.*/, 'API_DIGEST=latest')), null);
+    assert.equal(leerRelease('notas.env', ok), null);
+  });
+});
+

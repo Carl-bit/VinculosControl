@@ -31,6 +31,45 @@ export interface FilaSilo {
   contenedores: Contenedor[];
   p95Max: number | null;
   respaldo: { archivo: string; fecha: string; bytes: number; sha256: string | null } | null;
+  /** Version y digests que corre (R1; los fija APROVISIONAR y ACTUALIZAR). */
+  version?: string | null;
+  apiDigest?: string | null;
+  webDigest?: string | null;
+}
+
+/** Releases (seccion 7): versiones detectadas en el host B y su promocion por canal. */
+export interface Release {
+  version: string;
+  apiDigest: string;
+  webDigest: string;
+  commit: string;
+  publicadaEn: string;
+  detectadaEn: string;
+  enDemoEn: string | null;
+  enBetaEn: string | null;
+  enEstableEn: string | null;
+  conflicto: string | null;
+  silos: string[];
+}
+export interface Cascada {
+  id: number;
+  version: string;
+  canal: string;
+  silos: string[];
+  indice: number;
+  estado: 'EN_CURSO' | 'DETENIDA' | 'TERMINADA';
+  creadaPor: string;
+  creadaEn: string;
+  terminadaEn: string | null;
+}
+export interface OpcionesVersion {
+  version: string | null;
+  apiDigest: string | null;
+  webDigest: string | null;
+  canal: string | null;
+  fija: string | null;
+  estadoCentro: string | null;
+  disponibles: { version: string; salto: 'patch' | 'minor' }[];
 }
 export interface Resumen {
   agente: { nombre: string; version: string | null; ultimoLatido: string | null } | null;
@@ -139,6 +178,8 @@ export interface FilaJob {
   siloSlug: string | null;
   revision: number | null;
   hashManifiesto: string | null;
+  /** ELIMINAR: hash del acta; APROVISIONAR y ACTUALIZAR: la version del job. */
+  referencia: string | null;
   creadoPor: string;
   creadoEn: string;
   terminadoEn: string | null;

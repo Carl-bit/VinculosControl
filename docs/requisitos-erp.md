@@ -264,6 +264,11 @@ automatizar sin datos personales:
 
 ## R14. `respaldar.sh` con la db detenida (hallado 2026-11-15)
 
+Nota 2026-11-15: el respaldo previo de ACTUALIZAR (verbo `respaldar` del
+ejecutor) ya no tiene este problema: exige que pg_dump y openssl terminen en 0 y
+que el archivo pese mas de 1 KB, o no deja nada. Sigue pendiente en el ERP para
+el respaldo diario del cron (`respaldar.sh`).
+
 Hallado en la prueba de salida de punta a punta (silo en GRACIA, contenedores
 detenidos). En `infra/scripts/continuidad/respaldar.sh`:
 

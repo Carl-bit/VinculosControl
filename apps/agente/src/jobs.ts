@@ -25,7 +25,7 @@ const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
 /** RECONFIGURAR no usa el ejecutor: habla con /api/internal del silo (token por silo). */
 export const TIPOS = EJECUTOR
-  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR'] as const)
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR'] as const)
   : (['VERIFICAR', 'RECONFIGURAR'] as const);
 
 interface EstadoContenedor {
@@ -35,10 +35,10 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar';
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir';
 
-/** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar y levantar. */
-type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' };
+/** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar, levantar y actualizar. */
+type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' } | { version: string };
 
 /** Error del ejecutor con su status HTTP (409 de levantar sin llaves = esperar al operador). */
 export class ErrorEjecutor extends Error {
@@ -56,8 +56,8 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEje
     method: metodo,
     headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
     body: envio ? JSON.stringify(envio) : undefined,
-    // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min).
-    signal: AbortSignal.timeout(verbo === 'levantar' ? 30 * 60_000 : 180_000),
+    // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min); respaldar, un pg_dump completo.
+    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir'].includes(verbo) ? 30 * 60_000 : 180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
@@ -315,7 +315,8 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     const capacidad = await EJECUTORES.V5(j);
     if (capacidad.estado !== 'OK') return capacidad;
     const m = (j.manifiesto ?? {}) as ManifiestoAprov;
-    const pedido = { version: m.version?.fija ?? '', dominio: m.dominio?.valor ?? '', nombre: m.centro?.nombre ?? '', tema: m.estilo?.tema ?? 'moderno' };
+    // La version la resolvio P0 (fija o la del canal) y viaja en el job.
+    const pedido = { version: j.referencia ?? m.version?.fija ?? '', dominio: m.dominio?.valor ?? '', nombre: m.centro?.nombre ?? '', tema: m.estilo?.tema ?? 'moderno' };
     const r = await ejecutor<{ log: string[]; imagenes: { version: string; apiDigest: string; webDigest: string } }>('POST', j.slug, 'preparar', pedido);
     return { estado: 'OK', log: [...integridad.log, ...capacidad.log, ...r.log], datos: r.imagenes };
   },
@@ -392,7 +393,71 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     // Solo el resultado: el enlace de la invitacion nunca sale del silo (va por correo al ADMIN).
     return { estado: 'OK', log: [`invitacion del ADMIN inicial enviada (vence ${r.vence ?? '?'})`] };
   },
+
+  // ---------- ACTUALIZAR (seccion 7; un silo a la vez, por el ejecutor) ----------
+  async U1(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'respaldar');
+    return { estado: 'OK', log };
+  },
+
+  async U2(j) {
+    if (!j.referencia) return { estado: 'FALLIDO', log: [], error: 'El job no trae la version' };
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'actualizar', { version: j.referencia });
+    return { estado: 'OK', log };
+  },
+
+  async U3(j) {
+    return conVueltaAtras(j, async () => (await ejecutor<{ log: string[] }>('POST', j.slug, 'levantar', { fase: 'bd' })).log);
+  },
+
+  async U4(j) {
+    return conVueltaAtras(j, async () => (await ejecutor<{ log: string[] }>('POST', j.slug, 'levantar', { fase: 'todo' })).log);
+  },
+
+  async U5(j) {
+    return conVueltaAtras(j, async () => {
+      const ultimo = await esperarSalud(urlSalud(j.slug));
+      const linea = `/api/salud por el borde: ${lineaSalud(ultimo)}`;
+      if (!saludOk(ultimo)) throw Object.assign(new Error('La API no respondio /api/salud 200 en 3 min con la version nueva'), { log: [linea] });
+      return [linea];
+    });
+  },
 };
+
+const saludOk = (r: Awaited<ReturnType<typeof salud>>) => r.http === 200 && !('error' in r) && r.s.estado === 'ok';
+
+/** Hasta 3 min a /api/salud 200 (la API arranca solo con la KEK y los canarios en orden). */
+async function esperarSalud(url: string) {
+  let ultimo = await salud(url);
+  for (let i = 0; i < 36 && !saludOk(ultimo); i++) {
+    await esperar(5_000);
+    ultimo = await salud(url);
+  }
+  return ultimo;
+}
+
+/**
+ * Pasos de ACTUALIZAR despues de cambiar la imagen: si fallan, el silo vuelve a
+ * la imagen anterior (revertir) y se comprueba su salud antes de reportar el
+ * fallo. Nunca queda a medio actualizar; el job queda FALLIDO y se reintenta.
+ */
+async function conVueltaAtras(j: JobReclamado, paso: () => Promise<string[]>): Promise<Resultado> {
+  try {
+    return { estado: 'OK', log: await paso() };
+  } catch (e) {
+    const log = [...((e as { log?: string[] }).log ?? [])];
+    const motivo = e instanceof Error ? e.message : String(e);
+    try {
+      const r = await ejecutor<{ log: string[]; imagenes: { version: string } }>('POST', j.slug, 'revertir');
+      log.push(...r.log);
+      const despues = await esperarSalud(urlSalud(j.slug));
+      log.push(`tras volver a ${r.imagenes.version}: /api/salud ${lineaSalud(despues)}`);
+      return { estado: 'FALLIDO', log, error: `${motivo}. Vuelto a ${r.imagenes.version}${saludOk(despues) ? ' (silo sano)' : ' (REVISAR: el silo no responde)'}` };
+    } catch (e2) {
+      return { estado: 'FALLIDO', log, error: `${motivo}. La vuelta atras tambien fallo: ${e2 instanceof Error ? e2.message : String(e2)} (REVISAR el silo a mano)` };
+    }
+  }
+}
 
 type Enviar = (ruta: string, cuerpo: unknown) => Promise<Response>;
 

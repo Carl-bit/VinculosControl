@@ -10,6 +10,8 @@ import { ChipSalud, claseJob, claseSeveridad, Grafico, Medidor, Shell } from '@/
 import { SolicitudesModulo } from '@/componentes/solicitudes-modulo';
 import { enviarConSesion, hace, mensajeDe, mib, tamano, useDatos, type DetalleJob, type DetalleSalida, type Detalle, type Incidente, type Resumen } from '@/lib/api';
 
+import { PanelVersion } from './version';
+
 const COLORES: Record<string, string> = { db: 'var(--info)', backend: 'var(--accent)', frontend: 'var(--warn)' };
 const ORIGENES_SALIDA = ['ACTIVO', 'ACTIVO_SIN_DOMINIO', 'SUSPENDIDO'];
 const EN_SALIDA = ['EN_SALIDA', 'EXPORTADO', 'GRACIA', 'ELIMINADO'];
@@ -184,6 +186,7 @@ export default function Silo() {
               </ul>
             </section>
           )}
+          <PanelVersion slug={slug} />
           <SolicitudesModulo slug={slug} />
           <section className="kpis">
             <div className="panel kpi">

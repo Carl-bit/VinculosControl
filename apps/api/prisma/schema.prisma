@@ -361,12 +361,54 @@ model Job {
   terminadoEn    DateTime? @map("terminado_en")
   intentos       Int       @default(0)
   error          String?
+  /// ACTUALIZAR dentro de una cascada (Cascada.id); al terminar OK se encola el siguiente silo.
+  cascadaId      Int?      @map("cascada_id")
 
   pasos PasoJob[]
 
   @@index([estado, creadoEn])
   @@index([centroId])
   @@map("jobs")
+}
+
+/// Version publicada en el registro del host B (R1). La detecta el agente en
+/// infra/imagenes/<version>.env; el operador la promueve demo -> beta -> estable.
+/// Tags inmutables: si el agente informa la misma version con otros digests,
+/// queda `conflicto` y la version no se puede promover ni aplicar.
+model Release {
+  version     String    @id
+  apiDigest   String    @map("api_digest")
+  webDigest   String    @map("web_digest")
+  commit      String
+  publicadaEn DateTime  @map("publicada_en")
+  detectadaEn DateTime  @default(now()) @map("detectada_en")
+  enDemoEn    DateTime? @map("en_demo_en")
+  enBetaEn    DateTime? @map("en_beta_en")
+  enEstableEn DateTime? @map("en_estable_en")
+  conflicto   String?
+
+  @@map("releases")
+}
+
+/// Cascada semiautomatica (CONTEXTO.md seccion 7): ACTUALIZAR de una version a
+/// los silos de un canal, uno a la vez. El siguiente parte cuando el anterior
+/// termina OK; si uno falla, la cascada se detiene.
+model Cascada {
+  id          Int       @id @default(autoincrement())
+  version     String
+  canal       String
+  /// Silos en orden; `indice` = el que corre o el siguiente.
+  silos       String[]
+  indice      Int       @default(0)
+  /// EN_CURSO, DETENIDA (un job fallo o se cancelo), TERMINADA.
+  estado      String    @default("EN_CURSO")
+  creadaPor   String    @map("creada_por")
+  creadaEn    DateTime  @default(now()) @map("creada_en")
+  terminadaEn DateTime? @map("terminada_en")
+  /// El operador confirmo al crearla que ningun centro del canal tiene una exportacion en curso (R13 pendiente).
+  sinExporte  Boolean   @map("sin_exporte")
+
+  @@map("cascadas")
 }
 
 /// Paso de un job: idempotente, registrado y reintentable desde el que fallo. `log` = lineas cortas sin secretos.

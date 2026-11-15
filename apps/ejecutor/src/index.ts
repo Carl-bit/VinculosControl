@@ -14,6 +14,9 @@
  *     POST /v1/silos/<slug>/eliminar         (C: { actaHash } + consentimiento bajas/<slug>)
  *     POST /v1/silos/<slug>/preparar         (P0 imagen, P2, P3: { version, dominio, nombre, tema })
  *     POST /v1/silos/<slug>/levantar         (P4 / P6: { fase: "bd" | "todo" })
+ *     POST /v1/silos/<slug>/respaldar        (ACTUALIZAR U1: respaldo cifrado sin leer la llave)
+ *     POST /v1/silos/<slug>/actualizar       (ACTUALIZAR U2: { version }, guarda anterior.env)
+ *     POST /v1/silos/<slug>/revertir         (ACTUALIZAR: vuelve a anterior.env)
  * - A quien se une a las redes de borde lo fija EJECUTOR_UNIR_BORDE del .env del
  *   host B (Traefik y el agente), nunca el plano de control.
  * - Una operacion de escritura a la vez.
@@ -23,10 +26,11 @@ import { timingSafeEqual } from 'node:crypto';
 import { appendFile, readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-import { type Config, levantar, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
+import { actualizar, respaldar, revertir, validarVersion } from './actualizar';
+import { argsCompose, type Config, levantar, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
 import { conPrevia, detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
 import { docker, dockerApr, dockerCiclo } from './docker';
-import { composeReal, discoSilosReal } from './silos';
+import { composeReal, discoSilosReal, tuberiaReal } from './silos';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
 
 const TOKEN = Buffer.from(process.env.EJECUTOR_TOKEN ?? '');
@@ -59,11 +63,13 @@ const APR = (() => {
   });
   return { cfg, disco };
 })();
+/** Imagen del contenedor auxiliar que cifra los respaldos (la del propio ejecutor, con openssl). */
+const AYUDANTE = process.env.EJECUTOR_IMAGEN_AYUDANTE ?? 'vinculos-agente-ejecutor:local';
 const SIN_APR = 'aprovisionamiento deshabilitado: faltan EJECUTOR_ERP_INFRA, EJECUTOR_SILOS_DIR, EJECUTOR_IMAGENES_DIR o EJECUTOR_TOKENS_DIR';
-const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar)$/;
+const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar|respaldar|actualizar|revertir)$/;
 const RUTA_BORDES = '/v1/bordes/reconectar';
 
-type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar';
+type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir';
 
 /** Cuerpo JSON acotado (eliminar, preparar, levantar). El resto de los verbos no lleva cuerpo. */
 function leerJson(req: IncomingMessage, max: number): Promise<unknown> {
@@ -162,6 +168,23 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       if (fase === 'todo') log.push(...(UNIR_BORDE.length ? await conectarBorde(docker, slug, UNIR_BORDE) : ['EJECUTOR_UNIR_BORDE vacio: borde sin unir']));
       return { log };
     }
+    // ACTUALIZAR (seccion 7): respaldo previo, cambio de imagen y vuelta atras.
+    case 'respaldar': {
+      if (!APR || !RESPALDOS_DIR) throw new ErrorVerbo(409, `${SIN_APR} o EJECUTOR_RESPALDOS_DIR`);
+      return respaldar(APR.disco, tuberiaReal(APR.cfg, { respaldosDir: RESPALDOS_DIR, imagenAyudante: AYUDANTE }), slug);
+    }
+    case 'actualizar': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      const version = validarVersion(await leerJson(req, 100));
+      return actualizar(dockerApr, APR.disco, composeReal, APR.cfg, slug, version);
+    }
+    case 'revertir': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      const r = await revertir(APR.disco, composeReal, APR.cfg, slug, argsCompose);
+      // Recrear backend y frontend los saca del borde: Traefik y el agente vuelven a entrar.
+      r.log.push(...(UNIR_BORDE.length ? await conectarBorde(docker, slug, UNIR_BORDE) : []));
+      return r;
+    }
     default:
       return { log: await escribirSimple(verbo, slug) };
   }
@@ -212,5 +235,5 @@ if (TOKEN.length < 32) {
   process.exit(1);
 }
 servidor.listen(PUERTO, '0.0.0.0', () =>
-  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}, preparar y levantar${APR ? '' : ' (deshabilitados)'}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
+  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}, preparar, levantar, respaldar, actualizar y revertir${APR ? '' : ' (deshabilitados)'}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
 );

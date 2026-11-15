@@ -95,8 +95,42 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
   { codigo: 'P10', nombre: 'Admin y cierre', detalle: 'invitacion del ADMIN inicial por /api/internal/admin-inicial (R5); centro ACTIVO', ejecutor: 'agente' },
 ];
 
+/**
+ * ACTUALIZAR (CONTEXTO.md seccion 7; decisiones del usuario 2026-11-15): un
+ * silo a la vez. UC (confirmar un minor) es manual y queda OMITIDO en un patch.
+ * Si U3, U4 o U5 fallan, el agente vuelve a la imagen anterior (revertir) antes
+ * de reportar el fallo: el silo nunca queda a medio actualizar.
+ */
+export const PASOS_ACTUALIZAR: DefPaso[] = [
+  { codigo: 'U0', nombre: 'Validar', detalle: 'version promovida al canal del silo y posterior a la actual, sin conflicto; silo reportado; fuera de la ventana de respaldo', ejecutor: 'control' },
+  { codigo: 'UC', nombre: 'Confirmar minor', detalle: 'un minor (0.x) puede traer cambios incompatibles: el operador lo confirma para este silo', ejecutor: 'operador' },
+  { codigo: 'U1', nombre: 'Respaldo', detalle: 'pg_dump cifrado en respaldos/<slug>/ con su .sha256 (ejecutor: respaldar; la llave solo la monta un auxiliar sin red)', ejecutor: 'agente' },
+  { codigo: 'U2', nombre: 'Imagen nueva', detalle: 'lineas de imagen del .env a la version nueva; las anteriores en anterior.env (ejecutor: actualizar)', ejecutor: 'agente' },
+  { codigo: 'U3', nombre: 'Migraciones', detalle: 'migrate con la imagen nueva termina en 0 (ejecutor: levantar bd); si falla, vuelve a la imagen anterior', ejecutor: 'agente' },
+  { codigo: 'U4', nombre: 'Recrear', detalle: 'backend y frontend con la imagen nueva y borde unido (ejecutor: levantar todo)', ejecutor: 'agente' },
+  { codigo: 'U5', nombre: 'Salud', detalle: '/api/salud 200; si no responde, vuelve a la imagen anterior (ejecutor: revertir)', ejecutor: 'agente' },
+];
+
 /** Tipos que hoy se pueden encolar, con sus pasos. El resto responde por que no. */
-export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = { VERIFICAR, REINICIAR_SILO, RECONFIGURAR, DETENER_SILO, REANUDAR_SILO, ELIMINAR, APROVISIONAR: PASOS_APROVISIONAR };
+export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = {
+  VERIFICAR,
+  REINICIAR_SILO,
+  RECONFIGURAR,
+  DETENER_SILO,
+  REANUDAR_SILO,
+  ELIMINAR,
+  APROVISIONAR: PASOS_APROVISIONAR,
+  ACTUALIZAR: PASOS_ACTUALIZAR,
+};
+
+/** Estado de espera de un paso manual: P5 (llaves) tiene el suyo; el resto espera al operador. */
+export const esperaManual = (codigo: string): EstadoJob => (codigo === 'P5' ? 'ESPERANDO_LLAVES' : 'ESPERANDO_OPERADOR');
+
+/** Pasos manuales que el operador confirma en la consola, por tipo de job, con el estado en que se espera. */
+export const CONFIRMABLES: Partial<Record<TipoJob, Record<string, EstadoJob>>> = {
+  APROVISIONAR: { P5: 'ESPERANDO_LLAVES', P8: 'ESPERANDO_OPERADOR' },
+  ACTUALIZAR: { UC: 'ESPERANDO_OPERADOR' },
+};
 
 /** Esperas que el agente puede pedir en un paso (y solo en ese paso) de APROVISIONAR. */
 export const ESPERAS: Record<string, { paso: string; estado: EstadoJob; reabre: string }> = {
@@ -132,8 +166,12 @@ export function enVentanaRespaldo(ahora: Date): boolean {
   return min >= 105 && min < 150;
 }
 
+/** Jobs que se encolan desde su propia vista (no desde la lista de jobs con un centro). */
+export const CON_VISTA_PROPIA: Partial<Record<TipoJob, string>> = {
+  ACTUALIZAR: 'ACTUALIZAR se encola desde el silo o desde Releases (cascada)',
+};
+
 export const BLOQUEO: Partial<Record<TipoJob, string>> = {
-  ACTUALIZAR: 'Bloqueado: requiere imagenes unicas y registro de releases (R1)',
   REINICIAR_DEMO: 'Bloqueado: requiere demo:resembrar en el ERP (R10: resembrar datos ficticios conservando llaves). Para reiniciar contenedores sin tocar datos: REINICIAR_SILO',
   EXPORTAR: 'No aplica como job: el exporte lo genera el ADMIN en su silo (S3-S4) y la consola registra el acta en Salidas. Traer la huella sola requiere R13 en el ERP',
 };
@@ -156,7 +194,18 @@ export function pasosAReintentar(pasos: { codigo: string; estado: EstadoPaso }[]
   return pasos.filter((p) => p.estado === 'FALLIDO' || p.estado === 'EN_CURSO').map((p) => p.codigo);
 }
 
-export const puedeCancelar = (e: EstadoJob) => ACTIVOS.includes(e) || e === 'FALLIDO';
+/**
+ * ACTUALIZAR: un fallo en U3, U4 o U5 ya volvio el silo a la imagen anterior
+ * (revertir). Reintentar solo el paso fallido correria la imagen vieja y el job
+ * terminaria OK sin actualizar: se rehace desde U2 (cambio de imagen) en adelante.
+ */
+export function reintentoActualizar(pasos: { codigo: string; estado: EstadoPaso }[]): string[] {
+  const fallido = pasos.find((p) => p.estado === 'FALLIDO' || p.estado === 'EN_CURSO');
+  if (!fallido || !['U3', 'U4', 'U5'].includes(fallido.codigo)) return pasosAReintentar(pasos);
+  return ['U2', 'U3', 'U4', 'U5'];
+}
+
+export const puedeCancelar =(e: EstadoJob) => ACTIVOS.includes(e) || e === 'FALLIDO';
 
 /** Recorta el log que manda el agente (lineas cortas, sin saltos). */
 export const limpiarLog = (lineas: unknown): string[] =>

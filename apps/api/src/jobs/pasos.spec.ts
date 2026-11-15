@@ -1,4 +1,4 @@
-import { ACTIVOS, anterioresListos, EJECUTABLES, enVentanaRespaldo, ESPERAS, estadoTrasPasos, limpiarLog, pasosAReintentar, puedeCancelar, siguientePaso } from './pasos';
+import { ACTIVOS, anterioresListos, EJECUTABLES, enVentanaRespaldo, ESPERAS, estadoTrasPasos, limpiarLog, pasosAReintentar, puedeCancelar, reintentoActualizar, siguientePaso } from './pasos';
 
 describe('cola de jobs: reglas', () => {
   it('un paso FALLIDO detiene el job', () => {
@@ -26,8 +26,8 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('OK')).toBe(false);
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
-  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4), los de la salida y APROVISIONAR, todos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR']);
+  it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4), los de la salida, APROVISIONAR y ACTUALIZAR, todos con P0 en el plano de control', () => {
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR']);
     expect(EJECUTABLES.APROVISIONAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual([
       'P0:control',
       'P1:control',
@@ -42,7 +42,8 @@ describe('cola de jobs: reglas', () => {
     ]);
     expect(EJECUTABLES.RECONFIGURAR?.map((p) => p.codigo)).toEqual(['P0', 'C1', 'C2']);
     expect(EJECUTABLES.ELIMINAR?.map((p) => p.codigo)).toEqual(['P0', 'X1', 'X2', 'X3']);
-    for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: 'P0', ejecutor: 'control' });
+    for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: expect.stringMatching(/^[PU]0$/), ejecutor: 'control' });
+    expect(EJECUTABLES.ACTUALIZAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['U0:control', 'UC:operador', 'U1:agente', 'U2:agente', 'U3:agente', 'U4:agente', 'U5:agente']);
   });
   it('el agente despacha por codigo: un codigo de paso del agente no se repite entre tipos', () => {
     const codigos = Object.values(EJECUTABLES).flatMap((d) => d!.filter((p) => p.ejecutor === 'agente').map((p) => p.codigo));
@@ -77,5 +78,16 @@ describe('cola de jobs: reglas', () => {
     expect(l[0]).toHaveLength(300);
     expect(l[0]).not.toContain('\n');
     expect(limpiarLog('no es arreglo')).toEqual([]);
+  });
+});
+
+describe('reintento de ACTUALIZAR', () => {
+  const p = (estados: Record<string, string>) => Object.entries(estados).map(([codigo, estado]) => ({ codigo, estado: estado as 'OK' }));
+  it('un fallo despues del cambio de imagen (ya revertido) se rehace desde U2', () => {
+    expect(reintentoActualizar(p({ U0: 'OK', UC: 'OMITIDO', U1: 'OK', U2: 'OK', U3: 'OK', U4: 'FALLIDO', U5: 'PENDIENTE' }))).toEqual(['U2', 'U3', 'U4', 'U5']);
+    expect(reintentoActualizar(p({ U0: 'OK', UC: 'OMITIDO', U1: 'OK', U2: 'OK', U3: 'FALLIDO', U4: 'PENDIENTE', U5: 'PENDIENTE' }))).toEqual(['U2', 'U3', 'U4', 'U5']);
+  });
+  it('un fallo antes (respaldo o cambio de imagen) se reintenta desde ese paso', () => {
+    expect(reintentoActualizar(p({ U0: 'OK', UC: 'OMITIDO', U1: 'FALLIDO', U2: 'PENDIENTE' }))).toEqual(['U1']);
   });
 });

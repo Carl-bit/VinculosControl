@@ -43,7 +43,7 @@ export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo
         { href: '/consola/silos', l: 'Silos', d: ICONOS.silos },
       ],
     },
-    { l: 'Versiones', items: [{ href: '/consola/releases', l: 'Releases y canales', d: ICONOS.releases, pronto: true }] },
+    { l: 'Versiones', items: [{ href: '/consola/releases', l: 'Releases y canales', d: ICONOS.releases }] },
     {
       l: 'Salud',
       items: [

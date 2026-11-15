@@ -8,20 +8,27 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
 import { SalidasCierre } from '../salidas/cierre.service';
 import { bloqueosEliminar } from '../salidas/reglas';
+import { ReleasesService } from '../releases/releases.service';
+import { type Canal, CANALES, compararVersion, tipoSalto, VERSION } from '../releases/semver';
+import { ActualizarService } from './actualizar.service';
 import { AprovisionarService, type DatosP2, PARA_APROVISIONAR } from './aprovisionar.service';
 import {
   ACTIVOS,
   anterioresListos,
   BLOQUEO,
+  CON_VISTA_PROPIA,
+  CONFIRMABLES,
   DE_SALIDA,
   EJECUTABLES,
   enVentanaRespaldo,
+  esperaManual,
   ESPERAS,
   estadoTrasPasos,
   FINALES_PASO,
   limpiarLog,
   pasosAReintentar,
   puedeCancelar,
+  reintentoActualizar,
   RESERVA_MS,
   siguientePaso,
   SOBRE_SILO,
@@ -39,6 +46,8 @@ export class JobsService {
     private readonly auditoria: AuditoriaService,
     private readonly cierre: SalidasCierre,
     private readonly aprov: AprovisionarService,
+    private readonly actualizar: ActualizarService,
+    private readonly releases: ReleasesService,
   ) {}
 
   // ---------- consola ----------
@@ -100,6 +109,7 @@ export class JobsService {
     const defs = EJECUTABLES[tipo];
     if (!defs) throw new UnprocessableEntityException({ mensaje: BLOQUEO[tipo] ?? `${tipo} no se puede encolar` });
     if (DE_SALIDA.includes(tipo)) throw new UnprocessableEntityException({ mensaje: `${tipo} se encola desde Salidas` });
+    if (CON_VISTA_PROPIA[tipo]) throw new UnprocessableEntityException({ mensaje: CON_VISTA_PROPIA[tipo] });
     if (SOBRE_SILO.includes(tipo)) return this.crearSobreSilo(tipo, destino.siloSlug ?? '', op, ip);
     const centroId = destino.centroId;
     if (!centroId) throw new UnprocessableEntityException({ mensaje: `${tipo} necesita un centro` });
@@ -166,7 +176,9 @@ export class JobsService {
       const { ok, log, error } =
         job.tipo === 'APROVISIONAR'
           ? await this.pasoAprovisionar(p.codigo, job)
-          : DE_SALIDA.includes(job.tipo)
+          : job.tipo === 'ACTUALIZAR'
+            ? await this.actualizar.p0(job)
+            : DE_SALIDA.includes(job.tipo)
             ? await this.p0Salida(job.tipo, job.centroId!, job.siloSlug!, job.referencia)
             : SOBRE_SILO.includes(job.tipo)
               ? await this.p0Silo(job.siloSlug!)
@@ -175,8 +187,16 @@ export class JobsService {
       if (!ok) {
         await this.prisma.job.update({ where: { id: jobId }, data: { estado: 'FALLIDO', error, terminadoEn: new Date() } });
         await this.auditoria.registrar('control', 'job.fallido', `job:${jobId}`, `${p.codigo}: ${error}`);
+        if (job.tipo === 'ACTUALIZAR') await this.detenerCascada(job, `job:${jobId} fallo en ${p.codigo}: ${error}`);
         return;
       }
+    }
+    // Si lo siguiente es manual (ACTUALIZAR UC en un minor), el job espera al operador antes de llegar al agente.
+    const pasos = await this.prisma.pasoJob.findMany({ where: { jobId } });
+    const sig = siguientePaso(pasos);
+    if (sig?.ejecutor === 'operador') {
+      const r = await this.prisma.job.updateMany({ where: { id: jobId, estado: 'PENDIENTE' }, data: { estado: esperaManual(sig.codigo) } });
+      if (r.count === 1) await this.auditoria.registrar('control', 'job.esperando', `job:${jobId}`, `${sig.codigo}: ${sig.nombre}`);
     }
   }
 
@@ -256,7 +276,7 @@ export class JobsService {
     const job = await this.prisma.job.findUnique({ where: { id }, include: { pasos: true } });
     if (!job) throw new NotFoundException();
     if (job.estado !== 'FALLIDO') throw new UnprocessableEntityException({ mensaje: 'Solo se reintenta un job FALLIDO' });
-    const codigos = pasosAReintentar(job.pasos);
+    const codigos = job.tipo === 'ACTUALIZAR' ? reintentoActualizar(job.pasos) : pasosAReintentar(job.pasos);
     await this.prisma.$transaction([
       this.prisma.pasoJob.updateMany({ where: { jobId: id, codigo: { in: codigos } }, data: { estado: 'PENDIENTE', error: null } }),
       this.prisma.job.update({ where: { id }, data: { estado: 'PENDIENTE', error: null, terminadoEn: null, agenteId: null, reservaHasta: null } }),
@@ -274,6 +294,7 @@ export class JobsService {
     await this.prisma.job.update({ where: { id }, data: { estado: 'CANCELADO', terminadoEn: new Date() } });
     await this.auditoria.registrar(op.correo, 'job.cancelado', `job:${id}`, ip);
     if (job.tipo === 'APROVISIONAR') await this.aprov.alCancelar(job, op.correo);
+    if (job.tipo === 'ACTUALIZAR') await this.detenerCascada(job, `job:${id} cancelado por ${op.correo}`);
   }
 
   /**
@@ -287,10 +308,9 @@ export class JobsService {
   async confirmar(id: number, paso: string, nota: string, op: OperadorSesion, ip: string | null, custodios?: { nombre: string; rol: string }[]) {
     const job = await this.prisma.job.findUnique({ where: { id }, include: { pasos: true } });
     if (!job) throw new NotFoundException();
-    if (job.tipo !== 'APROVISIONAR') throw new UnprocessableEntityException({ mensaje: 'Solo APROVISIONAR tiene pasos manuales' });
+    const esperado = CONFIRMABLES[job.tipo]?.[paso];
     const p = job.pasos.find((x) => x.codigo === paso);
-    if (!p || (paso !== 'P5' && paso !== 'P8')) throw new UnprocessableEntityException({ mensaje: 'Paso sin confirmacion manual' });
-    const esperado = paso === 'P5' ? 'ESPERANDO_LLAVES' : 'ESPERANDO_OPERADOR';
+    if (!esperado || !p) throw new UnprocessableEntityException({ mensaje: `${job.tipo} no tiene el paso manual ${paso}` });
     if (job.estado !== esperado) throw new ConflictException({ mensaje: `El job esta ${job.estado}, no ${esperado}` });
     // P5: tres custodios, uno por parte (2 de 3), los mismos con que se corrio el script del ERP.
     const filas = (custodios ?? []).map((c) => ({ nombre: c.nombre.replace(/\s+/g, ' ').trim(), rol: c.rol.replace(/\s+/g, ' ').trim() }));
@@ -299,22 +319,126 @@ export class JobsService {
     }
     const texto = paso === 'P5' ? filas.map((c) => `${c.nombre} (${c.rol})`).join(', ') : nota.replace(/[\r\n]+/g, ' ').trim().slice(0, 300);
     const ahora = new Date();
-    const linea = `${paso === 'P5' ? 'llaves confirmadas' : 'ruta del dominio confirmada'} por ${op.correo} el ${ahora.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+    const que = { P5: 'llaves confirmadas', P8: 'ruta del dominio confirmada', UC: `minor ${job.referencia ?? ''} confirmado` }[paso] ?? 'confirmado';
+    const linea = `${que} por ${op.correo} el ${ahora.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+    // P5 y UC quedan OK con la confirmacion; P8 vuelve al agente, que verifica de nuevo.
+    const cierraPaso = paso !== 'P8';
     const cambio = await this.prisma.$transaction(async (tx) => {
       const r = await tx.job.updateMany({ where: { id, estado: esperado }, data: { estado: 'PENDIENTE', agenteId: null, reservaHasta: null } });
       if (r.count !== 1) return false;
       await tx.pasoJob.update({
         where: { id: p.id },
-        data:
-          paso === 'P5'
-            ? { estado: 'OK', inicioEn: p.inicioEn ?? ahora, finEn: ahora, intentos: { increment: 1 }, log: [linea, ...filas.map((c, i) => `parte ${i + 1}: ${c.nombre} (${c.rol})`)], error: null }
-            : { estado: 'PENDIENTE', log: [...p.log, linea, ...(texto ? [`nota: ${texto}`] : [])].slice(-30), error: null },
+        data: cierraPaso
+          ? { estado: 'OK', inicioEn: p.inicioEn ?? ahora, finEn: ahora, intentos: { increment: 1 }, log: [linea, ...filas.map((c, i) => `parte ${i + 1}: ${c.nombre} (${c.rol})`)], error: null }
+          : { estado: 'PENDIENTE', log: [...p.log, linea, ...(texto ? [`nota: ${texto}`] : [])].slice(-30), error: null },
       });
       return true;
     });
     if (!cambio) throw new ConflictException({ mensaje: 'El job cambio mientras tanto. Recarga.' });
-    await this.auditoria.registrar(op.correo, paso === 'P5' ? 'job.llaves_confirmadas' : 'job.dominio_confirmado', `job:${id}`, [paso === 'P5' ? `custodios: ${texto}` : texto, ip].filter(Boolean).join(' · '));
+    const accion = { P5: 'job.llaves_confirmadas', P8: 'job.dominio_confirmado', UC: 'job.minor_confirmado' }[paso] ?? 'job.confirmado';
+    await this.auditoria.registrar(op.correo, accion, `job:${id}`, [paso === 'P5' ? `custodios: ${texto}` : paso === 'UC' ? job.referencia : texto, ip].filter(Boolean).join(' · '));
     return this.detalle(id);
+  }
+
+  // ---------- ACTUALIZAR y cascada (CONTEXTO.md seccion 7) ----------
+
+  /**
+   * ACTUALIZAR de un silo a una version promovida a su canal. El operador
+   * confirma que el centro no tiene una exportacion en curso (R13 pendiente en
+   * el ERP); queda en la auditoria. Un minor deja el job esperando la
+   * confirmacion por silo (UC); un patch la omite.
+   */
+  async crearActualizar(slug: string, version: string, sinExporte: boolean, op: OperadorSesion | { correo: string }, ip: string | null, cascadaId?: number) {
+    if (!sinExporte) throw new UnprocessableEntityException({ mensaje: 'Confirma que el centro no tiene una exportacion en curso (el ERP aun no lo informa: R13)' });
+    if (!SLUG.test(slug)) throw new UnprocessableEntityException({ mensaje: 'Slug de silo invalido' });
+    const silo = await this.prisma.silo.findUnique({ where: { slug } });
+    if (!silo?.version) throw new NotFoundException({ mensaje: `El silo ${slug} no registra version` });
+    if (!VERSION.test(version)) throw new UnprocessableEntityException({ mensaje: 'Version invalida' });
+    const c = await this.actualizar.canalDe(slug);
+    if (!c) throw new UnprocessableEntityException({ mensaje: 'El centro del silo no tiene manifiesto aprobado' });
+    const activo = await this.prisma.job.findFirst({ where: { OR: [{ siloSlug: slug }, { centroId: c.centroId }], estado: { in: [...ACTIVOS] } }, select: { id: true } });
+    if (activo) throw new ConflictException({ mensaje: `Ya hay un job activo para este silo (#${activo.id})` });
+    const salto = compararVersion(version, silo.version) > 0 ? tipoSalto(silo.version, version) : 'patch';
+    const job = await this.prisma.job.create({
+      data: {
+        tipo: 'ACTUALIZAR',
+        centroId: c.centroId,
+        siloSlug: slug,
+        revision: c.revision,
+        hashManifiesto: c.hash,
+        referencia: version,
+        cascadaId: cascadaId ?? null,
+        creadoPor: op.correo,
+        pasos: {
+          create: EJECUTABLES.ACTUALIZAR!.map((d, i) => ({
+            orden: i,
+            codigo: d.codigo,
+            nombre: d.nombre,
+            detalle: d.detalle,
+            ejecutor: d.ejecutor,
+            // Un patch no pide confirmacion por silo.
+            ...(d.codigo === 'UC' && salto === 'patch' ? { estado: 'OMITIDO' as const, log: ['patch: sin confirmacion por silo'] } : {}),
+          })),
+        },
+      },
+    });
+    await this.auditoria.registrar(op.correo, 'job.creado', `job:${job.id}`, [`ACTUALIZAR ${slug} ${silo.version} -> ${version} (${salto})`, 'sin exportacion en curso (confirmado)', cascadaId ? `cascada:${cascadaId}` : null, ip].filter(Boolean).join(' · '));
+    await this.correrPasosControl(job.id);
+    return this.detalle(job.id);
+  }
+
+  /** Cascada semiautomatica: los silos del canal por debajo de la version, uno a la vez. */
+  async crearCascada(version: string, canal: string, sinExporte: boolean, op: OperadorSesion, ip: string | null) {
+    if (!(CANALES as readonly string[]).includes(canal)) throw new UnprocessableEntityException({ mensaje: 'Canal invalido' });
+    if (!sinExporte) throw new UnprocessableEntityException({ mensaje: 'Confirma que ningun centro del canal tiene una exportacion en curso (R13)' });
+    const r = await this.prisma.release.findUnique({ where: { version } });
+    if (!r || r.conflicto) throw new UnprocessableEntityException({ mensaje: `La version ${version} no existe o tiene un conflicto` });
+    if (!this.releases.enCanal(r, canal as Canal)) throw new UnprocessableEntityException({ mensaje: `La version ${version} no esta promovida a ${canal}` });
+    const abierta = await this.prisma.cascada.findFirst({ where: { estado: 'EN_CURSO' }, select: { id: true } });
+    if (abierta) throw new ConflictException({ mensaje: `Ya hay una cascada en curso (#${abierta.id}): un silo a la vez` });
+    const silos = await this.actualizar.silosDeCanal(canal as Canal, version);
+    if (!silos.length) throw new UnprocessableEntityException({ mensaje: `Ningun silo del canal ${canal} esta por debajo de ${version}` });
+    const cascada = await this.prisma.cascada.create({ data: { version, canal, silos, creadaPor: op.correo, sinExporte } });
+    await this.auditoria.registrar(op.correo, 'cascada.creada', `cascada:${cascada.id}`, [`${version} a ${canal}: ${silos.join(', ')}`, 'sin exportacion en curso (confirmado)', ip].filter(Boolean).join(' · '));
+    await this.encolarDeCascada(cascada.id);
+    return this.prisma.cascada.findUniqueOrThrow({ where: { id: cascada.id } });
+  }
+
+  /** Encola el silo `indice` de la cascada; si no se puede, la cascada se detiene con el motivo. */
+  private async encolarDeCascada(cascadaId: number) {
+    const c = await this.prisma.cascada.findUniqueOrThrow({ where: { id: cascadaId } });
+    const slug = c.silos[c.indice];
+    if (!slug) {
+      await this.prisma.cascada.update({ where: { id: cascadaId }, data: { estado: 'TERMINADA', terminadaEn: new Date() } });
+      await this.auditoria.registrar('control', 'cascada.terminada', `cascada:${cascadaId}`, `${c.version} a ${c.canal}: ${c.silos.length} silo(s)`);
+      return;
+    }
+    try {
+      await this.crearActualizar(slug, c.version, c.sinExporte, { correo: `cascada:${cascadaId}` }, null, cascadaId);
+    } catch (e) {
+      await this.prisma.cascada.update({ where: { id: cascadaId }, data: { estado: 'DETENIDA' } });
+      await this.auditoria.registrar('control', 'cascada.detenida', `cascada:${cascadaId}`, `${slug}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300));
+    }
+  }
+
+  /** ACTUALIZAR OK dentro de una cascada: sigue con el siguiente silo (tambien si estaba detenida por este mismo job, tras reintentarlo). */
+  private async avanzarCascada(job: Job) {
+    if (!job.cascadaId) return;
+    const c = await this.prisma.cascada.findUnique({ where: { id: job.cascadaId } });
+    if (!c || c.estado === 'TERMINADA' || c.silos[c.indice] !== job.siloSlug) return;
+    await this.prisma.cascada.update({ where: { id: c.id }, data: { indice: c.indice + 1, estado: 'EN_CURSO' } });
+    await this.encolarDeCascada(c.id);
+  }
+
+  /** Un ACTUALIZAR de la cascada fallo o se cancelo: la cascada se detiene (los demas silos no se tocan). */
+  private async detenerCascada(job: Job, motivo: string) {
+    if (!job.cascadaId) return;
+    const r = await this.prisma.cascada.updateMany({ where: { id: job.cascadaId, estado: 'EN_CURSO' }, data: { estado: 'DETENIDA' } });
+    if (r.count) await this.auditoria.registrar('control', 'cascada.detenida', `cascada:${job.cascadaId}`, motivo.slice(0, 300));
+  }
+
+  listarCascadas() {
+    return this.prisma.cascada.findMany({ orderBy: { creadaEn: 'desc' }, take: 20 });
   }
 
   // ---------- agente ----------
@@ -416,7 +540,7 @@ export class JobsService {
     // Siguiente paso manual (APROVISIONAR P5): el job espera al operador y el agente se detiene.
     const sig = nuevo === 'EN_CURSO' ? siguientePaso(pasos) : undefined;
     if (sig?.ejecutor === 'operador') {
-      const r = await this.prisma.job.updateMany({ where: { id: jobId, estado: 'EN_CURSO' }, data: { estado: 'ESPERANDO_LLAVES', agenteId: null, reservaHasta: null } });
+      const r = await this.prisma.job.updateMany({ where: { id: jobId, estado: 'EN_CURSO' }, data: { estado: esperaManual(sig.codigo), agenteId: null, reservaHasta: null } });
       if (r.count === 1) await this.auditoria.registrar('control', 'job.esperando', `job:${jobId}`, `${sig.codigo}: ${sig.nombre}`);
       return { seguir: false };
     }
@@ -429,6 +553,12 @@ export class JobsService {
       });
       if (cerrado.count !== 1) return { seguir: false };
       await this.auditoria.registrar(`agente:${agenteId}`, nuevo === 'OK' ? 'job.ok' : 'job.fallido', `job:${jobId}`, nuevo === 'FALLIDO' ? `${codigo}: ${error ?? ''}` : job.siloSlug);
+      if (job.tipo === 'ACTUALIZAR') {
+        // El job ya cerro: un fallo aqui queda en la auditoria y no se devuelve al agente.
+        await (nuevo === 'OK' ? this.actualizar.alTerminar(job).then(() => this.avanzarCascada(job)) : this.detenerCascada(job, `job:${jobId} fallo en ${codigo}`)).catch((e: unknown) =>
+          this.auditoria.registrar('control', 'actualizar.cierre_fallido', `job:${jobId}`, (e instanceof Error ? e.message : String(e)).slice(0, 300)),
+        );
+      }
       if (nuevo === 'OK') {
         if (job.tipo === 'APROVISIONAR') {
           await this.aprov.alTerminar(job).catch((e: unknown) =>

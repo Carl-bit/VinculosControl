@@ -4,6 +4,8 @@ import { manifiestoSchema } from '@vinculos/manifest';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
+import { ReleasesService } from '../releases/releases.service';
+import type { Canal } from '../releases/semver';
 import { SalidasCierre } from '../salidas/cierre.service';
 
 /**
@@ -37,6 +39,7 @@ export class AprovisionarService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly cierre: SalidasCierre,
+    private readonly releases: ReleasesService,
   ) {}
 
   /** P0 (ademas de schema, dependencias y hash): version fija, nombre y tema aceptados, slug y dominio libres. */
@@ -46,9 +49,24 @@ export class AprovisionarService {
     const c = await this.prisma.centro.findUniqueOrThrow({ where: { id: job.centroId! } });
     if (!PARA_APROVISIONAR.includes(c.estado)) return no(`El centro esta ${c.estado}: se aprovisiona desde APROBADO`);
     const m = manifiestoSchema.parse(contenido);
-    if (!('fija' in m.version)) return no(`El manifiesto pide el canal ${m.version.canal}: los canales se resuelven con el registro de releases (fase 5). Por ahora, una version fija publicada en el host B`);
-    if (!VERSION.test(m.version.fija)) return no(`Version fija invalida: ${m.version.fija}`);
-    log.push(`version fija ${m.version.fija}`);
+    // Version: la fija del manifiesto, o la ultima promovida a su canal (releases, seccion 7).
+    // Queda en job.referencia: un reintento no cambia de version a mitad de camino.
+    let version = job.referencia;
+    if (!version) {
+      if ('fija' in m.version) {
+        version = m.version.fija;
+      } else {
+        const r = await this.releases.deCanal(m.version.canal as Canal);
+        if (!r) return no(`No hay una version promovida al canal ${m.version.canal}: promover una en Releases`);
+        version = r.version;
+      }
+      await this.prisma.job.update({ where: { id: job.id }, data: { referencia: version } });
+      job.referencia = version;
+    }
+    if (!VERSION.test(version)) return no(`Version invalida: ${version}`);
+    const rel = await this.prisma.release.findUnique({ where: { version } });
+    if (rel?.conflicto) return no(`La version ${version} tiene un conflicto de digests`);
+    log.push('fija' in m.version ? `version fija ${version}` : `canal ${m.version.canal}: ${version}`);
     if (!NOMBRE_SILO.test(m.centro.nombre)) return no('El nombre del centro solo admite letras, numeros, espacio y . , \' & ( ) - (2 a 120)');
     const tema = m.estilo?.tema ?? 'moderno';
     if (!TEMAS_EJECUTOR.includes(tema)) return no(`Tema ${tema} no disponible en el ERP`);
@@ -93,11 +111,8 @@ export class AprovisionarService {
   /** P2 OK: version y digests que preparo el ejecutor. */
   async guardarDatosP2(job: Job, d: DatosP2) {
     if (!VERSION.test(d.version) || !DIGEST.test(d.apiDigest) || !DIGEST.test(d.webDigest)) throw new UnprocessableEntityException({ mensaje: 'Datos de imagen invalidos' });
-    if (job.revision && job.centroId) {
-      const rev = await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: job.centroId, numero: job.revision } } });
-      const v = (rev?.contenido as { version?: { fija?: string } } | null)?.version?.fija;
-      if (v !== d.version) throw new UnprocessableEntityException({ mensaje: `El ejecutor preparo ${d.version} y el manifiesto pide ${v ?? '?'}` });
-    }
+    // La version que resolvio P0 (fija o la del canal) es la unica aceptada.
+    if (job.referencia !== d.version) throw new UnprocessableEntityException({ mensaje: `El ejecutor preparo ${d.version} y el job pide ${job.referencia ?? '?'}` });
     await this.prisma.silo.update({ where: { slug: job.siloSlug! }, data: { version: d.version, apiDigest: d.apiDigest, webDigest: d.webDigest } });
   }
 

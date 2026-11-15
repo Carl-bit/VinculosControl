@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { EstadoPaso, TipoJob } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsEnum, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import type { Request } from 'express';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
@@ -40,7 +40,7 @@ class CustodioDto {
 }
 
 class ConfirmarDto {
-  @IsIn(['P5', 'P8'])
+  @IsIn(['P5', 'P8', 'UC'])
   paso: string;
 
   /** P5: los 3 custodios, uno por parte (2 de 3). */
@@ -57,6 +57,19 @@ class ConfirmarDto {
   @IsString()
   @MaxLength(300)
   nota?: string;
+}
+
+class ActualizarDto {
+  @IsString()
+  @Matches(/^[a-z][a-z0-9-]{1,38}[a-z0-9]$/)
+  siloSlug: string;
+
+  @Matches(/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$/)
+  version: string;
+
+  /** El operador revisa que el centro no tenga una exportacion en curso (R13 pendiente en el ERP). */
+  @IsBoolean()
+  sinExporte: boolean;
 }
 
 /** Version y digests que preparo el ejecutor (P2 de APROVISIONAR). Solo eso. */
@@ -91,6 +104,13 @@ export class JobsConsolaController {
   @HttpCode(201)
   crear(@Body() b: CrearJobDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
     return this.jobs.crear(b.tipo, { centroId: b.centroId, siloSlug: b.siloSlug }, op, ip);
+  }
+
+  /** ACTUALIZAR un silo a una version promovida a su canal (desde el detalle del silo). */
+  @Post('actualizar')
+  @HttpCode(201)
+  actualizar(@Body() b: ActualizarDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
+    return this.jobs.crearActualizar(b.siloSlug, b.version, b.sinExporte, op, ip);
   }
 
   @Post(':id/reintentar')

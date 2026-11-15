@@ -216,6 +216,12 @@ export async function preparar(d: DockerApr, disco: DiscoSilos, c: Compose, cfg:
 
   // P3: compose del silo y verificacion.
   await disco.escribirCompose(slug, renderizar(await disco.plantilla(), cfg.erpInfra));
+  log.push(await validarCompose(c, cfg, slug, img));
+  return { log, imagenes: { version: pedido.version, apiDigest: img.apiDigest, webDigest: img.webDigest } };
+}
+
+/** `docker compose config` del silo: valido y solo postgres + vinculos-api/web por digest (las de `img`). */
+export async function validarCompose(c: Compose, cfg: Config, slug: string, img: { api: string; web: string }): Promise<string> {
   const base = argsCompose(cfg, slug);
   const conf = await c.correr([...base, 'config', '--quiet'], 60_000);
   if (conf.codigo !== 0) throw new ErrorVerbo(500, `docker compose config: ${conf.salida.slice(-400)}`);
@@ -227,8 +233,7 @@ export async function preparar(d: DockerApr, disco: DiscoSilos, c: Compose, cfg:
   if (ajenas.length || !lista.includes(img.api) || !lista.includes(img.web)) {
     throw new ErrorVerbo(500, `el compose del silo trae imagenes no permitidas: ${ajenas.join(', ') || 'faltan las de la version'}`);
   }
-  log.push(`compose de ${proyecto(slug)} valido (${new Set(lista).size} imagenes, todas por digest salvo postgres)`);
-  return { log, imagenes: { version: pedido.version, apiDigest: img.apiDigest, webDigest: img.webDigest } };
+  return `compose de ${proyecto(slug)} valido (${new Set(lista).size} imagenes, todas por digest salvo postgres)`;
 }
 
 export type Fase = 'bd' | 'todo';

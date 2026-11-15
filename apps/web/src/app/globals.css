@@ -1368,3 +1368,14 @@ tr[aria-selected='true'] td {
 .custodio-fila > .mono-corto {
   padding-bottom: 8px;
 }
+
+/* Releases: la tabla se desplaza dentro de su panel (sin desborde de la pagina a 1280 px). */
+.tabla-ancha {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.tabla-ancha td .boton {
+  display: block;
+  margin-top: 4px;
+  white-space: nowrap;
+}

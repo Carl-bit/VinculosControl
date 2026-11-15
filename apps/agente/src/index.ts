@@ -14,6 +14,7 @@ import { dominioDesdeLabels, inspeccionar, listar, logs, siloDe, stats, type Con
 import { host, ultimoRespaldo } from './host';
 import { ejecutar, type JobReclamado, TIPOS } from './jobs';
 import { latenciasDesdeLogs } from './p95';
+import { informarReleases } from './releases';
 import { sincronizarSolicitudes } from './solicitudes';
 
 const VERSION = '0.3.0';
@@ -113,3 +114,5 @@ cada(30_000, () => enviar('latido', { version: VERSION }), 'latido');
 cada(60_000, async () => log(`reporte: ${await reporte()} silo(s)`), 'reporte');
 cada(15_000, jobs, 'jobs');
 cada(60_000, async () => log(`solicitudes: ${await sincronizarSolicitudes(post, log)}`), 'solicitudes');
+// Releases del host B (infra/imagenes del ERP): cada 5 min; publicar es poco frecuente.
+cada(300_000, async () => log(`releases: ${await informarReleases(post)}`), 'releases');

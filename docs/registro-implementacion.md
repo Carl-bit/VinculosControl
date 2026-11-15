@@ -463,3 +463,33 @@ Hallazgos en el camino: `respaldar.sh` del ERP fallaba en un host B Windows
 `llaves/comun.sh` (cambio en el ERP). Cronometros de los pasos en la consola:
 corren en vivo (cada 100 ms) mientras el paso esta EN_CURSO y se detienen al
 terminar; un paso reabierto por una espera no muestra la duracion vieja.
+
+### Releases, canales y ACTUALIZAR (2026-11-15)
+
+Decisiones del usuario: respaldo previo por un verbo del ejecutor; cascada
+semiautomatica (minor con confirmacion por silo, patch sin ella); el operador
+confirma que no hay exportacion en curso (R13 pendiente); releases detectados
+por el agente.
+
+- Ejecutor (`actualizar.ts`): `respaldar` (pg_dump por `compose exec` | auxiliar
+  `vinculos-agente-ejecutor:local` con `--network none`, `--read-only`,
+  `--cap-drop ALL` y solo `secrets/<slug>/respaldo.key` montada; mismos
+  parametros que `respaldar.sh`; todo o nada, sin respaldo vacio: resuelve R14
+  por este camino), `actualizar` (4 lineas de imagen del .env, anterior.env;
+  reintento no pisa anterior.env) y `revertir` (backend y frontend con
+  `--no-deps`, sin migrate).
+- API: `releases/` (servicio, semver, controladores consola y agente),
+  `jobs/actualizar.service.ts`, cascada en `JobsService`, `CONFIRMABLES` y
+  `esperaManual` (UC espera al operador), `reintentoActualizar` (rehace desde
+  U2 si fallo U3-U5, porque el agente ya revirtio), APROVISIONAR por canal.
+- Agente: `releases.ts` (cada 5 min), U1-U5 con `conVueltaAtras`.
+- Consola: vista Releases, panel Version en el silo, panel UC en el job.
+
+Hallado mientras se escribia: reintentar un ACTUALIZAR "desde el paso
+fallido" habria corrido la imagen vieja (ya revertida) y cerrado OK sin
+actualizar; corregido con `reintentoActualizar` y tests.
+
+Prueba real: migracion aplicada; el agente informo 0.1.0 y 0.1.0-prueba.1 con
+los digests de `infra/imagenes/` y la auditoria `release.detectada`. Falta la
+corrida real de ACTUALIZAR: necesita publicar 0.1.1 (subir la version del ERP)
+y un silo activo en un canal.
