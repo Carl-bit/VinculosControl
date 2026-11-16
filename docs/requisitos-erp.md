@@ -252,7 +252,10 @@ cuaderno.
 Hoy la salida se registra a mano en la consola (Salidas, 2026-11-14). Para
 automatizar sin datos personales:
 
-- R12 `POST /api/internal/salida` `{ soloLectura: true, fechaCorte }`: el silo
+- R12 (hecho 2026-11-16: migracion `20261116000400_r12_salida_solo_lectura`,
+  `SoloLecturaGuard` global en la API del ERP, 423 `silo_solo_lectura`; siguen
+  ingreso, contrasena y segundo factor propios, exportes y derechos de los
+  pacientes, por decision del usuario; aviso en la UI) `POST /api/internal/salida` `{ soloLectura: true, fechaCorte }`: el silo
   pasa a solo lectura (sin reservas, pagos ni cambios; lectura y exporte
   siguen). Funcion SECURITY DEFINER, idempotente, auditada en el silo. El
   centro avisa a sus pacientes (S2).

@@ -112,8 +112,8 @@ describe('ACTUALIZAR', () => {
     expect(Object.fromEntries(job.pasos.map((p) => [p.codigo, p.estado]))).toMatchObject({ U0: 'OK', UC: 'OMITIDO', U1: 'PENDIENTE' });
     const r = await e.jobs.reclamar(ag.id, ['ACTUALIZAR']);
     expect(r?.referencia).toBe('0.1.1');
-    expect(r?.pasos.map((p) => p.codigo)).toEqual(['U1', 'U2', 'U3', 'U4', 'U5']);
-    await correr(ag.id, job.id, ['U1', 'U2', 'U3', 'U4', 'U5']);
+    expect(r?.pasos.map((p) => p.codigo)).toEqual(['U1', 'U2', 'U3', 'U4', 'U5', 'U6']);
+    await correr(ag.id, job.id, ['U1', 'U2', 'U3', 'U4', 'U5', 'U6']);
     expect(await estadoJob(job.id)).toBe('OK');
     expect(await e.prisma.silo.findUniqueOrThrow({ where: { slug: 'kibou' } })).toMatchObject({ version: '0.1.1', apiDigest: d('3'), webDigest: d('4') });
     expect(await contarAuditoria(e.prisma, 'silo.actualizado')).toBe(1);
@@ -145,6 +145,21 @@ describe('ACTUALIZAR', () => {
     await promover('0.1.0', 'estable');
     await siloActivo('kibou', 'estable', '0.1.0');
     expect((await e.jobs.crearActualizar('kibou', '0.1.0', true, op, null)).error).toMatch(/solo se actualiza hacia adelante/);
+  });
+
+  it('R6: el operador escribe las notas de la version (auditadas; vacio las borra) y el job las lleva al agente para U6', async () => {
+    const ag = await crearAgente(e.prisma);
+    await e.releases.registrar(ag.id, [rel('0.1.0'), rel('0.1.1', '3', '4')]);
+    await promover('0.1.1', 'estable');
+    await siloActivo('kibou', 'estable');
+    expect((await errorDe(e.releases.notas('9.9.9', 'x', op, null))).status).toBe(404);
+    await e.releases.notas('0.1.1', '  Agenda: filtro por box.\r\nFichas: plantillas nuevas.  ', op, null);
+    expect((await e.prisma.release.findUniqueOrThrow({ where: { version: '0.1.1' } })).notas).toBe('Agenda: filtro por box.\nFichas: plantillas nuevas.');
+    expect(await contarAuditoria(e.prisma, 'release.notas')).toBe(1);
+    await e.jobs.crearActualizar('kibou', '0.1.1', true, op, null);
+    expect((await e.jobs.reclamar(ag.id, ['ACTUALIZAR']))?.notas).toBe('Agenda: filtro por box.\nFichas: plantillas nuevas.');
+    await e.releases.notas('0.1.1', '   ', op, null);
+    expect(await e.prisma.release.findUniqueOrThrow({ where: { version: '0.1.1' } })).toMatchObject({ notas: null, notasPor: null });
   });
 
   it('R13: con el silo informando, un exporte en curso bloquea (409 y U0) y sin el no hace falta la confirmacion', async () => {
@@ -184,10 +199,10 @@ describe('cascada', () => {
     expect(primero.siloSlug).toBe('alfa');
     expect(await e.prisma.job.count({ where: { cascadaId: c.id } })).toBe(1);
     await e.jobs.reclamar(ag.id, ['ACTUALIZAR']);
-    await correr(ag.id, primero.id, ['U1', 'U2', 'U3', 'U4', 'U5']);
+    await correr(ag.id, primero.id, ['U1', 'U2', 'U3', 'U4', 'U5', 'U6']);
     const segundo = await e.prisma.job.findFirstOrThrow({ where: { cascadaId: c.id, siloSlug: 'beta-centro' } });
     await e.jobs.reclamar(ag.id, ['ACTUALIZAR']);
-    await correr(ag.id, segundo.id, ['U1', 'U2', 'U3', 'U4', 'U5']);
+    await correr(ag.id, segundo.id, ['U1', 'U2', 'U3', 'U4', 'U5', 'U6']);
     expect(await e.prisma.cascada.findUniqueOrThrow({ where: { id: c.id } })).toMatchObject({ estado: 'TERMINADA', indice: 2 });
     expect((await e.prisma.silo.findUniqueOrThrow({ where: { slug: 'demo-centro' } })).version).toBe('0.1.0');
   });
@@ -209,8 +224,8 @@ describe('cascada', () => {
     // El reintento rehace desde U2: el fallo en U3 ya habia vuelto el silo a la imagen anterior.
     await e.jobs.reintentar(primero.id, op, null);
     const r = await e.jobs.reclamar(ag.id, ['ACTUALIZAR']);
-    expect(r?.pasos.filter((p) => p.estado !== 'OK').map((p) => p.codigo)).toEqual(['U2', 'U3', 'U4', 'U5']);
-    await correr(ag.id, primero.id, ['U2', 'U3', 'U4', 'U5']);
+    expect(r?.pasos.filter((p) => p.estado !== 'OK').map((p) => p.codigo)).toEqual(['U2', 'U3', 'U4', 'U5', 'U6']);
+    await correr(ag.id, primero.id, ['U2', 'U3', 'U4', 'U5', 'U6']);
     expect(await e.prisma.cascada.findUniqueOrThrow({ where: { id: c.id } })).toMatchObject({ estado: 'EN_CURSO', indice: 1 });
     expect(await e.prisma.job.count({ where: { cascadaId: c.id, siloSlug: 'omega' } })).toBe(1);
   });

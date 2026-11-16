@@ -108,7 +108,7 @@ export function pasos(estado: EstadoCentro, s: EstadoSalida & { actaRecepcionHas
   const p = (hecho: boolean, actual: boolean): EstadoPasoSalida => (hecho ? 'hecho' : actual ? 'actual' : 'pendiente');
   return [
     { codigo: 'S1', l: 'Solicitud y fecha de corte', estado: p(i >= 0, false) },
-    { codigo: 'S2', l: 'Solo lectura (lo avisa el centro; R12 en el ERP)', estado: p(i >= 0, false) },
+    { codigo: 'S2', l: 'Solo lectura del silo (job SOLO_LECTURA, R12) y aviso del centro a sus pacientes', estado: p(i >= 0, false) },
     { codigo: 'S3-S4', l: 'Exporte cifrado generado por el ADMIN', estado: p(!!s.actaRecepcionHash, i === 0) },
     { codigo: 'S5', l: 'Acta de recepcion', estado: p(!!s.actaRecepcionHash, i === 0) },
     { codigo: 'S6', l: 'Silo detenido y gracia', estado: p(!!s.siloDetenidoEn, i === 1) },

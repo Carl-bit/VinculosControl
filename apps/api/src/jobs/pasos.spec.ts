@@ -27,7 +27,8 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
   it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4), los de la salida, APROVISIONAR y ACTUALIZAR, todos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR']);
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'SOLO_LECTURA', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR']);
+    expect(EJECUTABLES.SOLO_LECTURA?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['P0:control', 'L1:agente']);
     expect(EJECUTABLES.APROVISIONAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual([
       'P0:control',
       'P1:control',
@@ -43,7 +44,7 @@ describe('cola de jobs: reglas', () => {
     expect(EJECUTABLES.RECONFIGURAR?.map((p) => p.codigo)).toEqual(['P0', 'C1', 'C2']);
     expect(EJECUTABLES.ELIMINAR?.map((p) => p.codigo)).toEqual(['P0', 'X1', 'X2', 'X3']);
     for (const defs of Object.values(EJECUTABLES)) expect(defs?.[0]).toMatchObject({ codigo: expect.stringMatching(/^[PU]0$/), ejecutor: 'control' });
-    expect(EJECUTABLES.ACTUALIZAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['U0:control', 'UC:operador', 'U1:agente', 'U2:agente', 'U3:agente', 'U4:agente', 'U5:agente']);
+    expect(EJECUTABLES.ACTUALIZAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['U0:control', 'UC:operador', 'U1:agente', 'U2:agente', 'U3:agente', 'U4:agente', 'U5:agente', 'U6:agente']);
   });
   it('el agente despacha por codigo: un codigo de paso del agente no se repite entre tipos', () => {
     const codigos = Object.values(EJECUTABLES).flatMap((d) => d!.filter((p) => p.ejecutor === 'agente').map((p) => p.codigo));

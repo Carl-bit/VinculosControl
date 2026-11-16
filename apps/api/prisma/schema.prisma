@@ -315,6 +315,8 @@ enum TipoJob {
   DETENER_SILO
   /// Reversion de una salida en gracia (opcion B): arranca los contenedores detenidos.
   REANUDAR_SILO
+  /// R12 (salida S2): pone o quita el silo en solo lectura por /api/internal/salida. referencia: ACTIVAR:<fecha de corte> o QUITAR.
+  SOLO_LECTURA
 
   @@map("tipo_job")
 }
@@ -388,6 +390,10 @@ model Release {
   enBetaEn    DateTime? @map("en_beta_en")
   enEstableEn DateTime? @map("en_estable_en")
   conflicto   String?
+  /// R6: notas para el ADMIN de cada centro (texto plano, sin datos personales). El agente las entrega en U6 de ACTUALIZAR.
+  notas       String?
+  notasEn     DateTime? @map("notas_en")
+  notasPor    String?   @map("notas_por")
 
   @@map("releases")
 }

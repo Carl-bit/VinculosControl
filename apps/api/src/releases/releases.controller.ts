@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsISO8601, IsString, Matches, MaxLength, ValidateNested } from 'class-validator';
+
 import type { Request } from 'express';
 
 import type { OperadorSesion } from '../acceso/acceso.service';
@@ -18,6 +19,13 @@ const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$/;
 class PromoverDto {
   @IsIn([...CANALES])
   canal: Canal;
+}
+
+/** R6: notas para el ADMIN de cada centro. Texto plano, sin datos personales; vacio las borra. */
+class NotasDto {
+  @IsString()
+  @MaxLength(4000)
+  notas: string;
 }
 
 class CascadaDto {
@@ -83,6 +91,12 @@ export class ReleasesConsolaController {
   @HttpCode(200)
   promover(@Param('version') version: string, @Body() b: PromoverDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
     return this.releases.promover(version.slice(0, 40), b.canal, op, ip);
+  }
+
+  @Post(':version/notas')
+  @HttpCode(200)
+  notas(@Param('version') version: string, @Body() b: NotasDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
+    return this.releases.notas(version.slice(0, 40), b.notas, op, ip);
   }
 
   @Post(':version/cascada')

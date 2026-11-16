@@ -68,6 +68,11 @@ const REANUDAR_SILO: DefPaso[] = [
   { codigo: 'A1', nombre: 'Reanudar', detalle: 'arranca db (espera sana), backend y frontend; une el borde (ejecutor)', ejecutor: 'agente' },
   { codigo: 'A2', nombre: 'Comprobar', detalle: 'db, backend y frontend en marcha y sanos', ejecutor: 'agente' },
 ];
+/** R12: S2 automatico. No para contenedores ni borra nada; un ERP anterior a R12 responde 404 y el paso falla sin bloquear la salida. */
+const SOLO_LECTURA: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'ACTIVAR: salida abierta sin reversion; QUITAR: reversion pedida en la ultima salida; silo reportado', ejecutor: 'control' },
+  { codigo: 'L1', nombre: 'Solo lectura', detalle: 'POST /api/internal/salida por la red de borde (token del silo) y comprueba el estado con GET', ejecutor: 'agente' },
+];
 const ELIMINAR: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'GRACIA vencida, confirmacion escrita, silo detenido, sin reversion, hash del acta de recepcion', ejecutor: 'control' },
   { codigo: 'X1', nombre: 'Detenido', detalle: 'ningun contenedor de erp-<slug> en marcha', ejecutor: 'agente' },
@@ -109,6 +114,7 @@ export const PASOS_ACTUALIZAR: DefPaso[] = [
   { codigo: 'U3', nombre: 'Migraciones', detalle: 'migrate con la imagen nueva termina en 0 (ejecutor: levantar bd); si falla, vuelve a la imagen anterior', ejecutor: 'agente' },
   { codigo: 'U4', nombre: 'Recrear', detalle: 'backend y frontend con la imagen nueva y borde unido (ejecutor: levantar todo)', ejecutor: 'agente' },
   { codigo: 'U5', nombre: 'Salud', detalle: '/api/salud 200; si no responde, vuelve a la imagen anterior (ejecutor: revertir)', ejecutor: 'agente' },
+  { codigo: 'U6', nombre: 'Notas de version', detalle: 'entrega al silo las notas de la version para su ADMIN (/api/internal/notas-version, R6); si no se pueden entregar no falla', ejecutor: 'agente' },
 ];
 
 /** Tipos que hoy se pueden encolar, con sus pasos. El resto responde por que no. */
@@ -118,6 +124,7 @@ export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = {
   RECONFIGURAR,
   DETENER_SILO,
   REANUDAR_SILO,
+  SOLO_LECTURA,
   ELIMINAR,
   APROVISIONAR: PASOS_APROVISIONAR,
   ACTUALIZAR: PASOS_ACTUALIZAR,
@@ -154,7 +161,7 @@ export function anterioresListos(pasos: { orden: number; estado: EstadoPaso }[],
 export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO'];
 
 /** Jobs que nacen de una salida (Salidas en la consola), con su propio P0. */
-export const DE_SALIDA: readonly TipoJob[] = ['DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'];
+export const DE_SALIDA: readonly TipoJob[] = ['DETENER_SILO', 'REANUDAR_SILO', 'SOLO_LECTURA', 'ELIMINAR'];
 
 /** Ventana del respaldo diario (02:00 Chile): no se tocan silos entre 01:45 y 02:30. Igual que el ejecutor. */
 export function enVentanaRespaldo(ahora: Date): boolean {

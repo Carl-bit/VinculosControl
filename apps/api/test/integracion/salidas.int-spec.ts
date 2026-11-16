@@ -69,7 +69,7 @@ const solicitudCentro = (extra: Record<string, string> = {}) => ({
 /** El agente corre los pasos del job como si el ejecutor respondiera bien (o falla `falla`). */
 async function correrJob(jobId: number, falla?: string) {
   const ag = (await e.prisma.agente.findFirst()) ?? (await crearAgente(e.prisma));
-  const r = await e.jobs.reclamar(ag.id, ['DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR']);
+  const r = await e.jobs.reclamar(ag.id, ['SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR']);
   expect(r?.id).toBe(jobId);
   for (const p of r!.pasos) {
     await e.jobs.reportarPaso(ag.id, jobId, p.codigo, 'EN_CURSO', []);
@@ -79,17 +79,24 @@ async function correrJob(jobId: number, falla?: string) {
   }
   return r;
 }
-const ultimoJob = async (tipo: 'DETENER_SILO' | 'REANUDAR_SILO' | 'ELIMINAR') => e.prisma.job.findFirstOrThrow({ where: { tipo }, orderBy: { id: 'desc' } });
+const ultimoJob = async (tipo: 'SOLO_LECTURA' | 'DETENER_SILO' | 'REANUDAR_SILO' | 'ELIMINAR') => e.prisma.job.findFirstOrThrow({ where: { tipo }, orderBy: { id: 'desc' } });
+
+/** S1 + S2: inicia la salida y el agente pone el silo en solo lectura (R12). */
+async function iniciarConS2() {
+  const s = await e.salidas.iniciar(inicio(), op, null);
+  await correrJob((await ultimoJob('SOLO_LECTURA')).id);
+  return s;
+}
 
 async function hastaExportado() {
-  const s = await e.salidas.iniciar(inicio(), op, null);
+  const s = await iniciarConS2();
   await e.salidas.registrarRecepcion(s.id, recepcion(), op, null);
   return s.id;
 }
 
 /** Lleva la salida hasta GRACIA (por el job DETENER_SILO) con la gracia ya vencida y la confirmacion registrada. */
 async function hastaGraciaVencida() {
-  const s = await e.salidas.iniciar(inicio(), op, null);
+  const s = await iniciarConS2();
   await e.prisma.salida.update({ where: { id: s.id }, data: { iniciadaEn: hace(40 * DIA) } });
   await e.salidas.registrarRecepcion(s.id, recepcion({ exporteEn: hace(35 * DIA).toISOString(), firmadaEn: hace(31 * DIA).toISOString() }), op, null);
   await e.salidas.detener(s.id, op, null);
@@ -117,7 +124,7 @@ describe('salidas: S1 iniciar', () => {
   });
 
   it('la base no admite dos salidas abiertas del mismo centro', async () => {
-    const s = await e.salidas.iniciar(inicio(), op, null);
+    const s = await iniciarConS2();
     await expect(e.prisma.salida.create({ data: { centroId, siloSlug: 'kibou', fechaCorte: new Date(), motivo: 'x', desde: 'ACTIVO', iniciadaPor: 'x' } })).rejects.toThrow();
     expect(s.expediente).toBe('abierta');
   });
@@ -126,7 +133,7 @@ describe('salidas: S1 iniciar', () => {
 describe('salidas: S3-S5 acta de recepcion', () => {
   let id: number;
   beforeEach(async () => {
-    id = (await e.salidas.iniciar(inicio(), op, null)).id;
+    id = (await iniciarConS2()).id;
   });
 
   it('registra exporte y acta, calcula la gracia (30 dias desde la firma) y pasa a EXPORTADO; idempotente', async () => {
@@ -241,9 +248,23 @@ describe('salidas: S7 eliminar (opcion C)', () => {
 });
 
 describe('salidas: reversion (baja por error o arrepentimiento)', () => {
+  it('R12: iniciar encola SOLO_LECTURA con la fecha de corte; revertir con el silo en marcha encola QUITAR', async () => {
+    const s = await e.salidas.iniciar(inicio(), op, null);
+    const activar = await ultimoJob('SOLO_LECTURA');
+    expect([activar.referencia, activar.estado]).toEqual(['ACTIVAR:2026-12-31', 'PENDIENTE']);
+    expect((await e.salidas.detalle(s.id)).jobs.map((j) => j.tipo)).toContain('SOLO_LECTURA');
+    const r = await correrJob(activar.id);
+    expect(r?.pasos.map((p) => p.codigo)).toEqual(['L1']);
+    await e.salidas.revertir(s.id, solicitudCentro(), op, null);
+    const quitar = await ultimoJob('SOLO_LECTURA');
+    expect([quitar.id === activar.id, quitar.referencia, quitar.estado]).toEqual([false, 'QUITAR', 'PENDIENTE']);
+    await correrJob(quitar.id);
+    expect(await e.prisma.job.count({ where: { tipo: 'SOLO_LECTURA', estado: 'OK' } })).toBe(2);
+  });
+
   it('desde EN_SALIDA vuelve al estado previo en el acto, con acta y copia por correo', async () => {
     await e.prisma.centro.update({ where: { id: centroId }, data: { estado: 'SUSPENDIDO' } });
-    const s = await e.salidas.iniciar(inicio(), op, null);
+    const s = await iniciarConS2();
     const d = await e.salidas.revertir(s.id, solicitudCentro(), op, null);
     expect([d.expediente, d.estado]).toEqual(['revertida', 'SUSPENDIDO']);
     expect(d.actaReversionHash).toMatch(/^[0-9a-f]{64}$/);
@@ -255,7 +276,7 @@ describe('salidas: reversion (baja por error o arrepentimiento)', () => {
   });
 
   it('despues de revertir se puede iniciar otra salida (la anterior queda como historial)', async () => {
-    const s = await e.salidas.iniciar(inicio(), op, null);
+    const s = await iniciarConS2();
     await e.salidas.revertir(s.id, solicitudCentro(), op, null);
     const otra = await e.salidas.iniciar(inicio({ motivo: 'Nuevo termino' }), op, null);
     expect(otra.id).not.toBe(s.id);
@@ -298,7 +319,7 @@ describe('salidas: reversion (baja por error o arrepentimiento)', () => {
   });
 
   it('exige solicitud posterior al inicio, no futura, y el slug escrito', async () => {
-    const s = await e.salidas.iniciar(inicio(), op, null);
+    const s = await iniciarConS2();
     expect((await errorDe(e.salidas.revertir(s.id, solicitudCentro({ solicitudEn: hace(DIA).toISOString() }), op, null))).status).toBe(422);
     expect((await errorDe(e.salidas.revertir(s.id, solicitudCentro({ confirmacion: 'x' }), op, null))).status).toBe(422);
     expect(await estado()).toBe('EN_SALIDA');

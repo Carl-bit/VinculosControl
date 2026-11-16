@@ -49,6 +49,10 @@ export interface Release {
   enBetaEn: string | null;
   enEstableEn: string | null;
   conflicto: string | null;
+  /** R6: notas para el ADMIN de cada centro (texto plano). */
+  notas: string | null;
+  notasEn: string | null;
+  notasPor: string | null;
   silos: string[];
 }
 export interface Cascada {

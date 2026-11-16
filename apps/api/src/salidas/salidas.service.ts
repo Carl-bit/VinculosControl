@@ -109,7 +109,7 @@ export class SalidasService {
     const { centro, ...resto } = s;
     const ids = [s.detencionJobId, s.eliminacionJobId, s.reversionJobId].filter((x): x is number => !!x);
     const [jobs, envios, eliminacionLog] = await Promise.all([
-      this.prisma.job.findMany({ where: { centroId: s.centroId, tipo: { in: ['DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'] }, creadoEn: { gte: s.iniciadaEn } }, orderBy: { id: 'desc' }, take: 10, select: { id: true, tipo: true, estado: true, creadoEn: true, error: true } }),
+      this.prisma.job.findMany({ where: { centroId: s.centroId, tipo: { in: ['SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR'] }, creadoEn: { gte: s.iniciadaEn } }, orderBy: { id: 'desc' }, take: 10, select: { id: true, tipo: true, estado: true, creadoEn: true, error: true } }),
       this.envios(id),
       s.eliminacionJobId ? this.prisma.pasoJob.findFirst({ where: { jobId: s.eliminacionJobId, codigo: 'X2' }, select: { log: true } }) : null,
     ]);
@@ -166,6 +166,8 @@ export class SalidasService {
       id = s.id;
     });
     await this.auditoria.registrar(op.correo, 'salida.iniciada', `centro:${c.id}`, `${slug} · corte ${d.fechaCorte}${ip ? ` · ${ip}` : ''}`);
+    // S2 (R12): el silo pasa a solo lectura; lectura, exportes y derechos siguen.
+    await this.jobs.crearSoloLectura(c.id, slug, { fechaCorte: d.fechaCorte }, op.correo, ip);
     return this.detalle(id);
   }
 
@@ -341,6 +343,8 @@ export class SalidasService {
       await this.prisma.salida.update({ where: { id }, data: { reversionJobId: job.id } });
     } else {
       await this.cierre.completarReversion(id, op.correo, null);
+      // R12: el silo sigue en marcha; vuelve a aceptar escrituras.
+      await this.jobs.crearSoloLectura(c.id, s.siloSlug, 'QUITAR', op.correo, ip);
     }
     return this.detalle(id);
   }

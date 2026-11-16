@@ -79,8 +79,56 @@ export class JobsService {
     return this.detalle(job.id);
   }
 
+  /**
+   * R12 (salida S2): encola SOLO_LECTURA para activar (al iniciar la salida,
+   * con la fecha de corte) o quitar (al revertirla). No bloquea la salida: si
+   * hay otro job activo para el silo o P0 falla, queda en la auditoria y en la
+   * vista de la salida, y el operador lo reintenta.
+   */
+  async crearSoloLectura(centroId: number, slug: string, accion: { fechaCorte: string } | 'QUITAR', actor: string, ip: string | null) {
+    const referencia = accion === 'QUITAR' ? 'QUITAR' : `ACTIVAR:${accion.fechaCorte}`;
+    const activo = await this.prisma.job.findFirst({ where: { OR: [{ centroId }, { siloSlug: slug }], estado: { in: [...ACTIVOS] } }, select: { id: true } });
+    if (activo) {
+      await this.auditoria.registrar(actor, 'salida.solo_lectura_no_encolada', `centro:${centroId}`, `${slug} · ${referencia}: job activo #${activo.id}`);
+      return null;
+    }
+    const job = await this.prisma.job.create({
+      data: {
+        tipo: 'SOLO_LECTURA',
+        centroId,
+        siloSlug: slug,
+        referencia,
+        creadoPor: actor,
+        pasos: { create: EJECUTABLES.SOLO_LECTURA!.map((d, i) => ({ orden: i, codigo: d.codigo, nombre: d.nombre, detalle: d.detalle, ejecutor: d.ejecutor })) },
+      },
+    });
+    await this.auditoria.registrar(actor, 'job.creado', `job:${job.id}`, ['SOLO_LECTURA', slug, referencia, ip].filter(Boolean).join(' · '));
+    await this.correrPasosControl(job.id);
+    return this.detalle(job.id);
+  }
+
+  /** P0 de SOLO_LECTURA: ACTIVAR con la salida abierta y sin reversion; QUITAR con la reversion pedida en la ultima salida. */
+  private async p0SoloLectura(centroId: number, slug: string, referencia: string | null): Promise<{ ok: boolean; log: string[]; error: string | null }> {
+    const log = [`solo lectura de erp-${slug}: ${referencia ?? '?'}`];
+    const no = (error: string) => ({ ok: false, log, error });
+    const s = await this.prisma.salida.findFirst({ where: { centroId }, orderBy: { id: 'desc' } });
+    if (!s) return no('El centro no tiene salidas');
+    const activar = /^ACTIVAR:(\d{4}-\d{2}-\d{2})$/.exec(referencia ?? '');
+    if (activar) {
+      if (!s.abierta || s.reversionPedidaEn) return no('La salida no esta abierta o tiene una reversion pedida');
+      if (s.fechaCorte.toISOString().slice(0, 10) !== activar[1]) return no('La fecha de corte del job no es la de la salida');
+    } else if (referencia === 'QUITAR') {
+      if (!s.reversionPedidaEn) return no('La ultima salida del centro no tiene una reversion pedida');
+    } else {
+      return no('Referencia invalida (ACTIVAR:<fecha> o QUITAR)');
+    }
+    const silo = await this.p0Silo(slug);
+    return { ok: silo.ok, log: [...log, ...silo.log.slice(1)], error: silo.error };
+  }
+
   /** P0 de los jobs de una salida: se lee el estado vivo de la salida abierta (al reintentar tambien). */
   private async p0Salida(tipo: TipoJob, centroId: number, slug: string, referencia: string | null): Promise<{ ok: boolean; log: string[]; error: string | null }> {
+    if (tipo === 'SOLO_LECTURA') return this.p0SoloLectura(centroId, slug, referencia);
     const s = await this.prisma.salida.findFirst({ where: { centroId, abierta: true }, include: { centro: { select: { estado: true } } } });
     const log = [`salida de erp-${slug}`];
     const no = (error: string) => ({ ok: false, log, error });
@@ -480,6 +528,8 @@ export class JobsService {
         ? await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: job.centroId, numero: job.revision } }, select: { contenido: true } })
         : null;
     await this.auditoria.registrar(`agente:${agenteId}`, 'job.reclamado', `job:${id}`, `${job.tipo} ${job.siloSlug}`);
+    // R6: las notas de la version van con el job (U6 las entrega al silo).
+    const notas = job.tipo === 'ACTUALIZAR' && job.referencia ? ((await this.prisma.release.findUnique({ where: { version: job.referencia }, select: { notas: true } }))?.notas ?? null) : null;
     return {
       id: job.id,
       tipo: job.tipo,
@@ -488,6 +538,7 @@ export class JobsService {
       hashManifiesto: job.hashManifiesto,
       referencia: job.referencia,
       manifiesto: rev?.contenido ?? null,
+      notas,
       pasos: job.pasos.filter((p) => p.ejecutor === 'agente').map((p) => ({ codigo: p.codigo, estado: p.estado })),
     };
   }
@@ -574,6 +625,8 @@ export class JobsService {
         await this.cierre.alTerminarJob(job).catch((e: unknown) =>
           this.auditoria.registrar('control', 'salida.cierre_fallido', `job:${jobId}`, (e instanceof Error ? e.message : String(e)).slice(0, 300)),
         );
+        // R12: el silo reanudado vuelve a aceptar escrituras (este job ya cerro: no hay otro activo).
+        if (job.tipo === 'REANUDAR_SILO' && job.centroId && job.siloSlug) await this.crearSoloLectura(job.centroId, job.siloSlug, 'QUITAR', `job:${jobId}`, null);
       }
     }
     return { seguir: nuevo === 'EN_CURSO' };

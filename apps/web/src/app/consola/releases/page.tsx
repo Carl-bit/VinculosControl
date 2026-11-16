@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { useConfirmacion } from '@/componentes/dialogo';
+import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
 import { Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type Cascada, type Release, type Resumen } from '@/lib/api';
 
@@ -30,6 +30,18 @@ export default function Releases() {
   const [msg, setMsg] = useState<{ t: string; ok: boolean }>();
   const [ocupado, setOcupado] = useState(false);
   const [confirmar, dialogo] = useConfirmacion();
+  // R6: notas de la version para el ADMIN de cada centro (las entrega el agente al actualizar, U6).
+  const [notasDe, setNotasDe] = useState<Release>();
+  const [texto, setTexto] = useState('');
+  const abrirNotas = (rel: Release) => {
+    setTexto(rel.notas ?? '');
+    setNotasDe(rel);
+  };
+  const guardarNotas = async () => {
+    if (!notasDe) return;
+    await hacer(`consola/releases/${encodeURIComponent(notasDe.version)}/notas`, { notas: texto }, texto.trim() ? `Notas de ${notasDe.version} guardadas` : `Notas de ${notasDe.version} borradas`);
+    setNotasDe(undefined);
+  };
 
   const hacer = async (ruta: string, cuerpo: unknown, ok: string) => {
     if (ocupado) return;
@@ -111,6 +123,9 @@ export default function Releases() {
                           {rel.conflicto}
                         </span>
                       )}
+                      <button type="button" className="enlace" disabled={ocupado} onClick={() => abrirNotas(rel)} title={rel.notas ? `Notas de ${rel.notasPor ?? '?'}, ${rel.notasEn ? hace(rel.notasEn) : ''}` : undefined}>
+                        {rel.notas ? 'notas para el ADMIN' : '+ notas para el ADMIN'}
+                      </button>
                     </td>
                     <td className="mono-corto">
                       {corto(rel.apiDigest)} / {corto(rel.webDigest)}
@@ -174,6 +189,33 @@ export default function Releases() {
         )}
       </section>
       {dialogo}
+      <Dialogo
+        abierto={!!notasDe}
+        etiqueta={`Version ${notasDe?.version ?? ''}`}
+        titulo="Notas para el ADMIN de cada centro"
+        ocupado={ocupado}
+        onCerrar={() => setNotasDe(undefined)}
+        pie={
+          <>
+            <button type="button" className="boton" disabled={ocupado} onClick={() => setNotasDe(undefined)}>
+              Cancelar
+            </button>
+            <button type="button" className="boton primario" disabled={ocupado || texto.trim() === (notasDe?.notas ?? '')} onClick={() => void guardarNotas()}>
+              {ocupado ? 'Guardando…' : texto.trim() ? 'Guardar notas' : 'Borrar notas'}
+            </button>
+          </>
+        }
+      >
+        <p className="sub">
+          Qué cambia para el centro en esta version, en texto plano y sin datos personales. El agente las entrega a cada silo al actualizarlo (paso U6); el ADMIN las ve en Configuracion
+          &gt; Vinculos. Corregirlas despues no cambia las que ya se entregaron.
+        </p>
+        <label className="campo-consola">
+          Notas
+          <textarea className="campo-texto" rows={8} maxLength={4000} value={texto} disabled={ocupado} autoFocus onChange={(e) => setTexto(e.target.value)} />
+          <span className="mono-corto">{texto.length} / 4000</span>
+        </label>
+      </Dialogo>
     </Shell>
   );
 }

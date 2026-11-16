@@ -60,6 +60,17 @@ export class ReleasesService {
       .map((r) => ({ ...r, silos: silos.filter((s) => s.version === r.version).map((s) => s.slug) }));
   }
 
+  /** R6: notas de la version para el ADMIN (se entregan al actualizar cada silo). Editables; las ya entregadas no cambian en el silo. */
+  async notas(version: string, texto: string, op: OperadorSesion, ip: string | null) {
+    const r = await this.prisma.release.findUnique({ where: { version } });
+    if (!r) throw new NotFoundException({ mensaje: `No existe la version ${version}` });
+    const notas = texto.replace(/\r\n/g, '\n').trim() || null;
+    if (notas === r.notas) return r;
+    const out = await this.prisma.release.update({ where: { version }, data: { notas, notasEn: notas ? new Date() : null, notasPor: notas ? op.correo : null } });
+    await this.auditoria.registrar(op.correo, 'release.notas', `release:${version}`, `${notas ? `${notas.length} caracteres` : 'borradas'}${ip ? ` · ${ip}` : ''}`);
+    return out;
+  }
+
   async promover(version: string, canal: Canal, op: OperadorSesion, ip: string | null) {
     if (!CANALES.includes(canal)) throw new UnprocessableEntityException({ mensaje: 'Canal invalido' });
     const r = await this.prisma.release.findUnique({ where: { version } });

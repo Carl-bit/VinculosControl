@@ -24,10 +24,10 @@ import { llamarSilo, tokenDe, urlSilo } from './solicitudes';
 const EJECUTOR = (process.env.EJECUTOR_URL ?? '').replace(/\/$/, '');
 const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
-/** RECONFIGURAR no usa el ejecutor: habla con /api/internal del silo (token por silo). */
+/** RECONFIGURAR y SOLO_LECTURA no usan el ejecutor: hablan con /api/internal del silo (token por silo). */
 export const TIPOS = EJECUTOR
-  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR'] as const)
-  : (['VERIFICAR', 'RECONFIGURAR'] as const);
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR'] as const)
+  : (['VERIFICAR', 'RECONFIGURAR', 'SOLO_LECTURA'] as const);
 
 interface EstadoContenedor {
   servicio: string;
@@ -85,6 +85,8 @@ export interface JobReclamado {
   manifiesto: unknown;
   /** ELIMINAR: hash del acta de recepcion de la salida (el ejecutor lo compara con bajas/<slug>). */
   referencia?: string | null;
+  /** R6: notas de la version (solo ACTUALIZAR), para el ADMIN del silo. */
+  notas?: string | null;
   pasos: { codigo: string; estado: string }[];
 }
 
@@ -211,6 +213,27 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     return c.revision === j.revision && c.hash === j.hashManifiesto
       ? { estado: 'OK', log }
       : { estado: 'FALLIDO', log, error: 'El silo no confirma la revision aplicada' };
+  },
+
+  // ---------- SOLO_LECTURA (R12, salida S2, por /api/internal/salida) ----------
+  async L1(j) {
+    const activar = /^ACTIVAR:(\d{4}-\d{2}-\d{2})$/.exec(j.referencia ?? '');
+    if (!activar && j.referencia !== 'QUITAR') return { estado: 'FALLIDO', log: [], error: 'El job no trae ACTIVAR:<fecha> ni QUITAR' };
+    const token = await tokenDe(j.slug);
+    const cuerpo = activar ? { soloLectura: true, fechaCorte: activar[1] } : { soloLectura: false };
+    let r: { resultado: string };
+    try {
+      r = await llamarSilo<{ resultado: string }>(j.slug, token, 'POST', '/salida', cuerpo);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (/^HTTP 404\b/.test(m)) return { estado: 'FALLIDO', log: [m], error: 'El ERP del silo no tiene R12 (anterior a 2026-11-16): actualizar el silo y reintentar, o avisar a los usuarios a mano' };
+      throw e;
+    }
+    const e = await llamarSilo<{ soloLectura: boolean; fechaCorte: string | null }>(j.slug, token, 'GET', '/salida');
+    const log = [`${r.resultado}: ${activar ? `solo lectura, corte ${activar[1]}` : 'escritura normal'}`, `silo: soloLectura=${e.soloLectura} corte=${e.fechaCorte ?? '-'}`];
+    return e.soloLectura === !!activar && (e.fechaCorte ?? null) === (activar?.[1] ?? null)
+      ? { estado: 'OK', log }
+      : { estado: 'FALLIDO', log, error: 'El silo no confirma el estado pedido' };
   },
 
   // ---------- REINICIAR_SILO (por el ejecutor) ----------
@@ -426,6 +449,18 @@ export const EJECUTORES: Record<string, Ejecutor> = {
       if (!saludOk(ultimo)) throw Object.assign(new Error('La API no respondio /api/salud 200 en 3 min con la version nueva'), { log: [linea] });
       return [linea];
     });
+  },
+
+  /** R6: notas de la version para el ADMIN. El silo ya corre la version nueva: si no se entregan, queda en el log y el job sigue OK. */
+  async U6(j) {
+    if (!j.notas?.trim()) return { estado: 'OK', log: ['sin notas para esta version'] };
+    try {
+      const r = await llamarSilo<{ resultado: string }>(j.slug, await tokenDe(j.slug), 'POST', '/notas-version', { version: j.referencia, notas: j.notas });
+      return { estado: 'OK', log: [`${r.resultado}: notas de ${j.referencia} (${j.notas.length} caracteres)`] };
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      return { estado: 'OK', log: [/^HTTP 404\b/.test(m) ? 'el ERP del silo no tiene R6: notas no entregadas' : `notas no entregadas: ${m.slice(0, 200)}`] };
+    }
   },
 };
 
