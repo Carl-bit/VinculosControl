@@ -36,6 +36,12 @@ claro) siguen siendo las mismas. Nunca se pasa por ESPERANDO_LLAVES.
 
 ### B. Resembrar (rutina, sin excepcion en el ejecutor)
 
+Hecho en el ERP 2026-11-16: `prisma/scripts/demo_resembrar.js` (corre en el
+servicio `migrate`, sin el servicio `seed`, asi sirve tambien en un silo
+aprovisionado por el plano de control), marca `identidad_silo.es_demo` y
+`servidor.sh resembrar <slug>`. Lo de pagos de abajo ya no aplica (MVP sin
+cobros).
+
 Objetivo: que el demo siga vigente (las horas del seed dependen de la fecha y
 los pacientes con horas impagas pasan a morosos con los dias) sin borrar nada.
 
