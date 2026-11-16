@@ -262,7 +262,7 @@ automatizar sin datos personales:
   `actualizar` se bloquea con un exporte EN_CURSO (`ERP_REGLAS_Y_DESPLIEGUE.md`).
 - Comun: token por silo, red de borde, sin contexto de usuario.
 
-## R14. `respaldar.sh` con la db detenida (hallado 2026-11-15)
+## R14. `respaldar.sh` con la db detenida (hallado 2026-11-15; hecho 2026-11-16)
 
 Nota 2026-11-15: el respaldo previo de ACTUALIZAR (verbo `respaldar` del
 ejecutor) ya no tiene este problema: exige que pg_dump y openssl terminen en 0 y

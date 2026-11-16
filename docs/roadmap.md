@@ -308,7 +308,7 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 | R12 | Modo solo lectura del silo por `/api/internal/*` (S2 de la salida) | Salidas S2 |
 | R13 | `/api/internal/exportaciones`: estado, fecha, tamano y huella del ultimo exporte, sin contenido | Salidas S3 automatico; bloquear `actualizar` durante un exporte |
 | R11 | Identidad del silo y redes propias (`identidad_silo`, `_interna`/`_silo`/`_borde`) | Hecho 2026-11-13 |
-| R14 | `respaldar.sh` no debe dejar un respaldo vacio con la db detenida (pipe sin `pipefail`; 32 bytes pasan `[ -s ]`) ni rotar los buenos | Respaldos fiables en la gracia y con la db caida (alerta S2 en el control mientras tanto) |
+| R14 | `respaldar.sh` no debe dejar un respaldo vacio con la db detenida (pipe sin `pipefail`; 32 bytes pasan `[ -s ]`) ni rotar los buenos | Hecho 2026-11-16 (sale con 3 con la db detenida; minimo 1024 bytes; rota solo tras un respaldo bueno) |
 
 ## Bocetos de `system-reference/` contra lo construido
 
@@ -345,6 +345,14 @@ plano de control:
 | API, consola y landing | Hecho | `MODULOS` de solicitudes sin COBROS; el editor del manifiesto ya no filtra reglas de cobros. API 89 unitarios y 118 de integracion |
 | Manifiestos y solicitudes guardados con cobros | Revisado | Ninguno en la BD `control` |
 | Silos de prueba del host B | Pendiente | Necesitan la imagen nueva del ERP: la migracion corre en ACTUALIZAR (`migrate`). La BD de `centro-prueba` (la de desarrollo) ya la tiene |
+
+## Alcance del MVP (decision 2026-11-16)
+
+Entran al MVP los requisitos del ERP R12 (solo lectura en la salida), R13
+(estado del exporte), R10 (`reiniciar_demo`) y R6 (notas de version al ADMIN).
+R8 (tema Editorial) queda fuera: el usuario lo disenara despues y se generara
+desde la plataforma. Llave FINANCIERO retirada del ERP (ninguna finanza en el
+MVP, en ningun lado).
 
 ## Entorno de pruebas en un VPS (decision 2026-11-16)
 
