@@ -314,9 +314,9 @@ export function VistaManifiesto({
 
         <div className="rejilla-campos estrecha">{REGLAS_PRINCIPALES.map(regla)}</div>
         <details className="mas">
-          <summary className="mono-corto">Todas las reglas ({CAMPOS_REGLAS.filter((r) => !r.cobros).length}; vacio = default del ERP)</summary>
+          <summary className="mono-corto">Todas las reglas ({CAMPOS_REGLAS.length}; vacio = default del ERP)</summary>
           <div className="rejilla-campos estrecha" style={{ marginTop: 8 }}>
-            {CAMPOS_REGLAS.filter((r) => !r.cobros && !REGLAS_PRINCIPALES.includes(r.k)).map((r) => regla(r.k))}
+            {CAMPOS_REGLAS.filter((r) => !REGLAS_PRINCIPALES.includes(r.k)).map((r) => regla(r.k))}
           </div>
         </details>
 

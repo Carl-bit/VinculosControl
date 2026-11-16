@@ -186,8 +186,8 @@ En la consola, el silo `centro-prueba` aparece "sin adoptar".
 2. En el ERP (http://localhost:3000), entrar como `admin@centro-prueba.cl`,
    clave `dev-password` (codigo en http://localhost:8025): Configuracion >
    "Modulos, contrato y soporte" > Modulos contratados. En el centro de
-   desarrollo ya estan activos todos los modulos del MVP (COBROS y WHATSAPP no
-   se pueden pedir), asi que la prueba natural es **Solicitar desactivar** en
+   desarrollo ya estan activos todos los modulos del MVP (WHATSAPP no se puede
+   pedir), asi que la prueba natural es **Solicitar desactivar** en
    Match. Desactivar Equipo queda bloqueado (Match y la pagina publica dependen
    de el) y una segunda solicitud del mismo modulo da 409.
 3. En un minuto, la consola (Silos > `centro-prueba`) muestra la solicitud en

@@ -5,12 +5,11 @@ import { hashManifiesto, jsonCanonico } from './hash';
 import { completarDependencias, fase1Schema, manifiestoSchema, quitarModulo, reglasSchema, rutValido, validarModulos } from './index';
 
 describe('modulos', () => {
-  it('MATCH y PAGINA_PUBLICA requieren EQUIPO; COBROS requiere AGENDA', () => {
-    const r = validarModulos(['MATCH', 'COBROS', 'PAGINA_PUBLICA']);
+  it('MATCH y PAGINA_PUBLICA requieren EQUIPO', () => {
+    const r = validarModulos(['MATCH', 'PAGINA_PUBLICA']);
     assert.equal(r.ok, false);
     assert.deepEqual(r.faltan, [
       { modulo: 'MATCH', falta: 'EQUIPO' },
-      { modulo: 'COBROS', falta: 'AGENDA' },
       { modulo: 'PAGINA_PUBLICA', falta: 'EQUIPO' },
     ]);
   });
@@ -19,7 +18,7 @@ describe('modulos', () => {
     assert.equal(validarModulos([]).ok, true);
   });
   it('las dependencias se agregan solas y en orden canonico', () => {
-    assert.deepEqual(completarDependencias(['COBROS', 'MATCH']), ['AGENDA', 'EQUIPO', 'MATCH', 'COBROS']);
+    assert.deepEqual(completarDependencias(['PAGINA_PUBLICA', 'MATCH', 'AGENDA']), ['AGENDA', 'EQUIPO', 'MATCH', 'PAGINA_PUBLICA']);
   });
   it('no se quita un modulo requerido por otro activo', () => {
     assert.deepEqual(quitarModulo(['EQUIPO', 'MATCH', 'PAGINA_PUBLICA'], 'EQUIPO'), { ok: false, requeridoPor: ['MATCH', 'PAGINA_PUBLICA'] });
@@ -29,7 +28,7 @@ describe('modulos', () => {
 
 describe('reglas (CHECK del ERP)', () => {
   it('acepta un set valido', () => {
-    assert.equal(reglasSchema.safeParse({ plazo_aviso_cancelacion_horas: 24, recordatorio_horas_antes: 48, modelo_cobro: 'CENTRO' }).success, true);
+    assert.equal(reglasSchema.safeParse({ plazo_aviso_cancelacion_horas: 24, recordatorio_horas_antes: 48, horas_aprobacion_solicitud: 24 }).success, true);
   });
   it('recordatorio debe ser 0 o mayor que el aviso de cancelacion', () => {
     assert.equal(reglasSchema.safeParse({ plazo_aviso_cancelacion_horas: 48, recordatorio_horas_antes: 24 }).success, false);
@@ -39,8 +38,9 @@ describe('reglas (CHECK del ERP)', () => {
     assert.equal(reglasSchema.safeParse({ edad_minima_cuenta: 12 }).success, false);
     assert.equal(reglasSchema.safeParse({ columna_que_no_existe: 1 }).success, false);
   });
-  it('comision por porcentaje hasta 100', () => {
-    assert.equal(reglasSchema.safeParse({ comision_derivacion_tipo: 'PORCENTAJE', comision_derivacion_valor: 120 }).success, false);
+  it('sin reglas de cobros (MVP sin cobros ni finanzas)', () => {
+    for (const k of ['modelo_cobro', 'penalizacion_cancelacion_porcentaje', 'comision_centro_porcentaje', 'bloquear_agenda_morosos'])
+      assert.equal(reglasSchema.safeParse({ [k]: 0 }).success, false, k);
   });
 });
 
@@ -59,7 +59,7 @@ describe('fase 1', () => {
     assert.equal(r.contacto.correo, 'ana@kibou.cl');
     assert.equal(r.contacto.telefono, undefined);
   });
-  it('no acepta COBROS ni WHATSAPP (MVP sin finanzas)', () => {
+  it('no acepta WHATSAPP ni modulos que no existen (COBROS salio del ERP)', () => {
     assert.equal(fase1Schema.safeParse({ ...base, modulos_interes: ['AGENDA', 'COBROS'] }).success, false);
     assert.equal(fase1Schema.safeParse({ ...base, modulos_interes: ['WHATSAPP'] }).success, false);
   });
@@ -134,11 +134,11 @@ describe('fase 2 y P0', () => {
     assert.equal(r.manifiesto?.centro.id, 'kibou');
   });
   it('P0 exige slug, contrato y modulos del MVP', () => {
-    const r = validarP0({ ...completo, legal: undefined, modulos: ['AGENDA', 'COBROS'] }, null);
+    const r = validarP0({ ...completo, legal: undefined, modulos: ['AGENDA', 'WHATSAPP'] }, null);
     assert.equal(r.ok, false);
     assert.ok(r.errores.some((e) => e.includes('slug')));
     assert.ok(r.errores.some((e) => e.includes('contrato')));
-    assert.ok(r.errores.some((e) => e.includes('COBROS no se ofrece')));
+    assert.ok(r.errores.some((e) => e.includes('WHATSAPP no se ofrece')));
   });
   it('el centro no puede enviar version, reglas ni legal', () => {
     assert.equal(borradorCentroSchema.safeParse({ reglas: { edad_minima_cuenta: 18 } }).success, false);

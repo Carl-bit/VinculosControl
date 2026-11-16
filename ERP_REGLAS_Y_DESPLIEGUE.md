@@ -19,7 +19,7 @@ Formato ASCII (sin rayas largas ni comillas tipograficas), como pide `CLAUDE.md`
 |---|---|
 | Version en `package.json` | `0.1.0` (backend y frontend). El primer tag del registro fija la version real |
 | Migraciones | 68 en `backend/prisma/migrations/`. Algunas historicas son destructivas (ej. `quitar_lista_espera`); la regla "solo aditivas" rige desde el primer silo real |
-| Modulos construidos | Nucleo, Fichas y Pacientes, Agenda y Espacios, Equipo, Match, Cobros (parcial: reglas de finanzas abiertas), Pagina publica, WhatsApp (flag, apagado) |
+| Modulos construidos | Nucleo, Fichas y Pacientes, Agenda y Espacios, Equipo, Match, Pagina publica, WhatsApp (flag, apagado). Sin Cobros: borrado del ERP el 2026-11-16 (migracion `20261116000000_mvp_sin_cobros`) |
 | Tenant de validacion | "Centro de Prueba" (seed demo, `npm run seed:demo`). Kibou y otros clientes reales vienen despues |
 | Fase actual | Post 03b-6 y AUD-02. Plan hacia el piloto: `docs/operacion/plan_trabajo_piloto.md`. Post-MVP: `docs/backlog_post_mvp.md` |
 | Produccion | No existe aun. Proximo paso: VPS de prueba (equipo propio) con SMTP real, luego Lightsail |
@@ -115,10 +115,8 @@ Multirrol permitido; el rol activo se elige y cambiarlo emite token nuevo.
 - Certificado de alumno regular y convenio de practica: versionados y cifrados; no definen el acceso (lo definen las fechas de la practica).
 
 ### 3.6 Dinero
-- Vinculos no recibe dinero. Pasarela real post-MVP con conexion directa (cuenta del centro o del profesional); hoy solo simulada y como diseno deshabilitado.
-- Medios: transferencia (comprobante + validacion), pago en el centro, caja desde el panel. Comprobante de pago no tributario + registro manual de folio de boleta SII.
-- `modelo_cobro`: CENTRO | DIRECTO | MIXTO (el manifiesto de `CONTEXTO.md` dice `centro | directo_profesional`: alinear nombres con el enum).
-- Reglas de finanzas de Cobros abiertas (pendiente del usuario).
+- Vinculos no recibe dinero. MVP sin pagos ni finanzas (2026-11-16): el ERP no tiene modulo de Cobros (ni tablas, ni funciones, ni pasarela, ni estado PENDIENTE_PAGO). La hora que pide el paciente queda SOLICITADA y la aprueba su profesional. Las tarifas, FONASA y la boleta reembolsable son solo informativas.
+- Cobros post-MVP: modulo nuevo, con las reglas de finanzas que cierre el usuario.
 
 ### 3.7 Titulares de datos (Ley 21.719, vigente 1-dic-2026)
 - Centro = Responsable; Vinculos = Encargado.
@@ -141,10 +139,9 @@ manifiesto de `CONTEXTO.md` (corregir el manifiesto, no el ERP):
 | Columna real (snake_case) | Que controla |
 |---|---|
 | `nombre_centro`, `rut_centro` (cifrado) | Identidad |
-| `modulos_activos` | Modulos. Enum `modulo_centro`: PAGINA_PUBLICA, FICHAS, AGENDA, EQUIPO, MATCH, COBROS, WHATSAPP. Default todos menos WHATSAPP. **Sin GRANT UPDATE a la API: solo el operador lo cambia** |
+| `modulos_activos` | Modulos. Enum `modulo_centro`: PAGINA_PUBLICA, FICHAS, AGENDA, EQUIPO, MATCH, WHATSAPP. Default todos menos WHATSAPP. **Sin GRANT UPDATE a la API: solo el operador lo cambia** |
 | `rol_gestion_habilitado` | Activa GESTION |
-| `modelo_cobro` | CENTRO / DIRECTO / MIXTO |
-| `plazo_aviso_cancelacion_horas`, `penalizacion_cancelacion_porcentaje`, `cobro_inasistencia_porcentaje` | Cancelaciones e inasistencias |
+| `plazo_aviso_cancelacion_horas` | Plazo para cancelar a tiempo (sin cargos) |
 | `margen_traslado_min` | Margen entre sesiones |
 | `recordatorio_horas_antes` | Recordatorio por correo |
 | `plazo_respuesta_derivacion_horas` | Derivaciones |

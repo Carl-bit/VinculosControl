@@ -12,7 +12,7 @@ export const DECISIONES = ['APROBADA', 'RECHAZADA', 'APLICADA'] as const;
 export type Decision = (typeof DECISIONES)[number];
 
 /** Enum modulo_centro del ERP. */
-export const MODULOS = ['PAGINA_PUBLICA', 'FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'COBROS', 'WHATSAPP'] as const;
+export const MODULOS = ['PAGINA_PUBLICA', 'FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'WHATSAPP'] as const;
 export const ROLES = ['ADMIN', 'GESTION', 'PROFESIONAL', 'PRACTICANTE', 'PACIENTE', 'RESPONSABLE'] as const;
 
 const SIGUIENTES: Record<EstadoSolicitud, readonly EstadoSolicitud[]> = {

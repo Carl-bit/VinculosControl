@@ -4,17 +4,18 @@
  *
  * Dependencias (CONTEXTO.md seccion 6):
  * - MATCH requiere EQUIPO (AGENDA opcional). CHECK en la BD del ERP.
- * - COBROS requiere AGENDA (MATCH opcional). CHECK en la BD del ERP.
  * - PAGINA_PUBLICA requiere EQUIPO (AGENDA y MATCH opcionales). Solo en el plano de control.
  * - WHATSAPP apagado por defecto, sin dependencia definida (post-MVP).
+ *
+ * Sin COBROS (2026-11-16): el MVP no maneja pagos ni finanzas y el modulo salio
+ * del ERP (enum, tablas y funciones). Volver a tenerlo seria un modulo nuevo.
  */
-export const MODULOS = ['FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'COBROS', 'PAGINA_PUBLICA', 'WHATSAPP'] as const;
+export const MODULOS = ['FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'PAGINA_PUBLICA', 'WHATSAPP'] as const;
 export type Modulo = (typeof MODULOS)[number];
 
 /**
- * Modulos que se ofrecen hoy (MVP, 2026-11-12): sin COBROS (el MVP no maneja
- * finanzas en los silos) ni WHATSAPP (post-MVP). El enum completo sigue en
- * MODULOS porque es el del ERP.
+ * Modulos que se ofrecen hoy (MVP): sin WHATSAPP (post-MVP). El enum completo
+ * sigue en MODULOS porque es el del ERP.
  */
 export const MODULOS_MVP = ['FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'PAGINA_PUBLICA'] as const satisfies readonly Modulo[];
 export type ModuloMvp = (typeof MODULOS_MVP)[number];
@@ -24,7 +25,6 @@ export const DEPENDENCIAS: Record<Modulo, { requiere: Modulo[]; opcional: Modulo
   AGENDA: { requiere: [], opcional: [] },
   EQUIPO: { requiere: [], opcional: [] },
   MATCH: { requiere: ['EQUIPO'], opcional: ['AGENDA'] },
-  COBROS: { requiere: ['AGENDA'], opcional: ['MATCH'] },
   PAGINA_PUBLICA: { requiere: ['EQUIPO'], opcional: ['AGENDA', 'MATCH'] },
   WHATSAPP: { requiere: [], opcional: [] },
 };
@@ -34,7 +34,6 @@ export const NOMBRE_MODULO: Record<Modulo, string> = {
   AGENDA: 'Agenda y espacios',
   EQUIPO: 'Equipo y perfiles',
   MATCH: 'Match terapeutico',
-  COBROS: 'Cobros',
   PAGINA_PUBLICA: 'Pagina publica',
   WHATSAPP: 'Avisos por WhatsApp',
 };

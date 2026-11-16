@@ -35,7 +35,7 @@ export const fase1Schema = z
     comuna: texto(2, 80),
     region: texto(2, 80).optional(),
     tamano_equipo: z.enum(TAMANOS_EQUIPO),
-    /** Solo los modulos del MVP: el formulario no ofrece COBROS ni WHATSAPP. */
+    /** Solo los modulos del MVP: el formulario no ofrece WHATSAPP. */
     modulos_interes: z.array(z.enum(MODULOS_MVP)).max(MODULOS_MVP.length),
     sitio_existente: z.enum(SITIO_EXISTENTE),
     estilo_preferido: z.enum(ESTILOS_FASE1),

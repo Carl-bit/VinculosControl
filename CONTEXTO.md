@@ -153,7 +153,7 @@ estilo:
   tema: moderno                      # unico tema del ERP hoy
   marca: { principal: "#2E6E6E" }    # colores por zona; la BD del ERP valida el contraste
   logo: logo.png
-# Enum modulo_centro del ERP; nucleo es implicito. La BD exige MATCH -> EQUIPO y COBROS -> AGENDA.
+# Enum modulo_centro del ERP; nucleo es implicito. La BD exige MATCH -> EQUIPO. Sin COBROS (MVP sin pagos ni finanzas).
 modulos: [FICHAS, AGENDA, EQUIPO, MATCH, PAGINA_PUBLICA]
 # Nombres = columnas de configuracion_centro del ERP (lista completa en ERP_REGLAS_Y_DESPLIEGUE.md, seccion 4).
 reglas:
@@ -162,9 +162,7 @@ reglas:
   plazo_respuesta_derivacion_horas: 24
   plazo_consentimiento_horas: 48
   rol_gestion_habilitado: false
-  modelo_cobro: CENTRO              # CENTRO | DIRECTO | MIXTO
   recordatorio_horas_antes: 24
-  horas_plazo_pago_equipo: 12
   bloquear_agenda_morosos: true
 semilla:
   plantilla: centro_psicologico
@@ -269,7 +267,6 @@ nucleo (seguridad, usuarios, roles)  <- siempre activo, no figura en el enum
 |- AGENDA         (Agenda y espacios)      depende de: nucleo
 |- EQUIPO         (RR.HH. y perfiles)      depende de: nucleo
 |- MATCH          (Match terapeutico)      requiere: EQUIPO   | opcional: AGENDA   (CHECK en la BD)
-|- COBROS         (Cobros)                 requiere: AGENDA   | opcional: MATCH    (CHECK en la BD)
 |- PAGINA_PUBLICA (sitio del centro)       requiere: EQUIPO   | opcional: AGENDA, MATCH (solo en el plano de control)
 '- WHATSAPP       (avisos por WhatsApp)    apagado por defecto, post-MVP, sin dependencia definida
 ```
@@ -366,7 +363,7 @@ Secciones:
 - La ficha solo la ve el profesional tratante; otro profesional solo via `derivaciones` (protocolo formal), nunca por cambio de rol. El admin ve el trabajo del equipo solo por codigos de ficha. **El proveedor no ve nada clinico ni personal**, cifrado o no.
 - El admin valida solo el registro RNPI (SIS, hoy manual), el titulo y el certificado de alumno regular. Un profesional no aparece en el sitio publico hasta estar validado. El perfil lo gestiona el profesional; el admin pide correcciones y a la segunda solicitud sin cambios puede editar avisando el motivo.
 - Roles: ADMIN, GESTION (deshabilitado por defecto, `rol_gestion_habilitado`), PROFESIONAL, PRACTICANTE (con fecha de expiracion de acceso), PACIENTE, RESPONSABLE (adulto responsable de un menor). Una cuenta puede tener varios roles. Sesion unica por usuario.
-- Vinculos no maneja dinero: cada centro conecta su propia pasarela y credenciales (post-MVP; las credenciales viven cifradas en el silo, nunca en el manifiesto ni en la consola). `modelo_cobro`: CENTRO, DIRECTO o MIXTO. La hora se confirma con el pago; el moroso no puede agendar.
+- Vinculos no maneja dinero. MVP sin pagos ni finanzas (2026-11-16): el modulo COBROS salio del ERP; la hora que pide el paciente la aprueba su profesional. Cobros post-MVP sera un modulo nuevo (cada centro con su propia pasarela; credenciales cifradas en el silo, nunca en el manifiesto ni en la consola).
 - Menores: la cita no se confirma sin adulto responsable registrado.
 - Retencion minima de 15 anos para las fichas; la purga es manual, a partir de un listado.
 - Verificacion en dos pasos por codigo al correo (6 digitos, 10 min, 5 intentos, codigos de respaldo), obligatoria para el equipo del centro y para la consola del proveedor. TOTP existe en el ERP pero apagado.

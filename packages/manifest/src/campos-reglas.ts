@@ -3,13 +3,13 @@ import type { Reglas } from './reglas';
 /**
  * Descriptor de cada regla para armar el formulario de la consola sin
  * escribir uno a mano. `def` = default de configuracion_centro en el ERP
- * (backend/prisma/schema.prisma). `grupo` ordena el formulario. Las reglas de
- * COBROS quedan marcadas: el MVP no maneja finanzas.
+ * (backend/prisma/schema.prisma). `grupo` ordena el formulario. Misma lista
+ * cerrada que aplicar_config_interna() del ERP (R4).
  */
 export type CampoRegla =
-  | { k: keyof Reglas; l: string; grupo: string; tipo: 'entero' | 'decimal'; min: number; max: number; def: number; cobros?: true }
-  | { k: keyof Reglas; l: string; grupo: string; tipo: 'bool'; def: boolean; cobros?: true }
-  | { k: keyof Reglas; l: string; grupo: string; tipo: 'enum'; opciones: readonly string[]; def: string; cobros?: true };
+  | { k: keyof Reglas; l: string; grupo: string; tipo: 'entero' | 'decimal'; min: number; max: number; def: number }
+  | { k: keyof Reglas; l: string; grupo: string; tipo: 'bool'; def: boolean }
+  | { k: keyof Reglas; l: string; grupo: string; tipo: 'enum'; opciones: readonly string[]; def: string };
 
 export const CAMPOS_REGLAS: readonly CampoRegla[] = [
   { k: 'rol_gestion_habilitado', l: 'Rol GESTION habilitado', grupo: 'Roles', tipo: 'bool', def: false },
@@ -27,9 +27,4 @@ export const CAMPOS_REGLAS: readonly CampoRegla[] = [
   { k: 'edad_minima_cuenta', l: 'Edad minima para cuenta propia', grupo: 'Pacientes', tipo: 'entero', min: 14, max: 18, def: 14 },
   { k: 'dias_gracia_cierre', l: 'Gracia al cerrar cuentas (dias)', grupo: 'Retencion', tipo: 'entero', min: 0, max: 3650, def: 30 },
   { k: 'retencion_mensajes_dias', l: 'Retencion de mensajes del equipo (dias)', grupo: 'Retencion', tipo: 'entero', min: 30, max: 3650, def: 365 },
-  { k: 'modelo_cobro', l: 'Modelo de cobro', grupo: 'Cobros (fuera del MVP)', tipo: 'enum', opciones: ['CENTRO', 'DIRECTO', 'MIXTO'], def: 'CENTRO', cobros: true },
-  { k: 'penalizacion_cancelacion_porcentaje', l: 'Penalizacion por cancelacion (%)', grupo: 'Cobros (fuera del MVP)', tipo: 'decimal', min: 0, max: 100, def: 0, cobros: true },
-  { k: 'cobro_inasistencia_porcentaje', l: 'Cobro por inasistencia (%)', grupo: 'Cobros (fuera del MVP)', tipo: 'decimal', min: 0, max: 100, def: 0, cobros: true },
-  { k: 'comision_centro_porcentaje', l: 'Comision del centro (%)', grupo: 'Cobros (fuera del MVP)', tipo: 'decimal', min: 0, max: 100, def: 0, cobros: true },
-  { k: 'bloquear_agenda_morosos', l: 'Bloquear agenda a morosos', grupo: 'Cobros (fuera del MVP)', tipo: 'bool', def: true, cobros: true },
 ];

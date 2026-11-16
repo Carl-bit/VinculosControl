@@ -80,7 +80,7 @@ describe('landing: solicitud de fase 1', () => {
   });
 
   it('modulos fuera del MVP o campos de mas: 400 sin rastro', async () => {
-    expect((await errorDe(c.solicitud(solicitud({ modulos_interes: ['COBROS'] }), '10.0.0.3'))).status).toBe(400);
+    expect((await errorDe(c.solicitud(solicitud({ modulos_interes: ['WHATSAPP'] }), '10.0.0.3'))).status).toBe(400);
     expect((await errorDe(c.solicitud(solicitud({ paciente: 'x' }), '10.0.0.3'))).status).toBe(400);
     expect(await e.prisma.centro.count()).toBe(0);
   });

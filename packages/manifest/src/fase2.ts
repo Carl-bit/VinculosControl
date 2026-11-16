@@ -44,7 +44,7 @@ export const datosCentroSchema = z
           .regex(/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, 'Dominio invalido'),
       })
       .strict(),
-    /** MVP: sin COBROS ni WHATSAPP. */
+    /** MVP: sin WHATSAPP. */
     modulos: z.array(z.enum(MODULOS_MVP)).superRefine((sel, ctx) => {
       for (const f of validarModulos(sel).faltan) ctx.addIssue({ code: 'custom', message: `${f.modulo} requiere ${f.falta}` });
     }),

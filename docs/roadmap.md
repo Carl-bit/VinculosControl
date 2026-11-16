@@ -90,9 +90,9 @@ entorno real, en este orden:
    hashes sin espacios (clase `.partir` con `overflow-wrap: anywhere`), y el
    tamano del exporte decia "0.0 GiB" para 2 MiB (nuevo `tamano()` en
    `lib/api.ts`, tambien en el respaldo del silo).
-6. **ERP sin cobros (front, 2026-11-14):** reescribir y correr los e2e de
-   pedir hora que pasaban por el paso de pago (detalle en
-   `SW Proyecto/docs/roadmap_mvp.md`, seccion "Front sin cobros ni finanzas").
+6. **ERP sin cobros:** hecho 2026-11-16. Los e2e de pedir hora siguen el flujo
+   sin pago y el ERP ya no tiene nada de cobros (ver "MVP sin pagos ni
+   finanzas" abajo).
 
 ## Decisiones de esta etapa (2026-11-12)
 
@@ -158,7 +158,7 @@ entorno real, en este orden:
 | `POST /publico/solicitudes` (fase 1): secreto del sitio, 5 por IP por hora, campo trampa, schema compartido | Hecho | Crea el centro en SOLICITUD + revision 1 (fase 1) con hash. Auditado como `centro.solicitud` |
 | `apps/sitio` (puerto 3200): formulario de fase 1 con bloques de modulos (las dependencias se agregan solas), `?modulos=` precarga | Hecho | Tokens "Moderno A" del ERP y Figtree. `/` redirige a `/solicitud` hasta que exista el landing (fase 6) |
 | Consola: vista Solicitudes (filtros, contador de nuevas) y detalle (fase 1, pipeline, historial, contactar, reunion, descartar) | Hecho | |
-| MVP sin COBROS ni WHATSAPP en el formulario (`MODULOS_MVP`); la API los rechaza en la fase 1 | Hecho | Pedido del usuario 2026-11-12. El boceto del landing menciona cobros: quitarlo en la fase 6 |
+| MVP sin WHATSAPP en el formulario (`MODULOS_MVP`); la API lo rechaza en la fase 1 | Hecho | Pedido del usuario 2026-11-12. COBROS ya no existe (2026-11-16) |
 | Enlace compartible del formulario desde la consola (precarga modulos, origen "enlace") | Hecho | `SITIO_URL` en la web |
 | Slug del centro: lo fija el operador (sugerido desde el nombre), unico contra centros y silos, inmutable desde APROBADO | Hecho | |
 | Enlace privado de fase 2: token sha256, 7 dias, uno vivo por centro, por correo al contacto, revocable; se revoca al aprobar | Hecho | Modelo `EnlaceFase2`, migracion `20261112210711_fase2_enlace_y_aprobacion`. 120 peticiones por IP por hora sobre tokens |
@@ -179,7 +179,7 @@ entorno real, en este orden:
 | "Aplicar con RECONFIGURAR" para aprobaciones que quedaron sin job | Hecho | 2026-11-14. `POST /consola/solicitudes-modulo/:slug/:id/aplicar`; no repite la revision si ya tiene el cambio. Con centro aprobado, "marcar aplicada" a mano se rechaza (409) |
 | Si el silo rechaza APLICADA con 4xx, la solicitud vuelve a APROBADA con el motivo | Hecho | 2026-11-14. Antes se reintentaba cada minuto para siempre. Red o 5xx se siguen reintentando |
 | Respuesta al silo (estado visible para el ADMIN) | Hecho | R3. En el ERP: "Desactivacion solicitada / en proceso" en amarillo (tono `pendiente`), luego "Desactivado" y se puede volver a pedir |
-| ERP: paginas de un modulo apagado abiertas por URL directa (`/admin/match`, agenda, fichas, cobros) muestran la vista vacia en vez de "modulo no contratado" | Pendiente (ERP) | El backend ya bloquea la API; es solo experiencia |
+| ERP: paginas de un modulo apagado abiertas por URL directa (`/admin/match`, agenda, fichas) muestran la vista vacia en vez de "modulo no contratado" | Pendiente (ERP) | El backend ya bloquea la API; es solo experiencia |
 
 ## Fase 4. Cola de jobs y agente ejecutor (base Hecha 2026-11-12; jobs que escriben, Bloqueados)
 
@@ -199,7 +199,7 @@ entorno real, en este orden:
 | Job `aprovisionar` P0 a P10, ESPERANDO_LLAVES en P5 | Hecho (falta prueba real completa) | 2026-11-15. Decisiones del usuario: solo version `fija` hasta tener releases (un canal falla en P0); P8 lo verifica el agente y, si el dominio no responde, el job espera al operador (estado nuevo `ESPERANDO_OPERADOR`, boton "Dominio listo"), nunca ACTIVO_SIN_DOMINIO; P9 verifica un respaldo con `.sha256` (si no, FALLIDO y reintento). Pasos: P0 control (manifiesto + version fija, nombre y tema que acepta el ejecutor, slug y dominio libres), P1 control (APROVISIONANDO, silo registrado sin adoptar), P2 agente (integridad, capacidad, `preparar`; P3 va dentro; reporta version y digests), P4 (`levantar bd`), P5 operador (boton "Llaves listas" con custodios, nunca partes), P6 (`levantar todo` + `/api/salud` por el borde; sin KEK vuelve a P5), P7 (R4), P8, P9, P10 (R5; reintento con cuenta ya activa = OK); cierre: ACTIVO, silo adoptado con version y digests. La API impone el orden de los pasos y el agente renueva la reserva en pasos largos. Cancelar: el centro vuelve a APROBADO y lo creado en el host B queda (nada se borra solo). Migracion aditiva `20261115160000_aprovisionar`. Tests: API 84 unitarios y 108 de integracion (10 nuevos), agente 16, ejecutor 43. Prueba real: API, web, agente y ejecutor reconstruidos y migracion aplicada; encontrado y corregido un DTO declarado despues del controlador (la API no arrancaba). Corrida real completa (job #8, e2eprov, 0.1.0): P0 a P10 OK y centro ACTIVO, con P8 por un Traefik real simulado en el PC (CA local, sin tunel) y P9 con respaldo real. Bugs hallados y corregidos: DTO antes del controlador, atajo `SILO_INTERNO_URL` global (ahora `SILO_INTERNO_SLUGS`), `respaldar.sh` en Windows (ERP), cronometros fijos en la consola. Falta repetirlo con el tunel real cuando exista |
 | Job `reconfigurar` (P0, C1 aplicar y C2 confirmar por `/api/internal/config`) | Hecho | R4 del ERP. Probado 2026-11-14 en local (job #3) |
 
-Hallazgo de la prueba: en el PC de pruebas el disco esta al 84 %, asi que V5 falla (umbral 80 %, el mismo de la alerta S2). Es correcto: hay que liberar disco antes de aprovisionar otro silo.
+Hallazgo de la prueba: en el PC de pruebas el disco estaba al 84 %, asi que V5 fallaba (umbral 80 %, el mismo de la alerta S2). Resuelto 2026-11-16: el agente reporta 25,8 % (`metricas_host`), V5 ya no bloquea.
 
 ## Tests de integracion de la API (Hecho 2026-11-14)
 
@@ -331,7 +331,28 @@ existen; `SITIO_URL` paso a ser `LANDING_URL`.
 ## Diferencias encontradas con el ERP
 
 - Temas: el ERP tiene "Moderno A" y "Cuaderno"; los docs decian solo Moderno (corregido 2026-11-12). "editorial" esta disenado (boceto del landing) pero no implementado en el ERP: requisito R8.
-- `CLAUDE.md` dice que el default de `modulos_activos` es "todos menos WHATSAPP"; en el ERP hoy (MVP 2026-11-11) COBROS tambien viene apagado. El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
+- El default de `modulos_activos` en el ERP es "todos menos WHATSAPP" (COBROS ya no existe desde 2026-11-16). El plano de control no asume defaults: el manifiesto lista los modulos explicitamente.
+
+## MVP sin pagos ni finanzas (2026-11-16)
+
+Decision del usuario: nada de pagos ni finanzas en el MVP. En el ERP se borro
+todo (BD, backend, front, seed; detalle en `roadmap_mvp.md` del ERP). En el
+plano de control:
+
+| Pieza | Estado | Nota |
+|---|---|---|
+| `@vinculos/manifest`: sin modulo COBROS (enum, dependencia COBROS -> AGENDA, nombre) ni reglas de cobros (`modelo_cobro`, penalizacion, inasistencia, comisiones, liquidacion, medios de pago, morosidad) | Hecho | `CAMPOS_REGLAS` = lista cerrada de `aplicar_config_interna()` del ERP. 25 tests |
+| API, consola y landing | Hecho | `MODULOS` de solicitudes sin COBROS; el editor del manifiesto ya no filtra reglas de cobros. API 89 unitarios y 118 de integracion |
+| Manifiestos y solicitudes guardados con cobros | Revisado | Ninguno en la BD `control` |
+| Silos de prueba del host B | Pendiente | Necesitan la imagen nueva del ERP: la migracion corre en ACTUALIZAR (`migrate`). La BD de `centro-prueba` (la de desarrollo) ya la tiene |
+
+## Entorno de pruebas en un VPS (decision 2026-11-16)
+
+Para las pruebas de desarrollo todo corre en un solo VPS: plano de control
+(host A) y silos (host B) en el mismo servidor, como proyectos de compose
+separados. Se mantiene el modelo pull: el agente llega a la API por HTTPS (por
+el tunel de Cloudflare), nunca por la red local. La separacion en dos hosts
+sigue siendo la regla para produccion.
 
 ## Siguiente paso (2026-11-15)
 
