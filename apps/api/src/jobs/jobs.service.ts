@@ -6,6 +6,7 @@ import { hashManifiesto } from '@vinculos/manifest/hash';
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
+import { ExportacionesService } from '../exportaciones/exportaciones.controller';
 import { SalidasCierre } from '../salidas/cierre.service';
 import { bloqueosEliminar } from '../salidas/reglas';
 import { ReleasesService } from '../releases/releases.service';
@@ -48,6 +49,7 @@ export class JobsService {
     private readonly aprov: AprovisionarService,
     private readonly actualizar: ActualizarService,
     private readonly releases: ReleasesService,
+    private readonly exportaciones: ExportacionesService,
   ) {}
 
   // ---------- consola ----------
@@ -343,14 +345,17 @@ export class JobsService {
   // ---------- ACTUALIZAR y cascada (CONTEXTO.md seccion 7) ----------
 
   /**
-   * ACTUALIZAR de un silo a una version promovida a su canal. El operador
-   * confirma que el centro no tiene una exportacion en curso (R13 pendiente en
-   * el ERP); queda en la auditoria. Un minor deja el job esperando la
+   * ACTUALIZAR de un silo a una version promovida a su canal. Si el silo
+   * informa sus exportaciones (R13), un exporte pendiente o en proceso lo
+   * impide; si no las informa (ERP anterior a R13), el operador confirma que no
+   * hay uno en curso. Queda en la auditoria. Un minor deja el job esperando la
    * confirmacion por silo (UC); un patch la omite.
    */
   async crearActualizar(slug: string, version: string, sinExporte: boolean, op: OperadorSesion | { correo: string }, ip: string | null, cascadaId?: number) {
-    if (!sinExporte) throw new UnprocessableEntityException({ mensaje: 'Confirma que el centro no tiene una exportacion en curso (el ERP aun no lo informa: R13)' });
     if (!SLUG.test(slug)) throw new UnprocessableEntityException({ mensaje: 'Slug de silo invalido' });
+    const exp = await this.exportaciones.estado(slug);
+    if (exp.enCurso) throw new ConflictException({ mensaje: `El centro tiene una exportacion ${exp.enCurso.estado}: se actualiza al terminar` });
+    if (!exp.informa && !sinExporte) throw new UnprocessableEntityException({ mensaje: 'El silo no informa sus exportaciones (ERP anterior a R13): confirma que el centro no tiene una en curso' });
     const silo = await this.prisma.silo.findUnique({ where: { slug } });
     if (!silo?.version) throw new NotFoundException({ mensaje: `El silo ${slug} no registra version` });
     if (!VERSION.test(version)) throw new UnprocessableEntityException({ mensaje: 'Version invalida' });
@@ -382,7 +387,7 @@ export class JobsService {
         },
       },
     });
-    await this.auditoria.registrar(op.correo, 'job.creado', `job:${job.id}`, [`ACTUALIZAR ${slug} ${silo.version} -> ${version} (${salto})`, 'sin exportacion en curso (confirmado)', cascadaId ? `cascada:${cascadaId}` : null, ip].filter(Boolean).join(' · '));
+    await this.auditoria.registrar(op.correo, 'job.creado', `job:${job.id}`, [`ACTUALIZAR ${slug} ${silo.version} -> ${version} (${salto})`, exp.informa ? 'sin exportacion en curso (informado por el silo)' : 'sin exportacion en curso (confirmado por el operador)', cascadaId ? `cascada:${cascadaId}` : null, ip].filter(Boolean).join(' · '));
     await this.correrPasosControl(job.id);
     return this.detalle(job.id);
   }
@@ -390,7 +395,6 @@ export class JobsService {
   /** Cascada semiautomatica: los silos del canal por debajo de la version, uno a la vez. */
   async crearCascada(version: string, canal: string, sinExporte: boolean, op: OperadorSesion, ip: string | null) {
     if (!(CANALES as readonly string[]).includes(canal)) throw new UnprocessableEntityException({ mensaje: 'Canal invalido' });
-    if (!sinExporte) throw new UnprocessableEntityException({ mensaje: 'Confirma que ningun centro del canal tiene una exportacion en curso (R13)' });
     const r = await this.prisma.release.findUnique({ where: { version } });
     if (!r || r.conflicto) throw new UnprocessableEntityException({ mensaje: `La version ${version} no existe o tiene un conflicto` });
     if (!this.releases.enCanal(r, canal as Canal)) throw new UnprocessableEntityException({ mensaje: `La version ${version} no esta promovida a ${canal}` });
@@ -399,7 +403,7 @@ export class JobsService {
     const silos = await this.actualizar.silosDeCanal(canal as Canal, version);
     if (!silos.length) throw new UnprocessableEntityException({ mensaje: `Ningun silo del canal ${canal} esta por debajo de ${version}` });
     const cascada = await this.prisma.cascada.create({ data: { version, canal, silos, creadaPor: op.correo, sinExporte } });
-    await this.auditoria.registrar(op.correo, 'cascada.creada', `cascada:${cascada.id}`, [`${version} a ${canal}: ${silos.join(', ')}`, 'sin exportacion en curso (confirmado)', ip].filter(Boolean).join(' · '));
+    await this.auditoria.registrar(op.correo, 'cascada.creada', `cascada:${cascada.id}`, [`${version} a ${canal}: ${silos.join(', ')}`, sinExporte ? 'sin exportacion en curso (confirmado; R13 lo revisa por silo)' : 'R13 lo revisa por silo', ip].filter(Boolean).join(' · '));
     await this.encolarDeCascada(cascada.id);
     return this.prisma.cascada.findUniqueOrThrow({ where: { id: cascada.id } });
   }

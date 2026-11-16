@@ -62,6 +62,11 @@ export interface Cascada {
   creadaEn: string;
   terminadaEn: string | null;
 }
+/** R13: exportaciones del centro informadas por el silo (solo metadatos). */
+export interface ExportacionesSilo {
+  vistoEn: string | null;
+  exportaciones: { id: string; estado: string; creadaEn: string; terminadaEn: string | null; venceEn: string | null; bytes: number | null; huella: string | null }[];
+}
 export interface OpcionesVersion {
   version: string | null;
   apiDigest: string | null;
@@ -70,6 +75,8 @@ export interface OpcionesVersion {
   fija: string | null;
   estadoCentro: string | null;
   disponibles: { version: string; salto: 'patch' | 'minor' }[];
+  /** R13: si el silo informa sus exportaciones y si tiene una pendiente o en proceso. */
+  exportes: { informa: boolean; enCurso: { id: string; estado: string; creadaEn: string } | null };
 }
 export interface Resumen {
   agente: { nombre: string; version: string | null; ultimoLatido: string | null } | null;

@@ -58,7 +58,7 @@ export default function Releases() {
     const si = await confirmar({
       etiqueta: `Version ${rel.version} · canal ${canal}`,
       titulo: 'Aplicar al canal (cascada)',
-      texto: `Actualiza a ${rel.version} los silos del canal ${canal} que estan por debajo, de a uno: respaldo, migraciones, recrear y /api/salud; si un silo falla vuelve a su version y la cascada se detiene. Un minor pide confirmacion en cada silo. Al confirmar declaras que revisaste que ningun centro del canal tiene una exportacion en curso (el ERP aun no lo informa).`,
+      texto: `Actualiza a ${rel.version} los silos del canal ${canal} que estan por debajo, de a uno: respaldo, migraciones, recrear y /api/salud; si un silo falla vuelve a su version y la cascada se detiene. Un minor pide confirmacion en cada silo. Un silo con una exportacion del centro en curso detiene la cascada (lo informa el silo, R13). Para los silos con un ERP anterior a R13, al confirmar declaras que revisaste que no tienen una en curso.`,
       boton: 'Sin exportaciones en curso: aplicar',
     });
     if (si !== null) void hacer(`consola/releases/${encodeURIComponent(rel.version)}/cascada`, { canal, sinExporte: true }, `Cascada de ${rel.version} a ${canal} en curso`);

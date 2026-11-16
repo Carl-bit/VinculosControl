@@ -12,16 +12,18 @@ datasource db {
 
 /// Stack erp-<slug> del host B. Lo descubre el agente; el operador lo adopta.
 model Silo {
-  slug       String    @id
-  dominio    String?
-  adoptado   Boolean   @default(false)
-  creadoEn   DateTime  @default(now()) @map("creado_en")
-  vistoEn    DateTime? @map("visto_en")
-  adoptadoEn DateTime? @map("adoptado_en")
+  slug            String    @id
+  dominio         String?
+  adoptado        Boolean   @default(false)
+  creadoEn        DateTime  @default(now()) @map("creado_en")
+  vistoEn         DateTime? @map("visto_en")
+  adoptadoEn      DateTime? @map("adoptado_en")
   /// Version y digests que corre (R1). Los fija el job APROVISIONAR en P2 (y despues ACTUALIZAR).
-  version    String?
-  apiDigest  String?   @map("api_digest")
-  webDigest  String?   @map("web_digest")
+  version         String?
+  apiDigest       String?   @map("api_digest")
+  webDigest       String?   @map("web_digest")
+  /// Ultima lectura de /api/internal/exportaciones (R13). Null: el ERP del silo no lo informa (anterior a R13 o sin token).
+  exportesVistoEn DateTime? @map("exportes_visto_en")
 
   @@map("silos")
 }
@@ -596,4 +598,22 @@ model Salida {
   @@unique([centroId, abierta])
   @@index([siloSlug])
   @@map("salidas")
+}
+
+/// R13: exportaciones del centro informadas por el agente (solo metadatos: sin contenido, clave ni quien la pidio).
+model ExportacionSilo {
+  siloSlug    String    @map("silo_slug")
+  /// uuid de la exportacion en el silo.
+  id          String
+  /// PENDIENTE, EN_PROCESO, LISTA, FALLIDA, DESCARGADA o VENCIDA (estado_exportacion_centro del ERP).
+  estado      String
+  creadaEn    DateTime  @map("creada_en")
+  terminadaEn DateTime? @map("terminada_en")
+  venceEn     DateTime? @map("vence_en")
+  bytes       BigInt?
+  huella      String?
+  vistaEn     DateTime  @map("vista_en")
+
+  @@id([siloSlug, id])
+  @@map("exportaciones_silo")
 }

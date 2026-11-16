@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CampoFechaHora, CampoNumero, Selector } from '@/componentes/controles';
 import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
 import { claseJob, Shell } from '@/componentes/piezas';
-import { enviarConSesion, mensajeDe, tamano, useDatos, type DetalleSalida, type FilaSalida, type Resumen } from '@/lib/api';
+import { enviarConSesion, mensajeDe, tamano, useDatos, type DetalleSalida, type ExportacionesSilo, type FilaSalida, type Resumen } from '@/lib/api';
 
 /*
  * Salidas (CONTEXTO.md seccion 8; ERP docs/cumplimiento/baja_centro.md).
@@ -34,6 +34,12 @@ const MEDIOS = [
 ];
 const aIso = (local: string) => (local ? new Date(local).toISOString() : '');
 const HUELLA = /^[0-9a-fA-F]{64}$/;
+/** ISO -> YYYY-MM-DDTHH:mm en hora local (formato de CampoFechaHora). */
+const aLocal = (iso: string) => {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 
 function Dato({ l, children }: { l: string; children: ReactNode }) {
   return (
@@ -130,6 +136,18 @@ function ActaRecepcion({ s, abierto, onCerrar, alCambiar }: PropsModal) {
   const [fichas, setFichas] = useState<number>();
   const [huellaActa, setHuellaActa] = useState('');
   const [gracia, setGracia] = useState<number | undefined>(30);
+  // R13: exportes terminados que informa el silo; elegir uno llena fecha, tamano y huella.
+  const { datos: informados } = useDatos<ExportacionesSilo>(`consola/silos/${s.siloSlug}/exportaciones`, 60_000);
+  const terminados = (informados?.exportaciones ?? []).filter((x) => x.huella && x.bytes && ['LISTA', 'DESCARGADA', 'VENCIDA'].includes(x.estado));
+  const [elegido, setElegido] = useState('');
+  const elegir = (id: string) => {
+    setElegido(id);
+    const x = terminados.find((t) => t.id === id);
+    if (!x) return;
+    setExporteEn(aLocal(x.terminadaEn ?? x.creadaEn));
+    setBytes(x.bytes ?? undefined);
+    setHuellaExporte(x.huella ?? '');
+  };
   const coinciden = HUELLA.test(huellaExporte.trim()) && huellaExporte.trim().toLowerCase() === huellaActa.trim().toLowerCase();
   const valido = !!exporteEn && !!bytes && !!firmadaEn && nombre.trim().length >= 2 && cargo.trim().length >= 2 && pacientes !== undefined && fichas !== undefined && coinciden && !!gracia;
 
@@ -162,6 +180,19 @@ function ActaRecepcion({ s, abierto, onCerrar, alCambiar }: PropsModal) {
         El ADMIN genera el exporte en su silo (Configuracion &gt; Exportar datos) y entrega fecha, tamano y huella de registro_exportaciones. El centro lo descifra con descifrar.mjs, revisa los
         conteos y firma el acta. La consola nunca ve el archivo ni su clave.
       </p>
+      {terminados.length > 0 ? (
+        <label className="campo-consola">
+          Exporte informado por el silo (R13)
+          <Selector
+            valor={elegido}
+            opciones={[{ valor: '', etiqueta: 'Elegir para llenar fecha, tamano y huella' }, ...terminados.map((x) => ({ valor: x.id, etiqueta: `${new Date(x.terminadaEn ?? x.creadaEn).toLocaleString('es-CL')} · ${tamano(x.bytes ?? 0)} · ${x.huella!.slice(0, 12)} · ${x.estado.toLowerCase()}` }))]}
+            onCambio={elegir}
+            etiqueta="Exporte informado por el silo"
+          />
+        </label>
+      ) : (
+        <p className="mono-corto">{informados?.vistoEn ? 'El silo no informa exportes terminados todavia.' : 'El silo no informa sus exportaciones (ERP anterior a R13): copia los datos que entrega el ADMIN.'}</p>
+      )}
       <div className="rejilla-campos">
         <label className="campo-consola">
           Exporte generado

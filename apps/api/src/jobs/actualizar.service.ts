@@ -3,6 +3,7 @@ import type { Job } from '@prisma/client';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
+import { ExportacionesService } from '../exportaciones/exportaciones.controller';
 import { ReleasesService } from '../releases/releases.service';
 import { type Canal, CANALES, compararVersion, tipoSalto } from '../releases/semver';
 import { enVentanaRespaldo } from './pasos';
@@ -23,6 +24,7 @@ export class ActualizarService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly releases: ReleasesService,
+    private readonly exportaciones: ExportacionesService,
   ) {}
 
   /** Canal del silo segun la revision aprobada de su centro (fija = el silo no se mueve). */
@@ -46,6 +48,10 @@ export class ActualizarService {
     if (!silo.version) return no('El silo no registra la version que corre');
     if (!silo.vistoEn || Date.now() - silo.vistoEn.getTime() > 10 * 60_000) return no('El agente no reporta este silo hace mas de 10 min');
     if (enVentanaRespaldo(new Date())) return no('Ventana de respaldo (01:45 a 02:30 Chile): intenta despues');
+    // R13: con un exporte del centro pendiente o en proceso no se actualiza (se repite al reintentar).
+    const exp = await this.exportaciones.estado(slug);
+    if (exp.enCurso) return no(`El centro tiene una exportacion ${exp.enCurso.estado} (creada ${exp.enCurso.creadaEn.toISOString()}): se actualiza al terminar`);
+    log.push(exp.informa ? 'sin exportacion en curso (informado por el silo, R13)' : 'el silo no informa R13: vale la confirmacion del operador');
     const c = await this.canalDe(slug);
     if (!c) return no('El centro del silo no tiene manifiesto aprobado');
     if (!PARA_ACTUALIZAR.includes(c.estado)) return no(`El centro esta ${c.estado}: se actualiza un silo activo`);
@@ -90,6 +96,7 @@ export class ActualizarService {
       fija: c?.fija ?? null,
       estadoCentro: c?.estado ?? null,
       disponibles,
+      exportes: await this.exportaciones.estado(slug),
     };
   }
 

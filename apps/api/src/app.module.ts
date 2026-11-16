@@ -31,11 +31,12 @@ import { SalidasService } from './salidas/salidas.service';
 import { SaludService } from './salud/salud.service';
 import { SolicitudesAgenteController, SolicitudesConsolaController } from './solicitudes/solicitudes.controller';
 import { SolicitudesService } from './solicitudes/solicitudes.service';
+import { ExportacionesAgenteController, ExportacionesConsolaController, ExportacionesService } from './exportaciones/exportaciones.controller';
 
 /** Monitoreo, acceso de la consola, auditoria, centros (fase 1 publica + pipeline comercial), cola de jobs, solicitudes de modulos (tarea 31) y salidas. */
 @Module({
   imports: [ScheduleModule.forRoot()],
-  controllers: [AgenteController, ConsolaController, AccesoController, AuditoriaController, CentrosController, LandingController, JobsConsolaController, JobsAgenteController, OperacionController, ConfiguracionController, SolicitudesAgenteController, SolicitudesConsolaController, SalidasController, ReleasesConsolaController, ReleasesAgenteController],
-  providers: [PrismaService, AgenteGuard, AlertasService, SaludService, AuditoriaService, CorreoService, AccesoService, SesionGuard, CentrosService, Fase2Service, LandingGuard, JobsService, AprovisionarService, ActualizarService, ReleasesService, OperacionService, SolicitudesService, SalidasService, SalidasCierre],
+  controllers: [AgenteController, ConsolaController, AccesoController, AuditoriaController, CentrosController, LandingController, JobsConsolaController, JobsAgenteController, OperacionController, ConfiguracionController, SolicitudesAgenteController, SolicitudesConsolaController, SalidasController, ReleasesConsolaController, ReleasesAgenteController, ExportacionesAgenteController, ExportacionesConsolaController],
+  providers: [PrismaService, AgenteGuard, AlertasService, SaludService, AuditoriaService, CorreoService, AccesoService, SesionGuard, CentrosService, Fase2Service, LandingGuard, JobsService, AprovisionarService, ActualizarService, ReleasesService, OperacionService, SolicitudesService, SalidasService, SalidasCierre, ExportacionesService],
 })
 export class AppModule {}

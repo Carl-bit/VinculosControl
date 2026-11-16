@@ -8,6 +8,7 @@
  *     pasos de su lista cerrada (jobs.ts). Hoy, VERIFICAR (lectura).
  *   - solicitudes de modulos cada 60 s (tarea 31, solicitudes.ts): R2 del silo
  *     -> plano de control -> R3, por la red de borde de cada silo.
+ *   - exportaciones del centro cada 60 s (R13, exportaciones.ts): solo metadatos.
  * Lista cerrada: no ejecuta comandos que vengan del plano de control.
  */
 import { dominioDesdeLabels, inspeccionar, listar, logs, siloDe, stats, type ContenedorDocker } from './docker';
@@ -15,6 +16,7 @@ import { host, ultimoRespaldo } from './host';
 import { ejecutar, type JobReclamado, TIPOS } from './jobs';
 import { latenciasDesdeLogs } from './p95';
 import { informarReleases } from './releases';
+import { sincronizarExportaciones } from './exportaciones';
 import { sincronizarSolicitudes } from './solicitudes';
 
 const VERSION = '0.3.0';
@@ -114,5 +116,6 @@ cada(30_000, () => enviar('latido', { version: VERSION }), 'latido');
 cada(60_000, async () => log(`reporte: ${await reporte()} silo(s)`), 'reporte');
 cada(15_000, jobs, 'jobs');
 cada(60_000, async () => log(`solicitudes: ${await sincronizarSolicitudes(post, log)}`), 'solicitudes');
+cada(60_000, async () => log(`exportaciones: ${await sincronizarExportaciones(post)}`), 'exportaciones');
 // Releases del host B (infra/imagenes del ERP): cada 5 min; publicar es poco frecuente.
 cada(300_000, async () => log(`releases: ${await informarReleases(post)}`), 'releases');

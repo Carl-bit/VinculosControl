@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 
 import { getJson, listar } from './docker';
 import { host, ultimoRespaldo } from './host';
+import { exporteEnCurso } from './exportaciones';
 import { llamarSilo, tokenDe, urlSilo } from './solicitudes';
 
 /**
@@ -396,8 +397,12 @@ export const EJECUTORES: Record<string, Ejecutor> = {
 
   // ---------- ACTUALIZAR (seccion 7; un silo a la vez, por el ejecutor) ----------
   async U1(j) {
+    // R13 en vivo: el plano de control lo reviso al crear el job, pero un exporte pudo empezar despues.
+    const exp = await exporteEnCurso(j.slug, await tokenDe(j.slug));
+    if (exp.enCurso) return { estado: 'FALLIDO', log: [], error: `El centro tiene una exportacion ${exp.enCurso.estado} (creada ${exp.enCurso.creadaEn}): reintentar al terminar` };
+    const previo = exp.sinR13 ? 'el silo no informa R13 (ERP anterior): vale la confirmacion del operador' : 'sin exportacion en curso (R13, en vivo)';
     const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'respaldar');
-    return { estado: 'OK', log };
+    return { estado: 'OK', log: [previo, ...log] };
   },
 
   async U2(j) {

@@ -146,6 +146,28 @@ describe('ACTUALIZAR', () => {
     await siloActivo('kibou', 'estable', '0.1.0');
     expect((await e.jobs.crearActualizar('kibou', '0.1.0', true, op, null)).error).toMatch(/solo se actualiza hacia adelante/);
   });
+
+  it('R13: con el silo informando, un exporte en curso bloquea (409 y U0) y sin el no hace falta la confirmacion', async () => {
+    const ag = await crearAgente(e.prisma);
+    await e.releases.registrar(ag.id, [rel('0.1.0'), rel('0.1.1', '3', '4')]);
+    await promover('0.1.1', 'estable');
+    await siloActivo('kibou', 'estable');
+    const exp = { id: '6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5', estado: 'EN_PROCESO', creadaEn: '2026-11-16T12:00:00Z' };
+    await e.exportaciones.sincronizar('kibou', [exp]);
+    expect((await errorDe(e.jobs.crearActualizar('kibou', '0.1.1', true, op, null))).status).toBe(409);
+    // Termina: ya no bloquea y no pide la confirmacion del operador (sinExporte = false).
+    await e.exportaciones.sincronizar('kibou', [{ ...exp, estado: 'LISTA', terminadaEn: '2026-11-16T12:05:00Z', bytes: 2048, huella: 'e'.repeat(64) }]);
+    const job = await e.jobs.crearActualizar('kibou', '0.1.1', false, op, null);
+    expect(job.pasos.find((p) => p.codigo === 'U0')?.log).toContain('sin exportacion en curso (informado por el silo, R13)');
+    // Un exporte que empieza despues de crear el job: el reintento de U0 lo ve.
+    await e.exportaciones.sincronizar('kibou', [{ ...exp, id: '7f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5', estado: 'PENDIENTE' }]);
+    const p0 = await e.actualizar.p0(await e.prisma.job.findUniqueOrThrow({ where: { id: job.id } }));
+    expect(p0.error).toMatch(/exportacion PENDIENTE/);
+    // Lectura vencida (el agente no informa hace mas de 10 min): vuelve a pedir la confirmacion.
+    await e.prisma.silo.update({ where: { slug: 'kibou' }, data: { exportesVistoEn: new Date(Date.now() - 11 * 60_000) } });
+    expect(await e.exportaciones.estado('kibou')).toEqual({ informa: false, enCurso: null });
+    expect((await e.exportaciones.listar('kibou')).exportaciones.map((x) => x.estado).sort()).toEqual(['LISTA', 'PENDIENTE']);
+  });
 });
 
 describe('cascada', () => {
@@ -199,7 +221,9 @@ describe('cascada', () => {
     await promover('0.1.1', 'estable');
     expect((await errorDe(e.jobs.crearCascada('0.1.1', 'estable', true, op, null))).status).toBe(422);
     await siloActivo('alfa', 'estable');
-    expect((await errorDe(e.jobs.crearCascada('0.1.1', 'estable', false, op, null))).status).toBe(422);
+    // Sin confirmacion y con un silo que no informa R13: la cascada se detiene en ese silo.
+    expect((await e.jobs.crearCascada('0.1.1', 'estable', false, op, null)).estado).toBe('DETENIDA');
+    expect(await e.prisma.job.count()).toBe(0);
     await e.jobs.crearCascada('0.1.1', 'estable', true, op, null);
     expect((await errorDe(e.jobs.crearCascada('0.1.1', 'estable', true, op, null))).status).toBe(409);
   });

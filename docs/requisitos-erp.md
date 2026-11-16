@@ -256,7 +256,9 @@ automatizar sin datos personales:
   pasa a solo lectura (sin reservas, pagos ni cambios; lectura y exporte
   siguen). Funcion SECURITY DEFINER, idempotente, auditada en el silo. El
   centro avisa a sus pacientes (S2).
-- R13 `GET /api/internal/exportaciones`: lista corta de `registro_exportaciones`
+- R13 (hecho 2026-11-16: migracion `20261116000300_r13_exportaciones_internas`,
+  funcion `exportaciones_internas(token)`, las 20 mas recientes de
+  `exportaciones_centro`) `GET /api/internal/exportaciones`: lista corta de `registro_exportaciones`
   (id, estado, creada, tamano, huella SHA-256), sin contenido ni clave. El
   agente la reporta: la consola deja de pedir la huella a mano y el job
   `actualizar` se bloquea con un exporte EN_CURSO (`ERP_REGLAS_Y_DESPLIEGUE.md`).
