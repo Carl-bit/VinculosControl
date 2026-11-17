@@ -155,7 +155,7 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       if (!BAJAS_DIR || !RESPALDOS_DIR) throw new ErrorVerbo(409, 'eliminar deshabilitado: faltan EJECUTOR_BAJAS_DIR o EJECUTOR_RESPALDOS_DIR');
       const actaHash = await leerActaHash(req);
       // El borde se suelta dentro de eliminar, solo si pasan todas las precondiciones.
-      const r = await eliminar(dockerCiclo, discoReal(BAJAS_DIR, RESPALDOS_DIR), slug, actaHash, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
+      const r = await eliminar(dockerCiclo, discoReal(BAJAS_DIR, RESPALDOS_DIR, process.env.EJECUTOR_SILOS_DIR && process.env.EJECUTOR_TOKENS_DIR ? { silosDir: process.env.EJECUTOR_SILOS_DIR, tokensDir: process.env.EJECUTOR_TOKENS_DIR } : undefined), slug, actaHash, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
       // Reintento tras un exito cuya respuesta se perdio: el log lleva lo que borro la corrida previa.
       return conPrevia(r, await readFile(LOG, 'utf8').catch(() => ''), slug);
     }

@@ -7,8 +7,8 @@
  *     corre el generador del ERP (dist/demo/generador-demo.js) en el servicio
  *     backend del silo. La contrasena de las cuentas la genera el ejecutor y,
  *     junto con correos y roles, queda solo en silos/<slug>/demo-cuentas.txt
- *     (600). Al agente vuelven solo conteos. Pendiente: eliminar aun no borra
- *     silos/<slug>/ (ni este archivo ni el .env).
+ *     (600). Al agente vuelven solo conteos. eliminar lo borra con el resto de
+ *     silos/<slug>/.
  *   resembrar_demo(slug)
  *     corre prisma/scripts/demo_resembrar.js en el servicio migrate: agenda las
  *     proximas horas, sin borrar nada ni tocar llaves.
@@ -114,7 +114,7 @@ export async function cargarDemo(disco: DiscoDemo, c: Compose, cfg: Config, demo
     await disco.escribirCuentas(
       slug,
       [
-        `# Cuentas del demo erp-${slug} (${ahora.toISOString()}). Datos ficticios; borrar al eliminar el silo.`,
+        `# Cuentas del demo erp-${slug} (${ahora.toISOString()}). Datos ficticios; eliminar lo borra con el silo.`,
         `# Contrasena de todas las cuentas: ${clave}`,
         '# Cada cuenta entra con un codigo por correo (Mailpit o SES del silo).',
         ...res.cuentas.map((x) => `${x.rol}\t${x.email}`),

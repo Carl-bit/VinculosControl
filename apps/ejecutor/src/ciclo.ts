@@ -62,6 +62,14 @@ export interface Disco {
   /** Archivos de respaldos/<slug>/ (nombre y bytes); null si la carpeta no existe. Rechaza enlaces simbolicos. */
   respaldos(slug: string): Promise<{ archivo: string; bytes: number }[] | null>;
   borrarRespaldos(slug: string): Promise<void>;
+  /**
+   * Archivos del ejecutor para el silo: silos/<slug>/ (.env con sus secretos,
+   * compose, anterior.env, demo-cuentas.txt) y tokens/<slug>.token. null si no
+   * hay nada. Opcional: sin EJECUTOR_SILOS_DIR no se tocan. Nunca las llaves
+   * (infra/secrets/<slug>/ del ERP): esas las borra el operador.
+   */
+  archivosSilo?(slug: string): Promise<string[] | null>;
+  borrarArchivosSilo?(slug: string): Promise<void>;
 }
 
 const servicio = (c: Contenedor) => c.Labels['com.docker.compose.service'] ?? '?';
@@ -169,6 +177,8 @@ export async function eliminar(
   const vols = (await d.volumenes(proyecto(slug))).filter((v) => delProyecto(slug, v.Name, v.Labels));
   const redes = (await d.redes(proyecto(slug))).filter((r) => delProyecto(slug, r.Name, r.Labels));
   const resp = await disco.respaldos(slug);
+  // Antes de borrar nada: si silos/<slug>/ tiene algo inesperado (enlace, subcarpeta), no se empieza.
+  const delSilo = disco.archivosSilo ? await disco.archivosSilo(slug) : null;
 
   const log: string[] = [...(await soltarBorde())];
   const inventario: Inventario = { contenedores: [], volumenes: [], redes: [], respaldos: { archivos: 0, bytes: 0 } };
@@ -192,6 +202,10 @@ export async function eliminar(
     inventario.respaldos = { archivos: resp.length, bytes: resp.reduce((s, x) => s + x.bytes, 0) };
     log.push(`respaldos/${slug}/: ${resp.length} archivo(s), ${inventario.respaldos.bytes} bytes`);
   } else log.push(`respaldos/${slug}/ no existe`);
+  if (delSilo && disco.borrarArchivosSilo) {
+    await disco.borrarArchivosSilo(slug);
+    log.push(`archivos del ejecutor: ${delSilo.join(', ')}`);
+  } else log.push(disco.archivosSilo ? `silos/${slug}/ no existe` : 'archivos del ejecutor: sin EJECUTOR_SILOS_DIR (no se tocan)');
   log.push(`pendiente manual: shred de infra/secrets/${slug}/, bucket externo, DNS/tunel, crontab y bajas/${slug}`);
   return { log, inventario };
 }
@@ -235,9 +249,40 @@ export function conPrevia(r: { log: string[]; inventario: Inventario }, auditori
 }
 
 /** Disco real: consentimiento en BAJAS_DIR (solo lectura) y respaldos en RESPALDOS_DIR. */
-export function discoReal(bajasDir: string, respaldosDir: string): Disco {
+export function discoReal(bajasDir: string, respaldosDir: string, silos?: { silosDir: string; tokensDir: string }): Disco {
   const carpeta = (slug: string) => join(respaldosDir, validarSlug(slug));
+  const delSilo = silos
+    ? {
+        async archivosSilo(slug: string) {
+          const out: string[] = [];
+          const dir = join(silos.silosDir, validarSlug(slug));
+          let st;
+          try {
+            st = await fs.lstat(dir);
+          } catch {
+            st = null;
+          }
+          if (st) {
+            if (st.isSymbolicLink() || !st.isDirectory()) throw new ErrorVerbo(409, `silos/${slug} no es una carpeta comun`);
+            for (const n of await fs.readdir(dir)) {
+              const s = await fs.lstat(join(dir, n));
+              if (s.isSymbolicLink() || s.isDirectory()) throw new ErrorVerbo(409, `silos/${slug}/${n}: solo se esperan archivos`);
+              out.push(`silos/${slug}/${n}`);
+            }
+          }
+          const token = join(silos.tokensDir, `${slug}.token`);
+          const t = await fs.lstat(token).catch(() => null);
+          if (t?.isFile()) out.push(`tokens/${slug}.token`);
+          return out.length ? out : null;
+        },
+        async borrarArchivosSilo(slug: string) {
+          await fs.rm(join(silos.silosDir, validarSlug(slug)), { recursive: true, force: true });
+          await fs.rm(join(silos.tokensDir, `${slug}.token`), { force: true });
+        },
+      }
+    : {};
   return {
+    ...delSilo,
     async leerConsentimiento(slug) {
       try {
         const st = await fs.lstat(join(bajasDir, validarSlug(slug)));
