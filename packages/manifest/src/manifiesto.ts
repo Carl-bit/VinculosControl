@@ -13,6 +13,8 @@ import { reglasSchema } from './reglas';
  */
 export const TIPOS_ENTIDAD = ['sociedad_profesionales', 'spa', 'eirl', 'persona_natural', 'otra'] as const;
 export const CANALES = ['estable', 'beta'] as const;
+/** Canal de los silos de demostracion (lo primero que recibe una version): solo con el bloque demo. */
+export const CANALES_DEMO = ['demo', ...CANALES] as const;
 /**
  * Temas implementados hoy en el ERP (frontend/src/app/temas, NEXT_PUBLIC_TEMA).
  * "editorial" esta disenado (boceto del landing) pero falta implementarlo en el
@@ -68,7 +70,7 @@ export const manifiestoSchema = z
           .regex(/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, 'Dominio invalido'),
       })
       .strict(),
-    version: z.union([z.object({ canal: z.enum(CANALES) }).strict(), z.object({ fija: z.string().regex(/^\d+\.\d+\.\d+$/) }).strict()]),
+    version: z.union([z.object({ canal: z.enum(CANALES_DEMO) }).strict(), z.object({ fija: z.string().regex(/^\d+\.\d+\.\d+$/) }).strict()]),
     estilo: z
       .object({
         tema: z.enum(TEMAS, { message: 'Tema no implementado en el ERP (hoy: moderno o cuaderno; editorial pendiente, R8)' }),
@@ -86,7 +88,26 @@ export const manifiestoSchema = z
       })
       .strict()
       .optional(),
+    /**
+     * Silo de demostracion (solo el operador): en P10 se generan datos ficticios
+     * con estas cantidades en vez de invitar al ADMIN inicial. El host B solo lo
+     * cumple si el slug esta en EJECUTOR_DEMOS.
+     */
+    demo: z
+      .object({
+        cuentas_madre: z.number().int().min(1).max(3),
+        profesionales: z.number().int().min(1).max(20),
+        pacientes: z.number().int().min(0).max(300),
+      })
+      .strict()
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((m, ctx) => {
+    if ('canal' in m.version && m.version.canal === 'demo' && !m.demo) ctx.addIssue({ code: 'custom', path: ['version', 'canal'], message: 'El canal demo es solo para silos de demostracion' });
+  });
 
 export type Manifiesto = z.infer<typeof manifiestoSchema>;
+
+/** Limites del demo a medida (los mismos que el generador del ERP y el ejecutor). */
+export const LIMITES_DEMO = { cuentas_madre: [1, 3], profesionales: [1, 20], pacientes: [0, 300] } as const;

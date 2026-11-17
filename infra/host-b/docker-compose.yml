@@ -96,6 +96,8 @@ services:
       EJECUTOR_UNIR_BORDE: ${EJECUTOR_UNIR_BORDE:-vinculos-servidor-traefik-1,vinculos-agente-agente-1}
       # Verbo eliminar (opcion C, 2026-11-14): sin estas dos rutas queda deshabilitado.
       EJECUTOR_BAJAS_DIR: /bajas
+      # R10: slugs de demostracion (solo ellos llevan ES_DEMO y los verbos cargar_demo y resembrar_demo).
+      EJECUTOR_DEMOS: ${EJECUTOR_DEMOS:-}
       EJECUTOR_RESPALDOS_DIR: /respaldos
       # preparar y levantar (R1): sin ERP_INFRA_HOST quedan deshabilitados.
       # infra/ del repo del ERP tal como la ve el daemon de Docker (Linux: la ruta

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { manifiestoSchema, rutValido, TIPOS_ENTIDAD, CANALES, TEMAS, type Manifiesto } from './manifiesto';
+import { manifiestoSchema, rutValido, TIPOS_ENTIDAD, CANALES_DEMO, TEMAS, type Manifiesto } from './manifiesto';
 import { MODULOS, MODULOS_MVP, validarModulos } from './modulos';
 import { reglasSchema } from './reglas';
 
@@ -77,9 +77,10 @@ export const borradorSchema = z
     modulos: z.array(z.enum(MODULOS)).max(MODULOS.length),
     estilo: z.object({ tema: z.enum(TEMAS), marca: z.object({ principal: z.string().max(7) }).partial().strict() }).partial().strict(),
     // Solo el operador:
-    version: z.union([z.object({ canal: z.enum(CANALES) }).strict(), z.object({ fija: z.string().max(20) }).strict()]),
+    version: z.union([z.object({ canal: z.enum(CANALES_DEMO) }).strict(), z.object({ fija: z.string().max(20) }).strict()]),
     reglas: reglasSchema,
     legal: z.object({ contrato_encargo: z.object({ version: z.string().trim().max(40), firmado_en: z.string().max(10) }).partial().strict() }).partial().strict(),
+    demo: z.object({ cuentas_madre: z.number().int(), profesionales: z.number().int(), pacientes: z.number().int() }).strict(),
   })
   .partial()
   .strict();
@@ -114,6 +115,7 @@ export function armarManifiesto(b: Borrador, slug: string | null): Record<string
     modulos: b.modulos,
     reglas: b.reglas ?? {},
     legal: b.legal,
+    ...(b.demo ? { demo: b.demo } : {}),
   };
 }
 

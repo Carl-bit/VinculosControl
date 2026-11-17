@@ -26,7 +26,7 @@ const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
 /** RECONFIGURAR y SOLO_LECTURA no usan el ejecutor: hablan con /api/internal del silo (token por silo). */
 export const TIPOS = EJECUTOR
-  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR'] as const)
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR', 'REINICIAR_DEMO'] as const)
   : (['VERIFICAR', 'RECONFIGURAR', 'SOLO_LECTURA'] as const);
 
 interface EstadoContenedor {
@@ -36,10 +36,10 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir';
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo';
 
 /** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar, levantar y actualizar. */
-type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' } | { version: string };
+type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' } | { version: string } | { cuentasMadre: number; profesionales: number; pacientes: number; nombre: string };
 
 /** Error del ejecutor con su status HTTP (409 de levantar sin llaves = esperar al operador). */
 export class ErrorEjecutor extends Error {
@@ -58,7 +58,7 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEje
     headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
     body: envio ? JSON.stringify(envio) : undefined,
     // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min); respaldar, un pg_dump completo.
-    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir'].includes(verbo) ? 30 * 60_000 : 180_000),
+    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir', 'cargar_demo', 'resembrar_demo'].includes(verbo) ? 30 * 60_000 : 180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
@@ -108,6 +108,8 @@ interface ManifiestoAprov {
   estilo?: { tema?: string };
   modulos?: string[];
   reglas?: Record<string, unknown>;
+  /** Silo de demostracion (R10): en P10 se generan datos ficticios en vez de invitar al ADMIN. */
+  demo?: { cuentas_madre: number; profesionales: number; pacientes: number };
 }
 
 /** /api/salud del silo por su red de borde (mismo backend que /api/internal). */
@@ -213,6 +215,12 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     return c.revision === j.revision && c.hash === j.hashManifiesto
       ? { estado: 'OK', log }
       : { estado: 'FALLIDO', log, error: 'El silo no confirma la revision aplicada' };
+  },
+
+  // ---------- REINICIAR_DEMO (R10 B: resembrar, sin borrar nada) ----------
+  async R1(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'resembrar_demo');
+    return { estado: 'OK', log };
   },
 
   // ---------- SOLO_LECTURA (R12, salida S2, por /api/internal/salida) ----------
@@ -403,7 +411,18 @@ export const EJECUTORES: Record<string, Ejecutor> = {
   },
 
   async P10(j) {
-    const admin = ((j.manifiesto ?? {}) as ManifiestoAprov).centro?.admin;
+    const m = (j.manifiesto ?? {}) as ManifiestoAprov;
+    if (m.demo) {
+      // Demo (R10): el ejecutor genera las cuentas y los datos; correos y contrasena quedan en el host B.
+      const r = await ejecutor<{ log: string[] }>('POST', j.slug, 'cargar_demo', {
+        cuentasMadre: m.demo.cuentas_madre,
+        profesionales: m.demo.profesionales,
+        pacientes: m.demo.pacientes,
+        nombre: m.centro?.nombre ?? j.slug,
+      });
+      return { estado: 'OK', log: r.log };
+    }
+    const admin = m.centro?.admin;
     if (!admin?.correo || !admin.nombre) return { estado: 'FALLIDO', log: [], error: 'El manifiesto no trae el ADMIN inicial' };
     let r: { invitada: boolean; vence?: string };
     try {

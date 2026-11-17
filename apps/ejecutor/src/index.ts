@@ -17,6 +17,8 @@
  *     POST /v1/silos/<slug>/respaldar        (ACTUALIZAR U1: respaldo cifrado sin leer la llave)
  *     POST /v1/silos/<slug>/actualizar       (ACTUALIZAR U2: { version }, guarda anterior.env)
  *     POST /v1/silos/<slug>/revertir         (ACTUALIZAR: vuelve a anterior.env)
+ *     POST /v1/silos/<slug>/cargar_demo      (R10: { cuentasMadre, profesionales, pacientes, nombre }; solo EJECUTOR_DEMOS)
+ *     POST /v1/silos/<slug>/resembrar_demo   (R10: proximas horas del demo, sin borrar nada; solo EJECUTOR_DEMOS)
  * - A quien se une a las redes de borde lo fija EJECUTOR_UNIR_BORDE del .env del
  *   host B (Traefik y el agente), nunca el plano de control.
  * - Una operacion de escritura a la vez.
@@ -29,6 +31,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { actualizar, respaldar, revertir, validarVersion } from './actualizar';
 import { argsCompose, type Config, levantar, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
 import { conPrevia, detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
+import { cargarDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { docker, dockerApr, dockerCiclo } from './docker';
 import { composeReal, discoSilosReal, tuberiaReal } from './silos';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
@@ -37,6 +40,8 @@ const TOKEN = Buffer.from(process.env.EJECUTOR_TOKEN ?? '');
 const PUERTO = Number(process.env.PUERTO ?? 7070);
 const LOG = process.env.EJECUTOR_LOG ?? '/var/log/ejecutor/verbos.jsonl';
 const UNIR_BORDE = contenedoresBorde(process.env.EJECUTOR_UNIR_BORDE);
+/** R10: slugs de demostracion (lista del host B, nunca del plano de control). Solo ellos llevan ES_DEMO y los verbos de demo. */
+const DEMOS = slugsDemo(process.env.EJECUTOR_DEMOS);
 /** Consentimiento local de bajas (solo lectura) y respaldos del host (ver ciclo.ts). Sin ellos, eliminar no corre. */
 const BAJAS_DIR = process.env.EJECUTOR_BAJAS_DIR ?? '';
 const RESPALDOS_DIR = process.env.EJECUTOR_RESPALDOS_DIR ?? '';
@@ -66,10 +71,10 @@ const APR = (() => {
 /** Imagen del contenedor auxiliar que cifra los respaldos (la del propio ejecutor, con openssl). */
 const AYUDANTE = process.env.EJECUTOR_IMAGEN_AYUDANTE ?? 'vinculos-agente-ejecutor:local';
 const SIN_APR = 'aprovisionamiento deshabilitado: faltan EJECUTOR_ERP_INFRA, EJECUTOR_SILOS_DIR, EJECUTOR_IMAGENES_DIR o EJECUTOR_TOKENS_DIR';
-const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar|respaldar|actualizar|revertir)$/;
+const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar|respaldar|actualizar|revertir|cargar_demo|resembrar_demo)$/;
 const RUTA_BORDES = '/v1/bordes/reconectar';
 
-type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir';
+type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo';
 
 /** Cuerpo JSON acotado (eliminar, preparar, levantar). El resto de los verbos no lleva cuerpo. */
 function leerJson(req: IncomingMessage, max: number): Promise<unknown> {
@@ -158,7 +163,7 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       if (!APR) throw new ErrorVerbo(409, SIN_APR);
       const pedido = validarPedido(await leerJson(req, 1024));
       // imagenes: version y digests que el agente reporta en P2 (el silo los guarda: tag + digest).
-      return preparar(dockerApr, APR.disco, composeReal, APR.cfg, slug, pedido);
+      return preparar(dockerApr, APR.disco, composeReal, APR.cfg, slug, pedido, DEMOS.includes(slug));
     }
     case 'levantar': {
       if (!APR) throw new ErrorVerbo(409, SIN_APR);
@@ -184,6 +189,16 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       // Recrear backend y frontend los saca del borde: Traefik y el agente vuelven a entrar.
       r.log.push(...(UNIR_BORDE.length ? await conectarBorde(docker, slug, UNIR_BORDE) : []));
       return r;
+    }
+    // R10: solo slugs de EJECUTOR_DEMOS; no borran nada.
+    case 'cargar_demo': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      const pedido = validarPedidoDemo(await leerJson(req, 300));
+      return cargarDemo(APR.disco, composeReal, APR.cfg, DEMOS, slug, pedido);
+    }
+    case 'resembrar_demo': {
+      if (!APR) throw new ErrorVerbo(409, SIN_APR);
+      return resembrarDemo(APR.disco, composeReal, APR.cfg, DEMOS, slug);
     }
     default:
       return { log: await escribirSimple(verbo, slug) };

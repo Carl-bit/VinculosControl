@@ -73,6 +73,11 @@ const SOLO_LECTURA: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'ACTIVAR: salida abierta sin reversion; QUITAR: reversion pedida en la ultima salida; silo reportado', ejecutor: 'control' },
   { codigo: 'L1', nombre: 'Solo lectura', detalle: 'POST /api/internal/salida por la red de borde (token del silo) y comprueba el estado con GET', ejecutor: 'agente' },
 ];
+/** R10 B: resembrar un demo (sin borrar nada ni tocar llaves). Solo silos con manifiesto demo y en EJECUTOR_DEMOS del host B. */
+const REINICIAR_DEMO: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'centro de demostracion activo, silo reportado, sin job activo, fuera de la ventana de respaldo, uno por hora', ejecutor: 'control' },
+  { codigo: 'R1', nombre: 'Resembrar', detalle: 'proximas horas del demo y acceso del practicante (ejecutor: resembrar_demo, demo_resembrar.js del ERP)', ejecutor: 'agente' },
+];
 const ELIMINAR: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'GRACIA vencida, confirmacion escrita, silo detenido, sin reversion, hash del acta de recepcion', ejecutor: 'control' },
   { codigo: 'X1', nombre: 'Detenido', detalle: 'ningun contenedor de erp-<slug> en marcha', ejecutor: 'agente' },
@@ -97,7 +102,7 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
   { codigo: 'P7', nombre: 'Carga inicial', detalle: 'POST /api/internal/config con modulos y reglas de la revision (R4) y confirmacion', ejecutor: 'agente' },
   { codigo: 'P8', nombre: 'Dominio', detalle: 'https://<dominio>/api/salud 200 por el tunel; si no responde, espera al operador', ejecutor: 'agente' },
   { codigo: 'P9', nombre: 'Continuidad', detalle: 'respaldos/<slug>/ con un respaldo y su .sha256 (instalar.sh del ERP)', ejecutor: 'agente' },
-  { codigo: 'P10', nombre: 'Admin y cierre', detalle: 'invitacion del ADMIN inicial por /api/internal/admin-inicial (R5); centro ACTIVO', ejecutor: 'agente' },
+  { codigo: 'P10', nombre: 'Admin y cierre', detalle: 'invitacion del ADMIN inicial por /api/internal/admin-inicial (R5); en un demo, datos de demostracion por el ejecutor (cargar_demo; correos y contrasena quedan en el host B); centro ACTIVO', ejecutor: 'agente' },
 ];
 
 /**
@@ -125,6 +130,7 @@ export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = {
   DETENER_SILO,
   REANUDAR_SILO,
   SOLO_LECTURA,
+  REINICIAR_DEMO,
   ELIMINAR,
   APROVISIONAR: PASOS_APROVISIONAR,
   ACTUALIZAR: PASOS_ACTUALIZAR,
@@ -158,7 +164,7 @@ export function anterioresListos(pasos: { orden: number; estado: EstadoPaso }[],
 }
 
 /** Jobs sobre un silo existente (no nacen de un manifiesto aprobado). */
-export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO'];
+export const SOBRE_SILO: readonly TipoJob[] = ['REINICIAR_SILO', 'REINICIAR_DEMO'];
 
 /** Jobs que nacen de una salida (Salidas en la consola), con su propio P0. */
 export const DE_SALIDA: readonly TipoJob[] = ['DETENER_SILO', 'REANUDAR_SILO', 'SOLO_LECTURA', 'ELIMINAR'];
@@ -179,7 +185,6 @@ export const CON_VISTA_PROPIA: Partial<Record<TipoJob, string>> = {
 };
 
 export const BLOQUEO: Partial<Record<TipoJob, string>> = {
-  REINICIAR_DEMO: 'Bloqueado: requiere demo:resembrar en el ERP (R10: resembrar datos ficticios conservando llaves). Para reiniciar contenedores sin tocar datos: REINICIAR_SILO',
   EXPORTAR: 'No aplica como job: el exporte lo genera el ADMIN en su silo (S3-S4) y la consola registra el acta en Salidas. Traer la huella sola requiere R13 en el ERP',
 };
 

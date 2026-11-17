@@ -72,7 +72,8 @@ export interface DiscoSilos {
 
 /** CLI de docker compose (sin shell; argumentos fijos armados aqui). */
 export interface Compose {
-  correr(args: string[], timeoutMs: number): Promise<{ codigo: number; salida: string }>;
+  /** env: variables extra del proceso de compose (secretos que se pasan con -e NOMBRE, sin valor en los argumentos). */
+  correr(args: string[], timeoutMs: number, env?: Record<string, string>): Promise<{ codigo: number; salida: string }>;
 }
 
 export interface DockerApr {
@@ -132,7 +133,7 @@ export function renderizar(plantilla: string, erpInfra: string): string {
 const azar = (bytes: number) => randomBytes(bytes).toString('hex');
 export const sha256 = (t: string) => createHash('sha256').update(t).digest('hex');
 
-export function contenidoEnv(slug: string, p: Pedido, img: { apiDigest: string; webDigest: string }, cfg: Config, secretos: Record<string, string>, tokenHash: string) {
+export function contenidoEnv(slug: string, p: Pedido, img: { apiDigest: string; webDigest: string }, cfg: Config, secretos: Record<string, string>, tokenHash: string, demo = false) {
   return [
     MARCA,
     '# Unico de este silo: nunca copiar a otro. Secretos generados en el host B; no salen de aqui.',
@@ -158,6 +159,8 @@ export function contenidoEnv(slug: string, p: Pedido, img: { apiDigest: string; 
     `SMTP_URL=${cfg.smtpUrl}`,
     `CORREO_REMITENTE=no-responder@${p.dominio}`,
     `SES_CONFIGURATION_SET=${cfg.sesConfigurationSet}`,
+    // R10: solo slugs de EJECUTOR_DEMOS del host B (migrate marca identidad_silo.es_demo).
+    ...(demo ? ['ES_DEMO=true'] : []),
     '',
   ].join('\n');
 }
@@ -172,7 +175,7 @@ export function argsCompose(cfg: Config, slug: string): string[] {
 
 const IMAGEN_PERMITIDA = (cfg: Config) => new RegExp(`^(postgres:18-alpine|${cfg.registro.replace(/[.]/g, '\\.')}/vinculos-(api|web)@sha256:[0-9a-f]{64})$`);
 
-export async function preparar(d: DockerApr, disco: DiscoSilos, c: Compose, cfg: Config, slug: string, pedido: Pedido) {
+export async function preparar(d: DockerApr, disco: DiscoSilos, c: Compose, cfg: Config, slug: string, pedido: Pedido, demo = false) {
   validarSlug(slug);
   const log: string[] = [];
 
@@ -211,7 +214,8 @@ export async function preparar(d: DockerApr, disco: DiscoSilos, c: Compose, cfg:
     token = token.trim();
     log.push('token interno conservado');
   }
-  await disco.escribirEnv(slug, contenidoEnv(slug, pedido, img, cfg, secretos, sha256(token)));
+  await disco.escribirEnv(slug, contenidoEnv(slug, pedido, img, cfg, secretos, sha256(token), demo));
+  if (demo) log.push('silo de demostracion (EJECUTOR_DEMOS): ES_DEMO=true');
   log.push(conservados ? `.env actualizado (${conservados} secretos conservados)` : '.env creado (secretos nuevos)');
 
   // P3: compose del silo y verificacion.

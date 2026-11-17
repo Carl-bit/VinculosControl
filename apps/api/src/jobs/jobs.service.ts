@@ -207,6 +207,21 @@ export class JobsService {
     return this.detalle(job.id);
   }
 
+  /** P0 de REINICIAR_DEMO: centro de demostracion (manifiesto con demo) activo, uno por hora, y el P0 comun del silo. */
+  private async p0Demo(slug: string, jobId: number): Promise<{ ok: boolean; log: string[]; error: string | null }> {
+    const log = [`demo erp-${slug}`];
+    const no = (error: string) => ({ ok: false, log, error });
+    const c = await this.prisma.centro.findUnique({ where: { slug } });
+    if (!c?.revisionAprobada) return no('El silo no es de un centro con manifiesto aprobado');
+    const rev = await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: c.id, numero: c.revisionAprobada } }, select: { contenido: true } });
+    if (!(rev?.contenido as { demo?: unknown } | null)?.demo) return no('El silo no es de demostracion (su manifiesto no tiene el bloque demo)');
+    if (!['ACTIVO', 'ACTIVO_SIN_DOMINIO'].includes(c.estado)) return no(`El centro esta ${c.estado}: se resiembra un demo activo`);
+    const reciente = await this.prisma.job.findFirst({ where: { siloSlug: slug, tipo: 'REINICIAR_DEMO', estado: 'OK', id: { not: jobId }, terminadoEn: { gte: new Date(Date.now() - 60 * 60_000) } }, select: { id: true } });
+    if (reciente) return no(`Ya se resembro hace menos de una hora (job #${reciente.id})`);
+    const silo = await this.p0Silo(slug);
+    return { ok: silo.ok, log: [...log, ...silo.log.slice(1)], error: silo.error };
+  }
+
   /** P0 de los jobs sobre un silo: el agente lo reporta (ultimos 10 min) y estamos fuera de la ventana de respaldo. */
   private async p0Silo(slug: string): Promise<{ ok: boolean; log: string[]; error: string | null }> {
     const silo = await this.prisma.silo.findUnique({ where: { slug } });
@@ -230,6 +245,8 @@ export class JobsService {
             ? await this.actualizar.p0(job)
             : DE_SALIDA.includes(job.tipo)
             ? await this.p0Salida(job.tipo, job.centroId!, job.siloSlug!, job.referencia)
+            : job.tipo === 'REINICIAR_DEMO'
+              ? await this.p0Demo(job.siloSlug!, job.id)
             : SOBRE_SILO.includes(job.tipo)
               ? await this.p0Silo(job.siloSlug!)
               : await this.p0Manifiesto(job.tipo, job.centroId!, job.revision!, job.hashManifiesto!, job.siloSlug!);

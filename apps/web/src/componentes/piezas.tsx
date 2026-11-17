@@ -27,6 +27,7 @@ const ICONOS = {
   salidas: 'M10 17l5-5-5-5 M15 12H3 M14 3h6v18h-6',
   config: 'M4 7h10 M18 7h2 M4 17h4 M12 17h8 M16 5v4 M10 15v4',
   incidentes: 'M12 3l9 16H3z M12 10v4 M12 17h.01',
+  demos: 'M4 4h16v12H4z M8 20h8 M12 16v4 M9 9l2 2 4-4',
 };
 
 export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo: string; children: ReactNode }) {
@@ -41,6 +42,7 @@ export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo
         { href: '/consola/manifiestos', l: 'Manifiestos', d: ICONOS.manifiestos },
         { href: '/consola/jobs', l: 'Aprovisionamiento', d: ICONOS.job, badge: resumen?.jobsActivos },
         { href: '/consola/silos', l: 'Silos', d: ICONOS.silos },
+        { href: '/consola/demos', l: 'Demos', d: ICONOS.demos },
       ],
     },
     { l: 'Versiones', items: [{ href: '/consola/releases', l: 'Releases y canales', d: ICONOS.releases }] },

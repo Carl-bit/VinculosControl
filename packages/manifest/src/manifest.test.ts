@@ -98,6 +98,13 @@ describe('manifiesto completo', () => {
     assert.equal(rutValido('76.086.428-4'), false);
     assert.equal(rutValido('11.111.111-1'), true);
   });
+
+  it('canal demo y bloque demo: el canal demo exige el bloque; las cantidades tienen limites', () => {
+    assert.equal(manifiestoSchema.safeParse({ ...m, version: { canal: 'demo' } }).success, false);
+    assert.equal(manifiestoSchema.safeParse({ ...m, version: { canal: 'demo' }, demo: { cuentas_madre: 2, profesionales: 5, pacientes: 60 } }).success, true);
+    assert.equal(manifiestoSchema.safeParse({ ...m, demo: { cuentas_madre: 4, profesionales: 5, pacientes: 60 } }).success, false);
+    assert.equal(manifiestoSchema.safeParse({ ...m, demo: { cuentas_madre: 1, profesionales: 5, pacientes: 301 } }).success, false);
+  });
 });
 
 describe('hash', () => {

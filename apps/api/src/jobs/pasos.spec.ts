@@ -27,7 +27,8 @@ describe('cola de jobs: reglas', () => {
     expect(puedeCancelar('CANCELADO')).toBe(false);
   });
   it('ejecutables hoy: VERIFICAR, REINICIAR_SILO, RECONFIGURAR (R4), los de la salida, APROVISIONAR y ACTUALIZAR, todos con P0 en el plano de control', () => {
-    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'SOLO_LECTURA', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR']);
+    expect(Object.keys(EJECUTABLES)).toEqual(['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'DETENER_SILO', 'REANUDAR_SILO', 'SOLO_LECTURA', 'REINICIAR_DEMO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR']);
+    expect(EJECUTABLES.REINICIAR_DEMO?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['P0:control', 'R1:agente']);
     expect(EJECUTABLES.SOLO_LECTURA?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual(['P0:control', 'L1:agente']);
     expect(EJECUTABLES.APROVISIONAR?.map((p) => `${p.codigo}:${p.ejecutor}`)).toEqual([
       'P0:control',

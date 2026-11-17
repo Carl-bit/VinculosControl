@@ -14,6 +14,7 @@ import { join } from 'node:path';
 
 import type { DiscoActualizar, Tuberia } from './actualizar';
 import { argsCompose, type Compose, type Config, VERSION } from './aprovisionar';
+import type { DiscoDemo } from './demo';
 import { validarSlug } from './verbos';
 
 /** Lee un archivo comun (sin enlaces simbolicos) o null si no existe. */
@@ -37,7 +38,7 @@ async function escribir(ruta: string, contenido: string, modo: number, uid?: num
   await fs.rename(tmp, ruta);
 }
 
-export function discoSilosReal(o: { silosDir: string; imagenesDir: string; tokensDir: string; plantilla: string; uidAgente?: number }): DiscoActualizar {
+export function discoSilosReal(o: { silosDir: string; imagenesDir: string; tokensDir: string; plantilla: string; uidAgente?: number }): DiscoActualizar & DiscoDemo {
   const dir = async (slug: string) => {
     const d = join(o.silosDir, validarSlug(slug));
     await fs.mkdir(d, { recursive: true, mode: 0o700 });
@@ -65,6 +66,9 @@ export function discoSilosReal(o: { silosDir: string; imagenesDir: string; token
     // ACTUALIZAR: lineas de imagen de antes del cambio (para revertir).
     leerAnterior: (slug) => leer(join(o.silosDir, validarSlug(slug), 'anterior.env')),
     escribirAnterior: async (slug, contenido) => escribir(join(await dir(slug), 'anterior.env'), contenido, 0o600),
+    // Demos (R10): correos, roles y contrasena del demo; solo en el host B, 600.
+    leerCuentas: (slug) => leer(join(o.silosDir, validarSlug(slug), 'demo-cuentas.txt'), 64 * 1024),
+    escribirCuentas: async (slug, contenido) => escribir(join(await dir(slug), 'demo-cuentas.txt'), contenido, 0o600),
   };
 }
 
@@ -125,12 +129,12 @@ export function tuberiaReal(cfg: Config, o: { respaldosDir: string; imagenAyudan
 
 /** docker compose sin shell; entorno minimo (sin los tokens del ejecutor). */
 export const composeReal: Compose = {
-  correr(args, timeoutMs) {
+  correr(args, timeoutMs, env) {
     return new Promise((ok) => {
       execFile(
         'docker',
         args,
-        { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, env: { PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp' } },
+        { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, env: { PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp', ...(env ?? {}) } },
         (e, stdout, stderr) => {
           const salida = `${stdout}${stderr ? `\n${stderr}` : ''}`;
           if (!e) return ok({ codigo: 0, salida });
