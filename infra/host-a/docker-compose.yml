@@ -108,12 +108,17 @@ services:
 
   # Correo local del login (codigos de acceso). Puertos distintos a los del Mailpit del ERP (1025/8025).
   # En produccion no se levanta: SMTP_HOST apunta a SES.
+  # Servidor de pruebas: cloudflared puede publicar su interfaz por la red tunel_correo (siempre con
+  # Cloudflare Access: aqui llegan los codigos del login de la consola).
   mailpit:
     image: axllent/mailpit:v1.21.8
     restart: unless-stopped
     ports:
       - '127.0.0.1:8026:8025'
       - '127.0.0.1:1026:1025'
+    networks:
+      - default
+      - tunel_correo
 
 volumes:
   db_control:
@@ -132,3 +137,6 @@ networks:
     name: vinculos-control_tunel_publico
   tunel_agente:
     name: vinculos-control_tunel_agente
+  # Solo pruebas: la interfaz de Mailpit del control (con Access). Con SES no se usa.
+  tunel_correo:
+    name: vinculos-control_tunel_correo

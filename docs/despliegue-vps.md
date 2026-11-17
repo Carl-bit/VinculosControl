@@ -62,11 +62,11 @@ docker exec vinculos-control-api-1 node dist/cli/crear-agente.js host-b         
 
 ## 3. Tunel de Cloudflare
 
-`cloudflared` entra a tres redes del control; cada una tiene un solo servicio,
+`cloudflared` entra a cuatro redes del control; cada una tiene un solo servicio,
 asi la landing no ve la consola ni la base:
 
 ```sh
-for r in tunel_consola tunel_publico tunel_agente; do docker network connect vinculos-control_$r cloudflared; done
+for r in tunel_consola tunel_publico tunel_agente tunel_correo; do docker network connect vinculos-control_$r cloudflared; done
 ```
 
 (Si `cloudflared` se recrea, repetir.) En Cloudflare Zero Trust > Networks >
@@ -77,10 +77,16 @@ Tunnels > el tunel > Public Hostnames, agregar:
 | `control.<dominio>` | (vacio) | `http://vinculos-control-web-1:3000` |
 | `vinculos.<dominio>` | (vacio) | `http://vinculos-control-landing-1:3000` |
 | `agente-control.<dominio>` | `^/agente/` | `http://vinculos-control-api-1:4000` |
+| `correo-control.<dominio>` | (vacio) | `http://vinculos-control-mailpit-1:8025` (solo pruebas) |
+
+Todos de tipo HTTP y con el puerto interno del contenedor (no el de 127.0.0.1).
 
 - **Access** (Zero Trust > Access > Applications > Self-hosted) sobre
   `control.<dominio>`: politica Allow solo con tu correo. La consola ademas
   pide contrasena y codigo.
+- **Access obligatorio** sobre `correo-control.<dominio>`, con la misma
+  politica: ahi llegan los codigos del login, sin Access la verificacion en dos
+  pasos no protege nada. Con SES se borra este hostname.
 - `agente-control.<dominio>` sin Access (el agente se autentica con su token)
   y solo con el path `/agente/`: el resto de la API no se publica.
 - Los silos siguen por la regla que ya existe hacia `https://traefik:443` (un
@@ -134,13 +140,16 @@ La consola muestra el host B "en linea" y los silos de `servidor.sh` sin adoptar
 
 ## 6. Mailpit del control y del ERP
 
-Solo en `127.0.0.1` del VPS. Desde tu PC:
+Codigos de la consola en `https://correo-control.<dominio>` (paso 3, con
+Access). Ambos Mailpit tambien quedan en `127.0.0.1` del VPS; por SSH desde tu PC:
 
 ```sh
-ssh -L 8026:127.0.0.1:8026 -L 8025:127.0.0.1:8025 dev@<vps>
+ssh -L 18026:127.0.0.1:8026 -L 18025:127.0.0.1:8025 dev@<vps>
 ```
 
-Codigos de la consola en http://127.0.0.1:8026 y de los silos en http://127.0.0.1:8025.
+Consola en http://127.0.0.1:18026 y silos en http://127.0.0.1:18025. Se usan
+puertos locales 18xxx porque Windows suele reservar 8025/8026 (Hyper-V, WSL):
+`bind ... Permission denied` (ver `netsh interface ipv4 show excludedportrange protocol=tcp`).
 
 ## 7. Corrida real de ACTUALIZAR
 
