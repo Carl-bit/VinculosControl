@@ -149,7 +149,7 @@ export default function Demos() {
           <legend>Modulos</legend>
           <div className="acciones">
             {MODULOS.map((m) => (
-              <button key={m} type="button" className={`boton ${modulos.includes(m) ? 'primario' : ''}`} aria-pressed={modulos.includes(m)} onClick={() => alternar(m)}>
+              <button key={m} type="button" className="boton" aria-pressed={modulos.includes(m)} onClick={() => alternar(m)}>
                 {m}
               </button>
             ))}
