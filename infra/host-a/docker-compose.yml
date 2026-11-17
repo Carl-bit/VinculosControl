@@ -58,12 +58,14 @@ services:
       CORREO_REMITENTE: ${CORREO_REMITENTE:-vinculos-control <consola@vinculos.local>}
       SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
     ports:
-      - '${API_PUERTO:-4000}:4000'
+      # API_IP=127.0.0.1 en un servidor (VPS): el agente llega por el tunel (https), nunca por el puerto abierto.
+      - '${API_IP:-0.0.0.0}:${API_PUERTO:-4000}:4000'
     # La API es la unica que esta en las dos redes: la landing la alcanza a ella y a nada mas
     # (ni la base, ni la consola, ni Mailpit).
     networks:
       - default
       - landing
+      - tunel_agente
 
   web:
     build:
@@ -79,6 +81,9 @@ services:
       LANDING_URL: ${LANDING_URL:-http://127.0.0.1:3300}
     ports:
       - '127.0.0.1:${WEB_PUERTO:-3100}:3000'
+    networks:
+      - default
+      - tunel_consola
 
   # Landing publica (apps/landing): unico sitio publico del plano de control. La pagina para
   # vender Vinculos, la solicitud del centro (tambien por el enlace que comparte el operador,
@@ -99,6 +104,7 @@ services:
       - '127.0.0.1:${LANDING_PUERTO:-3300}:3000'
     networks:
       - landing
+      - tunel_publico
 
   # Correo local del login (codigos de acceso). Puertos distintos a los del Mailpit del ERP (1025/8025).
   # En produccion no se levanta: SMTP_HOST apunta a SES.
@@ -117,3 +123,12 @@ networks:
   default:
   # api <-> landing: el sitio publico solo ve a la API.
   landing:
+  # Servidor (VPS): cloudflared se une a estas tres (docker network connect). Cada una tiene un solo
+  # servicio del control, asi el tunel llega a la consola, a la landing y a la API del agente sin
+  # que esos servicios se vean entre si ni alcancen la base (docs/despliegue-vps.md).
+  tunel_consola:
+    name: vinculos-control_tunel_consola
+  tunel_publico:
+    name: vinculos-control_tunel_publico
+  tunel_agente:
+    name: vinculos-control_tunel_agente
