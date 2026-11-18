@@ -13,3 +13,11 @@ system-reference
 *.pem
 *.key
 *.log
+
+# Capturas de pantalla y artefactos de Playwright: nunca en el contexto de build.
+capturas-control
+capturas*
+**/test-results
+**/playwright-report
+**/blob-report
+**/playwright/.cache

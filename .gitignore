@@ -46,3 +46,12 @@ pnpm-debug.log*
 Thumbs.db
 infra/host-b/silos/
 infra/host-b/imagenes/
+
+# Capturas de pantalla (anexo de tesis) y artefactos de Playwright: se generan
+# en local contra el entorno de pruebas y no se versionan.
+capturas-control/
+capturas*/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
