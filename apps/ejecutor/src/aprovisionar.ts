@@ -24,7 +24,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 
-import { type Contenedor, enVentanaRespaldo, ErrorVerbo, validarSlug } from './verbos';
+import { type Contenedor, enVentanaRespaldo, ErrorVerbo, esSlugDemo, validarSlug } from './verbos';
 
 export const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -45,6 +45,8 @@ export interface Pedido {
   dominio: string;
   nombre: string;
   tema: string;
+  /** El manifiesto aprobado es de demostracion (bloque demo). Lo decide el plano de control; el permiso lo da EJECUTOR_DEMOS. */
+  demo?: boolean;
 }
 
 export interface Config {
@@ -85,13 +87,29 @@ export interface DockerApr {
 export function validarPedido(p: unknown): Pedido {
   const o = (p ?? {}) as Record<string, unknown>;
   const claves = Object.keys(o).sort().join(',');
-  if (claves !== 'dominio,nombre,tema,version') throw new ErrorVerbo(400, 'se espera { version, dominio, nombre, tema }');
+  // `demo` es opcional: un agente anterior no lo manda (y entonces no se revisa en P2).
+  if (claves !== 'dominio,nombre,tema,version' && claves !== 'demo,dominio,nombre,tema,version') throw new ErrorVerbo(400, 'se espera { version, dominio, nombre, tema, demo? }');
+  if ('demo' in o && typeof o.demo !== 'boolean') throw new ErrorVerbo(400, 'demo debe ser true o false');
   const { version, dominio, nombre, tema } = o as Record<string, string>;
   if (typeof version !== 'string' || !VERSION.test(version)) throw new ErrorVerbo(400, 'version invalida');
   if (typeof dominio !== 'string' || !DOMINIO.test(dominio)) throw new ErrorVerbo(400, 'dominio invalido');
   if (typeof nombre !== 'string' || !NOMBRE.test(nombre)) throw new ErrorVerbo(400, 'nombre invalido (2 a 120: letras, numeros, espacio y . , \' & ( ) -)');
   if (typeof tema !== 'string' || !(TEMAS as readonly string[]).includes(tema)) throw new ErrorVerbo(400, `tema invalido (${TEMAS.join(', ')})`);
-  return { version, dominio, nombre, tema };
+  return { version, dominio, nombre, tema, ...(typeof o.demo === 'boolean' ? { demo: o.demo } : {}) };
+}
+
+/**
+ * P2: el manifiesto y la lista del host B deben coincidir antes de crear nada.
+ * Un demo fuera de EJECUTOR_DEMOS fallaba recien en P10, despues de las llaves
+ * y el respaldo manuales (hallazgo 2026-11-19); un centro real con un slug de la
+ * lista quedaria marcado como demo.
+ */
+export function revisarDemo(pedido: Pedido, slug: string, demos: string[]): void {
+  if (pedido.demo === undefined) return;
+  const enLista = esSlugDemo(demos, slug);
+  if (pedido.demo && !enLista)
+    throw new ErrorVerbo(403, `${slug} es un demo pero no esta en EJECUTOR_DEMOS del host B: agregarlo en infra/host-b/.env, recrear el ejecutor (up -d ejecutor) y reintentar P2`);
+  if (!pedido.demo && enLista) throw new ErrorVerbo(409, `${slug} esta en EJECUTOR_DEMOS pero su manifiesto no es de demostracion: sacarlo de la lista o usar otro slug`);
 }
 
 export function validarConfig(c: Config): Config {

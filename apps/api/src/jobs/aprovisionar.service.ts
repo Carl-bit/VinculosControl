@@ -1,6 +1,6 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import type { Job } from '@prisma/client';
-import { manifiestoSchema } from '@vinculos/manifest';
+import { errorPrefijoDemo, manifiestoSchema } from '@vinculos/manifest';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
@@ -76,6 +76,9 @@ export class AprovisionarService {
     log.push(`tema ${tema}`);
 
     const slug = job.siloSlug!;
+    // Prefijo demo- reservado a los demos (el host B los permite con EJECUTOR_DEMOS=demo-*).
+    const prefijo = errorPrefijoDemo(slug, Boolean((m as { demo?: unknown }).demo));
+    if (prefijo) return no(prefijo);
     const silo = await this.prisma.silo.findUnique({ where: { slug } });
     // Un erp-<slug> que el agente ya reporta y que no nacio de un aprovisionamiento de este centro: otro stack.
     // (Tras un job cancelado el stack queda y se reutiliza; el ejecutor ademas rechaza un stack sin su .env.)

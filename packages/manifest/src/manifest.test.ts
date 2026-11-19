@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { hashManifiesto, jsonCanonico } from './hash';
-import { completarDependencias, fase1Schema, formatearRut,manifiestoSchema, quitarModulo, reglasSchema, rutValido, validarModulos } from './index';
+import { completarDependencias, errorPrefijoDemo, fase1Schema, formatearRut, manifiestoSchema, quitarModulo, reglasSchema, rutValido, validarModulos } from './index';
 
 describe('modulos', () => {
   it('MATCH y PAGINA_PUBLICA requieren EQUIPO', () => {
@@ -99,6 +99,12 @@ describe('manifiesto completo', () => {
     assert.equal(rutValido('11.111.111-1'), true);
     assert.equal(rutValido('111111111'), true);
   });
+  it('prefijo demo- reservado a los demos', () => {
+    assert.equal(errorPrefijoDemo('demo-kibou', true), null);
+    assert.equal(errorPrefijoDemo('kibou', false), null);
+    assert.match(errorPrefijoDemo('kibou', true) ?? '', /empieza con demo-/);
+    assert.match(errorPrefijoDemo('demo-kibou', false) ?? '', /solo para demos/);
+  });
   it('formatea el RUT mientras se escribe', () => {
     assert.equal(formatearRut('111111111'), '11.111.111-1');
     assert.equal(formatearRut('760864285'), '76.086.428-5');
@@ -189,5 +195,12 @@ describe('fase 2 y P0', () => {
     assert.equal(sugerirSlug('Centro Kibou'), 'kibou');
     assert.equal(sugerirSlug('Espacio Raíz'), 'espacio-raiz');
     assert.equal(sugerirSlug('Centro de Psicología'), 'centro-nuevo');
+  });
+});
+
+describe('sugerencia de slug', () => {
+  it('un centro real no recibe el prefijo demo-', () => {
+    assert.equal(sugerirSlug('Demo Kibou'), 'centro-demo-kibou');
+    assert.equal(sugerirSlug('Centro Kibou'), 'kibou');
   });
 });

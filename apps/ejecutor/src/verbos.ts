@@ -19,6 +19,11 @@
  */
 
 export const SLUG = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
+
+/** El slug esta permitido como demo por EJECUTOR_DEMOS (exacto o por prefijo "demo-*"). */
+export function esSlugDemo(demos: string[], slug: string): boolean {
+  return SLUG.test(slug) && demos.some((d) => (d.endsWith('*') ? slug.startsWith(d.slice(0, -1)) && slug.length > d.length - 1 : d === slug));
+}
 /** Servicios que el ejecutor puede reiniciar. db queda fuera: reiniciarla corta conexiones y no es necesario. */
 export const REINICIABLES = ['backend', 'frontend'] as const;
 

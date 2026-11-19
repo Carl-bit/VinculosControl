@@ -28,7 +28,7 @@
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { type Contenedor, enVentanaRespaldo, ErrorVerbo, validarSlug } from './verbos';
+import { type Contenedor, enVentanaRespaldo, ErrorVerbo, esSlugDemo, validarSlug } from './verbos';
 
 export const HASH = /^[0-9a-f]{64}$/;
 
@@ -244,7 +244,7 @@ export async function eliminarDemo(
   soltarBorde: () => Promise<string[]> = async () => [],
 ): Promise<{ log: string[]; inventario: Inventario }> {
   validarSlug(slug);
-  if (!demos.includes(slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B: no es un silo de demostracion`);
+  if (!esSlugDemo(demos, slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B: no es un silo de demostracion`);
   if (enVentanaRespaldo(ahora)) throw new ErrorVerbo(409, 'ventana de respaldo (01:45 a 02:30 Chile): intenta despues');
   const marca = await esDemo(slug);
   if (marca === 'no') throw new ErrorVerbo(409, `silos/${slug}/.env sin ES_DEMO=true o no lo escribio el ejecutor: no se borra como demo`);

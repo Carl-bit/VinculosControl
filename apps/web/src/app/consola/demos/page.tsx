@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { CampoNumero, Selector } from '@/componentes/controles';
 import { useConfirmacion } from '@/componentes/dialogo';
-import { claseJob, Shell } from '@/componentes/piezas';
+import { claseJob, EnlaceDominio, Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type DetalleJob, type Resumen } from '@/lib/api';
 
 /*
@@ -46,7 +46,8 @@ function restante(fecha: string | null): string {
 }
 
 const MODULOS = ['FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'PAGINA_PUBLICA'] as const;
-const SLUG = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
+/** Prefijo demo- reservado a los demos (el host B los permite con EJECUTOR_DEMOS=demo-*). */
+const SLUG = /^demo-[a-z0-9-]{0,34}[a-z0-9]$/;
 
 export default function Demos() {
   const router = useRouter();
@@ -76,7 +77,7 @@ export default function Demos() {
     const si = await confirmar({
       etiqueta: `Demo · erp-${slug}`,
       titulo: 'Crear demo',
-      texto: `Se aprovisiona erp-${slug} por 24 h (extensible) con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. Antes, en el host B, el slug debe estar en EJECUTOR_DEMOS (si no, P10 falla). Las llaves (P5) las corre el operador como en todo silo. Correos y contrasena quedan en silos/${slug}/demo-cuentas.txt del host B.`,
+      texto: `Se aprovisiona erp-${slug} por 24 h (extensible) con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. En el host B, EJECUTOR_DEMOS debe permitirlo (demo-* o el slug); si no, P2 falla antes de crear nada. Las llaves (P5) las corre el operador como en todo silo. Correos y contrasena quedan en silos/${slug}/demo-cuentas.txt del host B.`,
       boton: 'Crear y aprovisionar',
     });
     if (si === null) return;
@@ -151,7 +152,7 @@ export default function Demos() {
         <h2>Nuevo demo</h2>
         <div className="rejilla-campos">
           <label className="campo-consola">
-            Slug (erp-&lt;slug&gt;)
+            Slug (empieza con demo-)
             <input className="campo-texto" value={slug} maxLength={40} spellCheck={false} onChange={(e) => setSlug(e.target.value.toLowerCase())} aria-invalid={!SLUG.test(slug)} />
           </label>
           <label className="campo-consola">
@@ -227,7 +228,7 @@ export default function Demos() {
                     <td>
                       <b>{d.nombre}</b>
                       <span className="mono-corto" style={{ display: 'block' }}>
-                        erp-{d.slug} · {d.dominio ?? 'sin dominio'}
+                        erp-{d.slug} · <EnlaceDominio dominio={d.dominio} />
                       </span>
                     </td>
                     <td className="mono-corto">

@@ -40,6 +40,8 @@ describe('demos', () => {
     expect(await contarAuditoria(e.prisma, 'demo.creado')).toBe(1);
     expect((await errorDe(e.demos.crear(pedido as never, op, null))).status).toBe(409);
     expect((await errorDe(e.demos.crear({ ...pedido, slug: 'demo-otro', fija: '0.1.0' } as never, op, null))).status).toBe(422);
+    // Prefijo demo- reservado: un demo sin el prefijo no se crea.
+    expect((await errorDe(e.demos.crear({ ...pedido, slug: 'kibou-prueba' } as never, op, null))).status).toBe(422);
     const lista = await e.demos.listar();
     expect(lista).toHaveLength(1);
     expect(lista[0]).toMatchObject({ slug: 'demo-kibou', cantidades: { cuentas_madre: 2, profesionales: 5, pacientes: 60 }, aprovisionar: { estado: 'PENDIENTE' } });

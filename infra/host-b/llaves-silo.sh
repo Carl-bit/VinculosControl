@@ -31,6 +31,7 @@ ENV_SILO="$SILOS/$SLUG/.env"
 SCRIPT="$ERP/infra/scripts/llaves/aprovisionar.sh"
 
 [ -f "$SCRIPT" ] || falla "no existe $SCRIPT"
+[ -d "$SILOS/$SLUG" ] && [ ! -r "$SILOS/$SLUG" ] && falla "sin permiso para leer $SILOS/$SLUG (de $(stat -c %U "$SILOS/$SLUG" 2>/dev/null || echo otro usuario)): sudo chown -R $(id -un):$(id -gn) $SILOS (ejecutor anterior a EJECUTOR_UID_OPERADOR)"
 [ -f "$ENV_SILO" ] || falla "no existe $ENV_SILO: el job APROVISIONAR aun no paso por P2"
 head -n 1 "$ENV_SILO" | grep -q '^# Generado por el ejecutor' || falla "$ENV_SILO no lo creo el ejecutor"
 [ ! -f "$ERP/infra/secrets/$SLUG/kek" ] || falla "$SLUG ya tiene KEK: no se vuelve a generar"

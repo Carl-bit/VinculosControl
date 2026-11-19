@@ -114,6 +114,8 @@ services:
       EJECUTOR_SES_CONFIGURATION_SET: ${SILOS_SES_CONFIGURATION_SET:-}
       # ACTUALIZAR U1: imagen del auxiliar que cifra el respaldo (monta solo secrets/<slug>/respaldo.key).
       EJECUTOR_IMAGEN_AYUDANTE: vinculos-agente-ejecutor:local
+      # Dueno de silos/<slug>/ (el operador: `id -u`). Asi llaves-silo.sh y respaldo-silo.sh corren sin sudo.
+      EJECUTOR_UID_OPERADOR: ${UID_OPERADOR:-1000}
     # read_only: compose escribe su configuracion en HOME=/tmp.
     tmpfs:
       - /tmp

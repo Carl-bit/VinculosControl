@@ -228,3 +228,16 @@ export const claseJob: Record<string, string> = {
   OMITIDO: 'warn',
   CANCELADO: 'neu',
 };
+
+const DOMINIO = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+
+/** Dominio de un silo como enlace que abre el sitio en otra pestana (sin copiar y pegar). */
+export function EnlaceDominio({ dominio, vacio = 'sin dominio' }: { dominio: string | null | undefined; vacio?: string }) {
+  if (!dominio) return <>{vacio}</>;
+  if (!DOMINIO.test(dominio)) return <>{dominio}</>;
+  return (
+    <a href={`https://${dominio}`} target="_blank" rel="noopener noreferrer" title={`Abrir https://${dominio} en otra pestana`}>
+      {dominio} ↗
+    </a>
+  );
+}

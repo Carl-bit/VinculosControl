@@ -23,6 +23,7 @@ ENV_SILO="$SILOS/$SLUG/.env"
 SECRETOS="$ERP/infra/secrets/$SLUG"
 
 [ -f "$ERP/infra/scripts/continuidad/respaldar.sh" ] || falla "no existe respaldar.sh en $ERP"
+[ -d "$SILOS/$SLUG" ] && [ ! -r "$SILOS/$SLUG" ] && falla "sin permiso para leer $SILOS/$SLUG (de $(stat -c %U "$SILOS/$SLUG" 2>/dev/null || echo otro usuario)): sudo chown -R $(id -un):$(id -gn) $SILOS (ejecutor anterior a EJECUTOR_UID_OPERADOR)"
 [ -f "$ENV_SILO" ] || falla "no existe $ENV_SILO: el job APROVISIONAR aun no paso por P2"
 head -n 1 "$ENV_SILO" | grep -q '^# Generado por el ejecutor' || falla "$ENV_SILO no lo creo el ejecutor"
 [ -f "$SECRETOS/kek" ] || falla "$SLUG aun no tiene llaves (P5): primero llaves-silo.sh"

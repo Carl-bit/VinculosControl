@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { type Compose, type Config, contenidoEnv, MARCA } from './aprovisionar';
-import { cargarDemo, type DiscoDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
+import { cargarDemo, type DiscoDemo, esSlugDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { ErrorVerbo } from './verbos';
 
 const cfg: Config = { erpInfra: '/srv/erp/infra', registro: '127.0.0.1:5000', silosDir: '/silos', smtpUrl: '', sesConfigurationSet: '' };
@@ -42,6 +42,16 @@ describe('demos (R10) en el ejecutor', () => {
     assert.doesNotMatch(contenidoEnv(...args), /ES_DEMO/);
   });
 
+  it('EJECUTOR_DEMOS acepta un prefijo con comodin (demo-*), nunca un * solo', () => {
+    assert.deepEqual(slugsDemo('demo-*, demo-fija'), ['demo-*', 'demo-fija']);
+    for (const malo of ['*', 'demo*', '-*', 'de*mo', 'demo-**']) assert.throws(() => slugsDemo(malo), undefined, malo);
+    const l = slugsDemo('demo-*');
+    assert.equal(esSlugDemo(l, 'demo-paris'), true);
+    assert.equal(esSlugDemo(l, 'paris'), false);
+    assert.equal(esSlugDemo(l, 'demo-'), false);
+    assert.equal(esSlugDemo(l, 'demos-x'), false);
+    assert.equal(esSlugDemo(['demo-kibou'], 'demo-kibou2'), false);
+  });
   it('EJECUTOR_DEMOS y el pedido se validan', () => {
     assert.deepEqual(slugsDemo(' demo1, demo2 '), ['demo1', 'demo2']);
     assert.throws(() => slugsDemo('Demo!'));

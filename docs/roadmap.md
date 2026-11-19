@@ -389,6 +389,23 @@ Revision en el VPS (2026-11-19):
 - Hecho: columna Categoria en Releases (version demo, beta, estable o sin
   promover, y marca "prueba" para las con sufijo) con la explicacion de cada
   canal; P0 de aprovisionar avisa que una version de prueba no llega a estable.
+- Hecho: `silos/<slug>/` y sus archivos quedan del operador
+  (`EJECUTOR_UID_OPERADOR`, `UID_OPERADOR` en `infra/host-b/.env`, 1000 por
+  defecto) y no de root: P5 (`llaves-silo.sh`) fallaba con "no existe .env"
+  porque el operador no podia leer la carpeta. Los scripts ahora distinguen
+  "sin permiso" de "no existe".
+- Hecho: P2 cruza el bloque demo del manifiesto con `EJECUTOR_DEMOS` antes
+  de crear nada (`demo` en el pedido de `preparar`; un demo fuera de la lista
+  fallaba recien en P10). El dominio de cada silo abre el sitio en otra
+  pestana (Silos, detalle del silo y Demos).
+- Hecho (decision del usuario): prefijo `demo-` reservado a los demos (Demos lo
+  exige; el slug de un centro real no puede usarlo; P0 lo revisa) y
+  `EJECUTOR_DEMOS=demo-*` en el host B. Guia del comodin `*.<dominio>` en el
+  tunel y del SSH por el tunel con Access (bitacora en Access y auth.log):
+  `docs/despliegue-vps.md` 3.1 y 3.2. Las partes de la llave de un centro real
+  se bajan por SSH, nunca por la consola (regla dura).
+- Requisito del ERP: certificado comodin en Traefik para no gastar el limite de
+  Let's Encrypt con demos que se crean y se borran.
 - Hallazgo: recrear el agente lo saca de las redes de borde de los silos
   (`POST /v1/bordes/reconectar` del ejecutor lo repone).
 

@@ -130,9 +130,26 @@ export interface ResultadoP0 {
  * y lo que exige aprobar en el MVP: modulos del MVP y contrato de encargo firmado.
  * La misma funcion corre en la consola (antes de aprobar) y en el job aprovisionar.
  */
+/**
+ * Prefijo reservado a los demos (decision del usuario 2026-11-19): un demo
+ * siempre se llama demo-<algo> y un centro real nunca. Asi el host B puede
+ * permitir los demos con EJECUTOR_DEMOS=demo-* sin que un centro real entre.
+ */
+export const PREFIJO_DEMO = 'demo-';
+
+/** Error si el slug no respeta el prefijo reservado (null si esta bien). */
+export function errorPrefijoDemo(slug: string, esDemo: boolean): string | null {
+  const conPrefijo = slug.startsWith(PREFIJO_DEMO);
+  if (esDemo && !conPrefijo) return `El slug de un demo empieza con ${PREFIJO_DEMO} (ej. ${PREFIJO_DEMO}kibou)`;
+  if (!esDemo && conPrefijo) return `El prefijo ${PREFIJO_DEMO} es solo para demos: un centro real usa otro slug`;
+  return null;
+}
+
 export function validarP0(b: Borrador, slug: string | null): ResultadoP0 {
   const errores: string[] = [];
   if (!slug) errores.push('Falta el slug del centro');
+  const prefijo = slug ? errorPrefijoDemo(slug, Boolean(b.demo)) : null;
+  if (prefijo) errores.push(`centro.id: ${prefijo}`);
   const r = manifiestoSchema.safeParse(armarManifiesto(b, slug));
   if (!r.success) for (const i of r.error.issues) errores.push(`${i.path.join('.') || 'manifiesto'}: ${i.message}`);
   for (const m of b.modulos ?? []) if (!(MODULOS_MVP as readonly string[]).includes(m)) errores.push(`modulos: ${m} no se ofrece en el MVP`);
@@ -161,5 +178,6 @@ export function sugerirSlug(nombre: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 40)
     .replace(/-+$/g, '');
-  return /^[a-z]/.test(base) && base.length >= 3 ? base : `centro-${base || 'nuevo'}`.slice(0, 40);
+  // demo- queda para los demos: un centro real llamado "Demo ..." se sugiere como centro-demo-...
+  return /^[a-z]/.test(base) && base.length >= 3 && !base.startsWith(PREFIJO_DEMO) ? base : `centro-${base || 'nuevo'}`.slice(0, 40).replace(/-+$/g, '');
 }

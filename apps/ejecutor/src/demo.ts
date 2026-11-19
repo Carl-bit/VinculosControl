@@ -20,7 +20,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { argsCompose, type Compose, type Config, leerVariables, MARCA } from './aprovisionar';
-import { ErrorVerbo, SLUG } from './verbos';
+import { ErrorVerbo, esSlugDemo, SLUG } from './verbos';
 
 export interface PedidoDemo {
   cuentasMadre: number;
@@ -39,15 +39,24 @@ export interface DiscoDemo {
 const NOMBRE = /^[\p{L}\p{N} .,'&()-]{2,80}$/u;
 const RESULTADO = /^DEMO_RESULTADO (\{.*\})$/m;
 
-/** Lista fija del .env del host B (EJECUTOR_DEMOS). */
+/** Prefijo con comodin: "demo-*" (letras, numeros y guiones, termina en guion, 3+ caracteres antes del *). */
+const PREFIJO = /^[a-z][a-z0-9-]{1,30}-\*$/;
+
+/**
+ * Lista del .env del host B (EJECUTOR_DEMOS): slugs exactos o un prefijo con
+ * comodin ("demo-*", decision del usuario 2026-11-19; el plano de control
+ * reserva ese prefijo para los demos). Nunca un "*" solo.
+ */
 export function slugsDemo(valor: string | undefined): string[] {
   const lista = (valor ?? '')
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean);
-  for (const s of lista) if (!SLUG.test(s)) throw new Error(`EJECUTOR_DEMOS: slug invalido (${s})`);
+  for (const s of lista) if (!SLUG.test(s) && !PREFIJO.test(s)) throw new Error(`EJECUTOR_DEMOS: slug o prefijo invalido (${s}; ej. demo-kibou o demo-*)`);
   return lista;
 }
+
+export { esSlugDemo } from './verbos';
 
 export function validarPedidoDemo(p: unknown): PedidoDemo {
   const o = (p ?? {}) as Record<string, unknown>;
@@ -69,7 +78,7 @@ export function validarPedidoDemo(p: unknown): PedidoDemo {
 
 async function exigirDemo(disco: DiscoDemo, demos: string[], slug: string) {
   if (!SLUG.test(slug)) throw new ErrorVerbo(400, 'slug invalido');
-  if (!demos.includes(slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B: no es un silo de demostracion`);
+  if (!esSlugDemo(demos, slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B: no es un silo de demostracion`);
   const env = await disco.leerEnv(slug);
   if (env === null || !env.startsWith(MARCA)) throw new ErrorVerbo(409, `erp-${slug} no lo aprovisiono el ejecutor`);
   const v = leerVariables(env);

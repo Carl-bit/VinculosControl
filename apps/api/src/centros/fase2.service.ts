@@ -10,6 +10,7 @@ import {
   datosCentroSchema,
   mezclarBorradorCentro,
   SLUG,
+  errorPrefijoDemo,
   sugerirSlug,
   validarP0,
 } from '@vinculos/manifest';
@@ -92,6 +93,9 @@ export class Fase2Service {
     const c = await this.centro(id);
     this.exigirAntesDeAprobado(c.estado);
     if (!SLUG.test(slug)) throw new BadRequestException({ mensaje: 'Slug: minusculas, numeros y guiones; 3 a 40; empieza con letra' });
+    // Esta via es la de los centros reales: los demos reciben su slug al crearse (Demos).
+    const prefijo = errorPrefijoDemo(slug, false);
+    if (prefijo) throw new BadRequestException({ mensaje: prefijo });
     if (c.slug === slug) return;
     const [otro, silo] = await Promise.all([
       this.prisma.centro.findUnique({ where: { slug }, select: { id: true } }),

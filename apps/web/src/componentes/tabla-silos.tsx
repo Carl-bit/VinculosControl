@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useConfirmacion } from '@/componentes/dialogo';
-import { ChipSalud, Medidor } from '@/componentes/piezas';
+import { ChipSalud, EnlaceDominio, Medidor } from '@/componentes/piezas';
 import { accion, enviarConSesion, hace, mensajeDe, mib, type DetalleJob, type Resumen } from '@/lib/api';
 
 /** Tabla de silos (stacks erp-* que reporta el agente): la usan Resumen y Silos. */
@@ -74,7 +74,9 @@ export function TablaSilos({ resumen: r, recargar }: { resumen?: Resumen; recarg
               <tr key={s.slug}>
                 <td className="nowrap">
                   {s.adoptado ? <Link href={`/consola/silos/${s.slug}`}>{s.slug}</Link> : s.slug}
-                  <div className="sub">{s.dominio ?? 'sin dominio'}</div>
+                  <div className="sub">
+                    <EnlaceDominio dominio={s.dominio} />
+                  </div>
                 </td>
                 <td>
                   <ChipSalud silo={s} />

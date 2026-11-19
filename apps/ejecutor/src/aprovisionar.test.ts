@@ -17,6 +17,7 @@ import {
   sha256,
   validarConfig,
   validarFase,
+  revisarDemo,
   validarPedido,
 } from './aprovisionar';
 import { type Contenedor, ErrorVerbo } from './verbos';
@@ -93,6 +94,24 @@ describe('validaciones de entrada', () => {
     ]) {
       assert.throws(() => validarPedido(malo), (e: unknown) => e instanceof ErrorVerbo && e.status === 400, JSON.stringify(malo));
     }
+  });
+  it('pedido con demo opcional; P2 cruza demo con EJECUTOR_DEMOS antes de crear nada', () => {
+    assert.deepEqual(validarPedido({ ...PEDIDO, demo: true }), { ...PEDIDO, demo: true });
+    assert.throws(() => validarPedido({ ...PEDIDO, demo: 'si' }), (e: unknown) => e instanceof ErrorVerbo && e.status === 400);
+    const st = (f: () => void) => {
+      try {
+        f();
+        return 200;
+      } catch (e) {
+        return e instanceof ErrorVerbo ? e.status : 500;
+      }
+    };
+    assert.equal(st(() => revisarDemo({ ...PEDIDO, demo: true }, 'demo-paris', ['demo-kibou'])), 403);
+    assert.equal(st(() => revisarDemo({ ...PEDIDO, demo: false }, 'demo-kibou', ['demo-kibou'])), 409);
+    assert.equal(st(() => revisarDemo({ ...PEDIDO, demo: true }, 'demo-kibou', ['demo-kibou'])), 200);
+    assert.equal(st(() => revisarDemo({ ...PEDIDO, demo: false }, 'kibou', ['demo-kibou'])), 200);
+    // Agente anterior (sin demo): no se revisa.
+    assert.equal(st(() => revisarDemo(PEDIDO, 'demo-paris', [])), 200);
   });
   it('fase: bd o todo', () => {
     assert.equal(validarFase({ fase: 'bd' }), 'bd');

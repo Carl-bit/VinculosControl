@@ -1,7 +1,7 @@
 import { Body, ConflictException, Controller, Get, HttpCode, Injectable, NotFoundException, Param, ParseIntPipe, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import type { Prisma } from '@prisma/client';
-import { CANALES_DEMO, LIMITES_DEMO, MODULOS_MVP, TEMAS, validarP0, type Borrador } from '@vinculos/manifest';
+import { CANALES_DEMO, errorPrefijoDemo, LIMITES_DEMO, MODULOS_MVP, TEMAS, validarP0, type Borrador } from '@vinculos/manifest';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
@@ -30,6 +30,7 @@ export function extenderVence(actual: Date | null, ahora: Date): Date {
 
 class CrearDemoDto {
   @Matches(SLUG)
+  @Matches(/^demo-/, { message: 'El slug de un demo empieza con demo- (ej. demo-kibou)' })
   slug!: string;
 
   @IsString()
@@ -115,6 +116,8 @@ export class DemosService {
 
   async crear(d: CrearDemoDto, op: OperadorSesion, ip: string | null) {
     if (d.canal && d.fija) throw new UnprocessableEntityException({ mensaje: 'Elige un canal o una version fija, no ambos' });
+    const prefijo = errorPrefijoDemo(d.slug, true);
+    if (prefijo) throw new UnprocessableEntityException({ mensaje: prefijo });
     const previo = await this.prisma.centro.findUnique({ where: { slug: d.slug } });
     // Un demo eliminado suelta su slug (EJECUTOR_DEMOS es una lista fija del host B: los slugs se reusan).
     if (previo?.origen === 'demo' && previo.estado === 'ELIMINADO') await this.prisma.centro.update({ where: { id: previo.id }, data: { slug: null } });

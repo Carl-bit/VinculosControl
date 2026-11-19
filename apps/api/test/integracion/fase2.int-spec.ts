@@ -56,6 +56,7 @@ describe('fase 2: slug', () => {
     const id = await enReunion();
     expect((await errorDe(e.fase2.definirSlug(id, 'ocupado', op, null))).status).toBe(409);
     expect((await errorDe(e.fase2.definirSlug(id, 'Con Espacios', op, null))).status).toBe(400);
+    expect((await errorDe(e.fase2.definirSlug(id, 'demo-real', op, null))).status).toBe(400);
     await e.fase2.definirSlug(id, 'kibou', op, null); // mismo: sin cambios
     expect(await contarAuditoria(e.prisma, 'centro.slug')).toBe(1);
   });

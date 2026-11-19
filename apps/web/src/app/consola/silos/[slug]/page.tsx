@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { CampoFecha } from '@/componentes/controles';
 import { Dialogo, useConfirmacion } from '@/componentes/dialogo';
-import { ChipSalud, claseJob, claseSeveridad, Grafico, Medidor, Shell } from '@/componentes/piezas';
+import { ChipSalud, claseJob, claseSeveridad, EnlaceDominio, Grafico, Medidor, Shell } from '@/componentes/piezas';
 import { SolicitudesModulo } from '@/componentes/solicitudes-modulo';
 import { enviarConSesion, hace, mensajeDe, mib, tamano, useDatos, type DetalleJob, type DetalleSalida, type Detalle, type Incidente, type Resumen } from '@/lib/api';
 
@@ -147,7 +147,7 @@ export default function Silo() {
       <div>
         <h1>{slug}</h1>
         <span className="sub">
-          {d?.dominio ?? ''} · ultimas 24 h{error && ` · error: ${error}`}
+          <EnlaceDominio dominio={d?.dominio} vacio="" /> · ultimas 24 h{error && ` · error: ${error}`}
         </span>
       </div>
       <div className="acciones">

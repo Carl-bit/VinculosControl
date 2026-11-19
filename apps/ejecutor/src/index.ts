@@ -12,7 +12,7 @@
  *     POST /v1/silos/<slug>/detener          (B: para, no borra)
  *     POST /v1/silos/<slug>/reanudar         (B: arranca lo detenido)
  *     POST /v1/silos/<slug>/eliminar         (C: { actaHash } + consentimiento bajas/<slug>)
- *     POST /v1/silos/<slug>/preparar         (P0 imagen, P2, P3: { version, dominio, nombre, tema })
+ *     POST /v1/silos/<slug>/preparar         (P0 imagen, P2, P3: { version, dominio, nombre, tema, demo? })
  *     POST /v1/silos/<slug>/levantar         (P4 / P6: { fase: "bd" | "todo" })
  *     POST /v1/silos/<slug>/respaldar        (ACTUALIZAR U1: respaldo cifrado sin leer la llave)
  *     POST /v1/silos/<slug>/actualizar       (ACTUALIZAR U2: { version }, guarda anterior.env)
@@ -30,9 +30,9 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { actualizar, respaldar, revertir, validarVersion } from './actualizar';
-import { argsCompose, type Config, leerVariables, levantar, MARCA, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
+import { argsCompose, type Config, leerVariables, levantar, MARCA, preparar, revisarDemo, validarConfig, validarFase, validarPedido } from './aprovisionar';
 import { conPrevia, detener, discoReal, eliminar, eliminarDemo, HASH, reanudar } from './ciclo';
-import { cargarDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
+import { cargarDemo, esSlugDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { docker, dockerApr, dockerCiclo } from './docker';
 import { composeReal, discoSilosReal, tuberiaReal } from './silos';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
@@ -66,6 +66,7 @@ const APR = (() => {
     tokensDir: e.EJECUTOR_TOKENS_DIR,
     plantilla: e.EJECUTOR_PLANTILLA ?? '/app/plantilla/silo.compose.tpl',
     uidAgente: Number(e.EJECUTOR_UID_AGENTE ?? 1000),
+    uidOperador: Number(e.EJECUTOR_UID_OPERADOR ?? 1000),
   });
   return { cfg, disco };
 })();
@@ -163,8 +164,9 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
     case 'preparar': {
       if (!APR) throw new ErrorVerbo(409, SIN_APR);
       const pedido = validarPedido(await leerJson(req, 1024));
+      revisarDemo(pedido, slug, DEMOS);
       // imagenes: version y digests que el agente reporta en P2 (el silo los guarda: tag + digest).
-      return preparar(dockerApr, APR.disco, composeReal, APR.cfg, slug, pedido, DEMOS.includes(slug));
+      return preparar(dockerApr, APR.disco, composeReal, APR.cfg, slug, pedido, esSlugDemo(DEMOS, slug));
     }
     case 'levantar': {
       if (!APR) throw new ErrorVerbo(409, SIN_APR);

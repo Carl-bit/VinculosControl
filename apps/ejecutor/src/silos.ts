@@ -38,14 +38,22 @@ async function escribir(ruta: string, contenido: string, modo: number, uid?: num
   await fs.rename(tmp, ruta);
 }
 
-export function discoSilosReal(o: { silosDir: string; imagenesDir: string; tokensDir: string; plantilla: string; uidAgente?: number }): DiscoActualizar & DiscoDemo {
+/**
+ * uidOperador: silos/<slug>/ y sus archivos quedan del usuario del operador del
+ * host B (700/600), no de root: llaves-silo.sh y respaldo-silo.sh los leen sin
+ * sudo (hallazgo 2026-11-19 en el VPS: P5 decia "no existe .env"). Ese usuario ya
+ * tiene Docker, asi que no gana acceso nuevo.
+ */
+export function discoSilosReal(o: { silosDir: string; imagenesDir: string; tokensDir: string; plantilla: string; uidAgente?: number; uidOperador?: number }): DiscoActualizar & DiscoDemo {
   const dir = async (slug: string) => {
     const d = join(o.silosDir, validarSlug(slug));
     await fs.mkdir(d, { recursive: true, mode: 0o700 });
     const st = await fs.lstat(d);
     if (st.isSymbolicLink() || !st.isDirectory()) throw new Error(`silos/${slug} no es una carpeta comun`);
+    if (o.uidOperador !== undefined && st.uid !== o.uidOperador) await fs.chown(d, o.uidOperador, o.uidOperador).catch(() => undefined);
     return d;
   };
+  const op = o.uidOperador;
   return {
     plantilla: async () => {
       const t = await leer(o.plantilla, 256 * 1024);
@@ -57,18 +65,18 @@ export function discoSilosReal(o: { silosDir: string; imagenesDir: string; token
       return leer(join(o.imagenesDir, `${version}.env`));
     },
     leerEnv: (slug) => leer(join(o.silosDir, validarSlug(slug), '.env')),
-    escribirEnv: async (slug, contenido) => escribir(join(await dir(slug), '.env'), contenido, 0o600),
-    escribirCompose: async (slug, contenido) => escribir(join(await dir(slug), 'docker-compose.yml'), contenido, 0o600),
+    escribirEnv: async (slug, contenido) => escribir(join(await dir(slug), '.env'), contenido, 0o600, op),
+    escribirCompose: async (slug, contenido) => escribir(join(await dir(slug), 'docker-compose.yml'), contenido, 0o600, op),
     existeCompose: async (slug) => (await leer(join(o.silosDir, validarSlug(slug), 'docker-compose.yml'), 256 * 1024)) !== null,
     leerToken: (slug) => leer(join(o.tokensDir, `${validarSlug(slug)}.token`), 200),
     // 600 y del usuario del agente (uid 1000 en su imagen): solo el agente lo lee.
     escribirToken: (slug, token) => escribir(join(o.tokensDir, `${validarSlug(slug)}.token`), token, 0o600, o.uidAgente),
     // ACTUALIZAR: lineas de imagen de antes del cambio (para revertir).
     leerAnterior: (slug) => leer(join(o.silosDir, validarSlug(slug), 'anterior.env')),
-    escribirAnterior: async (slug, contenido) => escribir(join(await dir(slug), 'anterior.env'), contenido, 0o600),
+    escribirAnterior: async (slug, contenido) => escribir(join(await dir(slug), 'anterior.env'), contenido, 0o600, op),
     // Demos (R10): correos, roles y contrasena del demo; solo en el host B, 600.
     leerCuentas: (slug) => leer(join(o.silosDir, validarSlug(slug), 'demo-cuentas.txt'), 64 * 1024),
-    escribirCuentas: async (slug, contenido) => escribir(join(await dir(slug), 'demo-cuentas.txt'), contenido, 0o600),
+    escribirCuentas: async (slug, contenido) => escribir(join(await dir(slug), 'demo-cuentas.txt'), contenido, 0o600, op),
   };
 }
 

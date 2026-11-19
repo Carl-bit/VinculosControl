@@ -90,8 +90,62 @@ Todos de tipo HTTP y con el puerto interno del contenedor (no el de 127.0.0.1).
 - `agente-control.<dominio>` sin Access (el agente se autentica con su token)
   y solo con el path `/agente/`: el resto de la API no se publica.
 - Los silos siguen por la regla que ya existe hacia `https://traefik:443` (un
-  hostname por silo, o `*.<dominio>` si el plan lo permite). Un silo nuevo
+  hostname por silo, o el comodin de abajo). Sin comodin, un silo nuevo
   necesita su hostname antes de P8.
+
+### 3.1 Comodin para los silos (recomendado)
+
+Con el comodin, un silo o demo nuevo no necesita su hostname en el tunel y P8
+pasa solo.
+
+1. Zero Trust > Networks > Tunnels > el tunel > Public Hostnames > Add:
+   Subdomain `*`, Domain `<dominio>`, servicio igual al de los silos
+   (`https://traefik:443`, mismas opciones de TLS). Dejarlo **ultimo**: las
+   reglas se evaluan en orden y `control`, `vinculos`, `agente-control` y
+   `correo-control` van antes.
+2. DNS > Records: un `CNAME` `*` -> `<id-del-tunel>.cfargotunnel.com`,
+   proxied (nube naranja). El panel a veces no lo crea para el comodin. Los
+   registros con nombre propio siguen ganandole al comodin.
+3. SSL/TLS > Edge Certificates: el certificado universal debe cubrir
+   `*.<dominio>` (viene en el plan gratis; cubre un nivel, `demo-x.<dominio>`).
+4. Access no cambia: las aplicaciones de `control` y `correo-control` siguen.
+   Un subdominio que no existe llega a Traefik y responde 404 (antes NXDOMAIN).
+5. Let's Encrypt: Traefik saca un certificado por dominio de silo (limite de
+   unos 50 por semana por dominio). Con muchos demos que se crean y se borran,
+   conviene un certificado comodin en el Traefik del ERP (requisito del ERP).
+
+Prueba: crear un demo sin agregar su hostname; P8 debe pasar solo.
+
+### 3.2 SSH por el tunel (acceso remoto al host B)
+
+Para operar el host B fuera de la red local (P5, P9, entregar las partes de la
+llave de un centro real) sin abrir el puerto 22. Las llaves nunca pasan por la
+consola: se bajan por SSH a la maquina del operador y se entregan desde ahi.
+
+1. Public Hostnames > Add: `ssh.<dominio>`, servicio `ssh://host.docker.internal:22`
+   (o `ssh://<ip-del-host-en-la-red-de-cloudflared>:22`; si `cloudflared` corre
+   en Docker, agregar `extra_hosts: host.docker.internal:host-gateway`).
+2. Access > Applications > Self-hosted sobre `ssh.<dominio>`: politica Allow
+   solo con el correo del operador (igual que `control`). Sin Access, no publicar.
+3. En el PC del operador, con `cloudflared` instalado, en `~/.ssh/config`:
+
+   ```
+   Host vps
+     HostName ssh.<dominio>
+     User dev
+     ProxyCommand cloudflared access ssh --hostname %h
+   ```
+
+   `ssh vps` abre el navegador para Access la primera vez. Copiar archivos:
+   `scp vps:~/Vinculos/Vinculos/infra/secrets/<slug>/partes_entregar/parte_1.shamir .`
+4. En el servidor: solo llave publica (`PasswordAuthentication no` en
+   `/etc/ssh/sshd_config`).
+
+Bitacora: Cloudflare registra quien entro, cuando y desde donde (Zero Trust >
+Logs > Access); el servidor registra cada sesion en `/var/log/auth.log`. Para
+grabar tambien los comandos: `auditd` o `script` en el perfil de `dev`.
+Despues de entregar las partes de un centro real: `shred -u` en el servidor y
+en el PC del operador.
 
 ## 4. Host B (agente, ejecutor y registro)
 
@@ -109,8 +163,19 @@ En `infra/host-b/.env`:
 | `EJECUTOR_TOKEN` | `openssl rand -hex 32` |
 | `RESPALDOS_HOST`, `TOKENS_INTERNOS_HOST`, `ERP_INFRA_HOST`, `IMAGENES_HOST` | los del ejemplo (rutas de `~/Vinculos/Vinculos/infra`) |
 | `EJECUTOR_UNIR_BORDE` | `vinculos-servidor-traefik-1,vinculos-agente-agente-1` |
-| `EJECUTOR_DEMOS` | slugs de demostracion, por ejemplo `demo-kibou` (paso 5). Nunca un centro real |
+| `EJECUTOR_DEMOS` | `demo-*` (todos los demos; la consola reserva el prefijo `demo-`) o slugs sueltos. Nunca un centro real ni `*` |
 | `SILO_INTERNO_URL`, `SILO_INTERNO_SLUGS` | comentados (solo desarrollo local) |
+
+Antes del primer `up`, crear las carpetas montadas con el usuario del operador:
+si no existen, Docker las crea como root y despues `publicar.sh`,
+`respaldo-silo.sh` y `llaves-silo.sh` fallan con "Permission denied"
+(hallazgo 2026-11-19). Si ya pasaron por un `up`, `sudo chown -R dev:dev` de
+las mismas rutas.
+
+```sh
+E=~/Vinculos/Vinculos/infra
+mkdir -p $E/imagenes $E/respaldos $E/servidor/internos infra/host-b/bajas infra/host-b/silos
+```
 
 ```sh
 docker compose -f infra/host-b/docker-compose.yml --env-file infra/host-b/.env up -d --build
@@ -129,9 +194,11 @@ La consola muestra el host B "en linea" y los silos de `servidor.sh` sin adoptar
    ```
 
    En unos minutos aparece en Releases. Promoverla a `demo`.
-2. En el `.env` del host B, `EJECUTOR_DEMOS=demo-kibou` (el slug que vas a
-   usar) y `up -d ejecutor`. Hostname `demo-kibou.<dominio>` en el tunel.
-3. Consola > Demos: slug `demo-kibou`, nombre, canal `demo`, modulos y
+2. Una sola vez: en el `.env` del host B, `EJECUTOR_DEMOS=demo-*` y
+   `up -d ejecutor`. Con el comodin (3.1) no hace falta hostname por demo; sin
+   el, `demo-kibou.<dominio>` en el tunel. Si el slug no esta permitido, P2
+   falla antes de crear nada.
+3. Consola > Demos: slug `demo-kibou` (siempre con `demo-`), nombre, canal `demo`, modulos y
    cantidades. Se encola APROVISIONAR:
    - P5 (llaves, manual): `sh infra/host-b/llaves-silo.sh demo-kibou "Operador:proveedor,Demo:centro,Sobre:caja" --prueba` y confirmar en la consola.
    - P9 (respaldo): `sh infra/host-b/respaldo-silo.sh demo-kibou` y reintentar el paso.
@@ -168,5 +235,8 @@ migra, recrea, comprueba `/api/salud` y entrega las notas de version.
   unido a la red de borde con su alias. `servidor.sh levantar <slug>` lo repone.
 - **Agente sin latido**: revisar `CONTROL_URL` (https y el path `/agente/` en el
   tunel) y `AGENTE_TOKEN` (`crear-agente` con el mismo nombre rota el token).
-- **P10 de un demo falla con 403**: el slug no esta en `EJECUTOR_DEMOS`.
+- **P2 de un demo falla con 403 "no esta en EJECUTOR_DEMOS"**: poner
+  `EJECUTOR_DEMOS=demo-*`, `up -d ejecutor` y reintentar P2.
+- **`Permission denied` en `publicar.sh`, `respaldo-silo.sh` o `llaves-silo.sh`**:
+  carpetas creadas por Docker como root (paso 4): `sudo chown -R dev:dev`.
 - **P8 espera al operador**: falta el hostname del silo en el tunel.

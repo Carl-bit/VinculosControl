@@ -39,7 +39,7 @@ interface EstadoContenedor {
 type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo' | 'eliminar_demo';
 
 /** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar, levantar y actualizar. */
-type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' } | { version: string } | { cuentasMadre: number; profesionales: number; pacientes: number; nombre: string };
+type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string; demo: boolean } | { fase: 'bd' | 'todo' } | { version: string } | { cuentasMadre: number; profesionales: number; pacientes: number; nombre: string };
 
 /** Error del ejecutor con su status HTTP (409 de levantar sin llaves = esperar al operador). */
 export class ErrorEjecutor extends Error {
@@ -358,7 +358,8 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     if (capacidad.estado !== 'OK') return capacidad;
     const m = (j.manifiesto ?? {}) as ManifiestoAprov;
     // La version la resolvio P0 (fija o la del canal) y viaja en el job.
-    const pedido = { version: j.referencia ?? m.version?.fija ?? '', dominio: m.dominio?.valor ?? '', nombre: m.centro?.nombre ?? '', tema: m.estilo?.tema ?? 'moderno' };
+    // demo: el ejecutor lo compara con EJECUTOR_DEMOS antes de crear nada (un demo fuera de la lista falla aqui, no en P10).
+    const pedido = { version: j.referencia ?? m.version?.fija ?? '', dominio: m.dominio?.valor ?? '', nombre: m.centro?.nombre ?? '', tema: m.estilo?.tema ?? 'moderno', demo: Boolean(m.demo) };
     const r = await ejecutor<{ log: string[]; imagenes: { version: string; apiDigest: string; webDigest: string } }>('POST', j.slug, 'preparar', pedido);
     return { estado: 'OK', log: [...integridad.log, ...capacidad.log, ...r.log], datos: r.imagenes };
   },
