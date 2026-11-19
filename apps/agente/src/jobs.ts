@@ -26,7 +26,7 @@ const EJECUTOR_TOKEN = process.env.EJECUTOR_TOKEN ?? '';
 
 /** RECONFIGURAR y SOLO_LECTURA no usan el ejecutor: hablan con /api/internal del silo (token por silo). */
 export const TIPOS = EJECUTOR
-  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR', 'REINICIAR_DEMO'] as const)
+  ? (['VERIFICAR', 'REINICIAR_SILO', 'RECONFIGURAR', 'SOLO_LECTURA', 'DETENER_SILO', 'REANUDAR_SILO', 'ELIMINAR', 'APROVISIONAR', 'ACTUALIZAR', 'REINICIAR_DEMO', 'ELIMINAR_DEMO'] as const)
   : (['VERIFICAR', 'RECONFIGURAR', 'SOLO_LECTURA'] as const);
 
 interface EstadoContenedor {
@@ -36,7 +36,7 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo';
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo' | 'eliminar_demo';
 
 /** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar, levantar y actualizar. */
 type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string } | { fase: 'bd' | 'todo' } | { version: string } | { cuentasMadre: number; profesionales: number; pacientes: number; nombre: string };
@@ -58,7 +58,7 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEje
     headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
     body: envio ? JSON.stringify(envio) : undefined,
     // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min); respaldar, un pg_dump completo.
-    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir', 'cargar_demo', 'resembrar_demo'].includes(verbo) ? 30 * 60_000 : 180_000),
+    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir', 'cargar_demo', 'resembrar_demo', 'eliminar_demo'].includes(verbo) ? 30 * 60_000 : 180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
@@ -305,6 +305,16 @@ export const EJECUTORES: Record<string, Ejecutor> = {
       await new Promise((r) => setTimeout(r, 5_000));
     }
     return { estado: 'FALLIDO', log: ultimo.map(lineaEstado), error: 'db, backend o frontend no quedaron en marcha y sanos en 90 s' };
+  },
+
+  // ---------- ELIMINAR_DEMO (demo vencido; el ejecutor exige EJECUTOR_DEMOS y ES_DEMO=true) ----------
+  async Y1(j) {
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'eliminar_demo');
+    return { estado: 'OK', log };
+  },
+
+  async Y2(j) {
+    return EJECUTORES.X3(j);
   },
 
   // ---------- ELIMINAR (salida S7; opcion C: consentimiento local bajas/<slug>) ----------

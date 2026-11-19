@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { conPrevia, detener, type Disco, type DockerCiclo, eliminacionPrevia, eliminar, reanudar, type RedProyecto, type Volumen } from './ciclo';
+import { conPrevia, detener, type Disco, type DockerCiclo, eliminacionPrevia, eliminar, eliminarDemo, reanudar, type RedProyecto, type Volumen } from './ciclo';
 import { type Contenedor, ErrorVerbo } from './verbos';
 
 const DIA = new Date('2026-11-14T15:00:00Z'); // 12:00 Chile: fuera de la ventana
@@ -196,5 +196,53 @@ describe('eliminar (C)', () => {
     assert.equal(await status(eliminar(d, disco(ACTA).x, 'kibou', 'xyz', DIA)), 400);
     assert.equal(await status(eliminar(d, disco(ACTA).x, 'Kibou', ACTA, DIA)), 400);
     assert.equal(await status(eliminar(d, disco(ACTA).x, 'kibou', ACTA, VENTANA)), 409);
+  });
+});
+
+describe('eliminarDemo (demo vencido)', () => {
+  const DEMOS = ['kibou'];
+  const si = async () => 'si' as const;
+
+  it('fuera de EJECUTOR_DEMOS o sin ES_DEMO: no toca nada', async () => {
+    const { d, hechos } = falso([c('db'), c('backend')], { vols: [vol('erp-kibou_db_data')] });
+    const { x } = disco(null);
+    assert.equal(await status(eliminarDemo(d, x, ['otro'], si, 'kibou', DIA)), 403);
+    assert.equal(await status(eliminarDemo(d, x, DEMOS, async () => 'no', 'kibou', DIA)), 409);
+    assert.equal(await status(eliminarDemo(d, x, DEMOS, si, 'kibou', VENTANA)), 409);
+    assert.deepEqual(hechos, []);
+  });
+
+  it('sin .env del ejecutor pero con contenedores o volumenes: 409 (silo levantado a mano)', async () => {
+    const { d, hechos } = falso([], { vols: [vol('erp-kibou_db_data')] });
+    const { x } = disco(null);
+    assert.equal(await status(eliminarDemo(d, x, DEMOS, async () => 'sin_env', 'kibou', DIA)), 409);
+    assert.deepEqual(hechos, []);
+  });
+
+  it('en marcha: suelta el borde, detiene y borra; no pide acta ni bajas/<slug>', async () => {
+    const cs = [c('db'), c('backend'), c('frontend')];
+    const { d, hechos } = falso(cs, { vols: [vol('erp-kibou_db_data'), vol('erp-otro_db_data', 'erp-otro')], redes: [red('erp-kibou_borde')] });
+    const { x, hechos: h2 } = disco(null);
+    const orden: string[] = [];
+    const r = await eliminarDemo(d, x, DEMOS, si, 'kibou', DIA, async () => {
+      orden.push(`soltar con ${hechos.length} hechos`);
+      return ['borde soltado'];
+    });
+    assert.deepEqual(orden, ['soltar con 0 hechos']);
+    assert.deepEqual(hechos.slice(0, 3), ['stop frontend', 'stop backend', 'stop db']);
+    assert.ok(hechos.includes('rmvol erp-kibou_db_data'));
+    assert.ok(!hechos.includes('rmvol erp-otro_db_data'));
+    assert.ok(hechos.includes('rmred erp-kibou_borde'));
+    assert.deepEqual(h2, ['rm respaldos/kibou']);
+    assert.equal(r.inventario.contenedores.length, 3);
+    assert.ok(r.log.some((l) => l.includes('infra/secrets/kibou')));
+  });
+
+  it('idempotente: ya borrado (sin .env ni nada del proyecto) no falla', async () => {
+    const { d, hechos } = falso([]);
+    const { x } = disco(null, null);
+    const r = await eliminarDemo(d, x, DEMOS, async () => 'sin_env', 'kibou', DIA);
+    assert.deepEqual(hechos, []);
+    assert.equal(r.inventario.contenedores.length, 0);
   });
 });

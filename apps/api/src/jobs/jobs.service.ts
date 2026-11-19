@@ -107,6 +107,54 @@ export class JobsService {
     return this.detalle(job.id);
   }
 
+  /**
+   * Baja de un demo (vencido o a pedido del operador, desde DemosService). Un
+   * job activo del centro bloquea (el llamador decide si lo cancela antes).
+   */
+  async crearEliminarDemo(centroId: number, slug: string, actor: string, ip: string | null) {
+    const activo = await this.prisma.job.findFirst({ where: { OR: [{ centroId }, { siloSlug: slug }], estado: { in: [...ACTIVOS] } }, select: { id: true } });
+    if (activo) throw new ConflictException({ mensaje: `Ya hay un job activo para este demo (#${activo.id})` });
+    const job = await this.prisma.job.create({
+      data: {
+        tipo: 'ELIMINAR_DEMO',
+        centroId,
+        siloSlug: slug,
+        creadoPor: actor,
+        pasos: { create: EJECUTABLES.ELIMINAR_DEMO!.map((d, i) => ({ orden: i, codigo: d.codigo, nombre: d.nombre, detalle: d.detalle, ejecutor: d.ejecutor })) },
+      },
+    });
+    await this.auditoria.registrar(actor, 'job.creado', `job:${job.id}`, ['ELIMINAR_DEMO', slug, ip].filter(Boolean).join(' · '));
+    await this.correrPasosControl(job.id);
+    return this.detalle(job.id);
+  }
+
+  /** P0 de ELIMINAR_DEMO: el centro es un demo (origen y bloque demo del manifiesto), no esta eliminado y estamos fuera de la ventana. */
+  private async p0EliminarDemo(centroId: number, slug: string): Promise<{ ok: boolean; log: string[]; error: string | null }> {
+    const log = [`baja del demo erp-${slug}`];
+    const no = (error: string) => ({ ok: false, log, error });
+    const c = await this.prisma.centro.findUnique({ where: { id: centroId } });
+    if (!c || c.origen !== 'demo' || c.slug !== slug) return no('El centro no es un demo con ese slug');
+    const rev = c.revisionAprobada ? await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId, numero: c.revisionAprobada } }, select: { contenido: true } }) : null;
+    if (!(rev?.contenido as { demo?: unknown } | null)?.demo) return no('El manifiesto del centro no tiene el bloque demo');
+    if (c.estado === 'ELIMINADO') return no('El demo ya esta eliminado');
+    log.push(`centro ${c.estado}${c.demoVenceEn ? `, vence ${c.demoVenceEn.toISOString()}` : ''}`);
+    if (enVentanaRespaldo(new Date())) return no('Ventana de respaldo (01:45 a 02:30 Chile): intenta despues');
+    log.push('fuera de la ventana de respaldo');
+    return { ok: true, log, error: null };
+  }
+
+  /** ELIMINAR_DEMO OK: el centro queda ELIMINADO y el silo sale del registro (deja libre el slug para otro demo). */
+  async demoEliminado(centroId: number, slug: string, actor: string, motivo: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const c = await tx.centro.findUniqueOrThrow({ where: { id: centroId } });
+      if (c.estado === 'ELIMINADO') return;
+      await tx.centro.update({ where: { id: centroId }, data: { estado: 'ELIMINADO' } });
+      await tx.transicionCentro.create({ data: { centroId, desde: c.estado, hacia: 'ELIMINADO', actor, motivo: motivo.slice(0, 300) } });
+      await tx.silo.deleteMany({ where: { slug } });
+    });
+    await this.auditoria.registrar(actor, 'demo.eliminado', `centro:${centroId}`, `${slug} · ${motivo}`.slice(0, 300));
+  }
+
   /** P0 de SOLO_LECTURA: ACTIVAR con la salida abierta y sin reversion; QUITAR con la reversion pedida en la ultima salida. */
   private async p0SoloLectura(centroId: number, slug: string, referencia: string | null): Promise<{ ok: boolean; log: string[]; error: string | null }> {
     const log = [`solo lectura de erp-${slug}: ${referencia ?? '?'}`];
@@ -247,6 +295,8 @@ export class JobsService {
             ? await this.p0Salida(job.tipo, job.centroId!, job.siloSlug!, job.referencia)
             : job.tipo === 'REINICIAR_DEMO'
               ? await this.p0Demo(job.siloSlug!, job.id)
+            : job.tipo === 'ELIMINAR_DEMO'
+              ? await this.p0EliminarDemo(job.centroId!, job.siloSlug!)
             : SOBRE_SILO.includes(job.tipo)
               ? await this.p0Silo(job.siloSlug!)
               : await this.p0Manifiesto(job.tipo, job.centroId!, job.revision!, job.hashManifiesto!, job.siloSlug!);
@@ -354,7 +404,7 @@ export class JobsService {
   }
 
   /** VERIFICAR no crea nada: cancelar no tiene que deshacer. Los jobs que crean cosas deshacen solo lo propio. */
-  async cancelar(id: number, op: OperadorSesion, ip: string | null) {
+  async cancelar(id: number, op: Pick<OperadorSesion, 'correo'>, ip: string | null) {
     const job = await this.prisma.job.findUnique({ where: { id } });
     if (!job) throw new NotFoundException();
     if (!puedeCancelar(job.estado)) throw new UnprocessableEntityException({ mensaje: `Un job ${job.estado} no se cancela` });
@@ -632,6 +682,11 @@ export class JobsService {
         );
       }
       if (nuevo === 'OK') {
+        if (job.tipo === 'ELIMINAR_DEMO' && job.centroId && job.siloSlug) {
+          await this.demoEliminado(job.centroId, job.siloSlug, `job:${jobId}`, `demo eliminado por job:${jobId}`).catch((e: unknown) =>
+            this.auditoria.registrar('control', 'demo.cierre_fallido', `job:${jobId}`, (e instanceof Error ? e.message : String(e)).slice(0, 300)),
+          );
+        }
         if (job.tipo === 'APROVISIONAR') {
           await this.aprov.alTerminar(job).catch((e: unknown) =>
             this.auditoria.registrar('control', 'aprovisionar.cierre_fallido', `job:${jobId}`, (e instanceof Error ? e.message : String(e)).slice(0, 300)),

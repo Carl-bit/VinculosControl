@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { hashManifiesto, jsonCanonico } from './hash';
-import { completarDependencias, fase1Schema, manifiestoSchema, quitarModulo, reglasSchema, rutValido, validarModulos } from './index';
+import { completarDependencias, fase1Schema, formatearRut,manifiestoSchema, quitarModulo, reglasSchema, rutValido, validarModulos } from './index';
 
 describe('modulos', () => {
   it('MATCH y PAGINA_PUBLICA requieren EQUIPO', () => {
@@ -97,6 +97,16 @@ describe('manifiesto completo', () => {
     assert.equal(rutValido('76.086.428-5'), true);
     assert.equal(rutValido('76.086.428-4'), false);
     assert.equal(rutValido('11.111.111-1'), true);
+    assert.equal(rutValido('111111111'), true);
+  });
+  it('formatea el RUT mientras se escribe', () => {
+    assert.equal(formatearRut('111111111'), '11.111.111-1');
+    assert.equal(formatearRut('760864285'), '76.086.428-5');
+    assert.equal(formatearRut('7.654.321-k'), '7.654.321-K');
+    assert.equal(formatearRut('1'), '1');
+    assert.equal(formatearRut('12'), '1-2');
+    assert.equal(formatearRut('1k2'), '1-2');
+    assert.equal(formatearRut('11.111.111-11'), '11.111.111-1');
   });
 
   it('canal demo y bloque demo: el canal demo exige el bloque; las cantidades tienen limites', () => {

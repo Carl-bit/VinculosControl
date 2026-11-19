@@ -78,6 +78,16 @@ const REINICIAR_DEMO: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'centro de demostracion activo, silo reportado, sin job activo, fuera de la ventana de respaldo, uno por hora', ejecutor: 'control' },
   { codigo: 'R1', nombre: 'Resembrar', detalle: 'proximas horas del demo y acceso del practicante (ejecutor: resembrar_demo, demo_resembrar.js del ERP)', ejecutor: 'agente' },
 ];
+/**
+ * Baja de un demo (decision del usuario 2026-11-19, opcion A): al vencer sus
+ * 24 h o a pedido del operador desde Demos. Sin acta ni bajas/<slug>: el
+ * ejecutor solo lo acepta para slugs de EJECUTOR_DEMOS con ES_DEMO=true.
+ */
+const ELIMINAR_DEMO: DefPaso[] = [
+  { codigo: 'P0', nombre: 'Validar', detalle: 'centro de demostracion (manifiesto con bloque demo), no eliminado, fuera de la ventana de respaldo', ejecutor: 'control' },
+  { codigo: 'Y1', nombre: 'Eliminar demo', detalle: 'detiene, suelta el borde y borra contenedores, volumenes, redes, respaldos/<slug>/ y silos/<slug>/ (ejecutor: eliminar_demo)', ejecutor: 'agente' },
+  { codigo: 'Y2', nombre: 'Comprobar', detalle: 'sin contenedores de erp-<slug>', ejecutor: 'agente' },
+];
 const ELIMINAR: DefPaso[] = [
   { codigo: 'P0', nombre: 'Validar', detalle: 'GRACIA vencida, confirmacion escrita, silo detenido, sin reversion, hash del acta de recepcion', ejecutor: 'control' },
   { codigo: 'X1', nombre: 'Detenido', detalle: 'ningun contenedor de erp-<slug> en marcha', ejecutor: 'agente' },
@@ -131,6 +141,7 @@ export const EJECUTABLES: Partial<Record<TipoJob, DefPaso[]>> = {
   REANUDAR_SILO,
   SOLO_LECTURA,
   REINICIAR_DEMO,
+  ELIMINAR_DEMO,
   ELIMINAR,
   APROVISIONAR: PASOS_APROVISIONAR,
   ACTUALIZAR: PASOS_ACTUALIZAR,
@@ -182,6 +193,7 @@ export function enVentanaRespaldo(ahora: Date): boolean {
 /** Jobs que se encolan desde su propia vista (no desde la lista de jobs con un centro). */
 export const CON_VISTA_PROPIA: Partial<Record<TipoJob, string>> = {
   ACTUALIZAR: 'ACTUALIZAR se encola desde el silo o desde Releases (cascada)',
+  ELIMINAR_DEMO: 'La baja de un demo se pide desde Demos (o llega sola al vencer)',
 };
 
 export const BLOQUEO: Partial<Record<TipoJob, string>> = {

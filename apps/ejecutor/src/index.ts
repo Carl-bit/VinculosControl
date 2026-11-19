@@ -19,6 +19,7 @@
  *     POST /v1/silos/<slug>/revertir         (ACTUALIZAR: vuelve a anterior.env)
  *     POST /v1/silos/<slug>/cargar_demo      (R10: { cuentasMadre, profesionales, pacientes, nombre }; solo EJECUTOR_DEMOS)
  *     POST /v1/silos/<slug>/resembrar_demo   (R10: proximas horas del demo, sin borrar nada; solo EJECUTOR_DEMOS)
+ *     POST /v1/silos/<slug>/eliminar_demo    (demo vencido: detiene y borra; solo EJECUTOR_DEMOS con ES_DEMO=true)
  * - A quien se une a las redes de borde lo fija EJECUTOR_UNIR_BORDE del .env del
  *   host B (Traefik y el agente), nunca el plano de control.
  * - Una operacion de escritura a la vez.
@@ -29,8 +30,8 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { actualizar, respaldar, revertir, validarVersion } from './actualizar';
-import { argsCompose, type Config, levantar, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
-import { conPrevia, detener, discoReal, eliminar, HASH, reanudar } from './ciclo';
+import { argsCompose, type Config, leerVariables, levantar, MARCA, preparar, validarConfig, validarFase, validarPedido } from './aprovisionar';
+import { conPrevia, detener, discoReal, eliminar, eliminarDemo, HASH, reanudar } from './ciclo';
 import { cargarDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { docker, dockerApr, dockerCiclo } from './docker';
 import { composeReal, discoSilosReal, tuberiaReal } from './silos';
@@ -71,10 +72,10 @@ const APR = (() => {
 /** Imagen del contenedor auxiliar que cifra los respaldos (la del propio ejecutor, con openssl). */
 const AYUDANTE = process.env.EJECUTOR_IMAGEN_AYUDANTE ?? 'vinculos-agente-ejecutor:local';
 const SIN_APR = 'aprovisionamiento deshabilitado: faltan EJECUTOR_ERP_INFRA, EJECUTOR_SILOS_DIR, EJECUTOR_IMAGENES_DIR o EJECUTOR_TOKENS_DIR';
-const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar|respaldar|actualizar|revertir|cargar_demo|resembrar_demo)$/;
+const RUTA_SILO = /^\/v1\/silos\/([^/]+)\/(estado|reiniciar|conectar_borde|soltar_borde|detener|reanudar|eliminar|preparar|levantar|respaldar|actualizar|revertir|cargar_demo|resembrar_demo|eliminar_demo)$/;
 const RUTA_BORDES = '/v1/bordes/reconectar';
 
-type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo';
+type Verbo = 'estado' | 'reiniciar' | 'conectar_borde' | 'soltar_borde' | 'reconectar_bordes' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo' | 'eliminar_demo';
 
 /** Cuerpo JSON acotado (eliminar, preparar, levantar). El resto de los verbos no lleva cuerpo. */
 function leerJson(req: IncomingMessage, max: number): Promise<unknown> {
@@ -200,6 +201,19 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       if (!APR) throw new ErrorVerbo(409, SIN_APR);
       return resembrarDemo(APR.disco, composeReal, APR.cfg, DEMOS, slug);
     }
+    case 'eliminar_demo': {
+      if (!APR || !RESPALDOS_DIR) throw new ErrorVerbo(409, `${SIN_APR} o EJECUTOR_RESPALDOS_DIR`);
+      const silos = APR.disco;
+      const esDemo = async (s: string) => {
+        const env = await silos.leerEnv(s);
+        if (env === null) return 'sin_env' as const;
+        return env.startsWith(MARCA) && leerVariables(env).ES_DEMO === 'true' ? ('si' as const) : ('no' as const);
+      };
+      // Sin bajas/: el consentimiento de un demo es estar en EJECUTOR_DEMOS con ES_DEMO=true.
+      const disco = discoReal(BAJAS_DIR || '/nonexistent', RESPALDOS_DIR, { silosDir: process.env.EJECUTOR_SILOS_DIR!, tokensDir: process.env.EJECUTOR_TOKENS_DIR! });
+      const r = await eliminarDemo(dockerCiclo, disco, DEMOS, esDemo, slug, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
+      return conPrevia(r, await readFile(LOG, 'utf8').catch(() => ''), slug, 'eliminar_demo');
+    }
     default:
       return { log: await escribirSimple(verbo, slug) };
   }
@@ -250,5 +264,5 @@ if (TOKEN.length < 32) {
   process.exit(1);
 }
 servidor.listen(PUERTO, '0.0.0.0', () =>
-  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}, preparar, levantar, respaldar, actualizar y revertir${APR ? '' : ' (deshabilitados)'}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
+  process.stdout.write(`ejecutor en :${PUERTO} (verbos: estado, reiniciar, conectar_borde, soltar_borde, reconectar_bordes, detener, reanudar, eliminar${BAJAS_DIR && RESPALDOS_DIR ? "" : " (deshabilitado)"}, eliminar_demo, preparar, levantar, respaldar, actualizar y revertir${APR ? '' : ' (deshabilitados)'}; borde: ${UNIR_BORDE.join(', ') || 'sin configurar'})\n`),
 );

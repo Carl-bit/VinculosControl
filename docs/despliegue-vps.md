@@ -137,6 +137,9 @@ La consola muestra el host B "en linea" y los silos de `servidor.sh` sin adoptar
    - P9 (respaldo): `sh infra/host-b/respaldo-silo.sh demo-kibou` y reintentar el paso.
    - P10 genera los datos. Correos y contrasena: `infra/host-b/silos/demo-kibou/demo-cuentas.txt` (600, solo en el VPS).
 4. Resembrar desde Demos (una vez por hora como maximo).
+5. Cada demo vive 24 h: "Extender 24 h" en Demos (tope 7 dias). Al vencer se
+   encola ELIMINAR_DEMO y el ejecutor lo borra; quedan a mano `infra/secrets/<slug>/`
+   (shred) y el hostname del tunel. El slug queda libre para otro demo.
 
 ## 6. Mailpit del control y del ERP
 

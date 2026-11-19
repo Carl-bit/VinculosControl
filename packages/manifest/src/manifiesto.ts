@@ -42,6 +42,21 @@ export function rutValido(rut: string): boolean {
   return dv === m[2];
 }
 
+/**
+ * Formatea un RUT mientras se escribe: "111111111" -> "11.111.111-1". Deja solo
+ * digitos y una K final; el ultimo caracter es el digito verificador.
+ */
+export function formatearRut(entrada: string): string {
+  const s = entrada
+    .toUpperCase()
+    .replace(/[^0-9K]/g, '')
+    .replace(/K(?=.)/g, '')
+    .slice(0, 9);
+  if (s.length < 2) return s;
+  const cuerpo = s.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${cuerpo}-${s.slice(-1)}`;
+}
+
 export const manifiestoSchema = z
   .object({
     schema: z.literal(1),

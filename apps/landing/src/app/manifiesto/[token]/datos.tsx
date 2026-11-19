@@ -4,6 +4,7 @@ import {
   type Borrador,
   completarDependencias,
   DEPENDENCIAS,
+  formatearRut,
   type Modulo,
   MODULOS_MVP,
   NOMBRE_MODULO,
@@ -165,7 +166,18 @@ export function DatosFormales({ token }: { token: string }) {
           <div className="f2-fila">
             <label className="f2-campo">
               RUT
-              <input name="rut" defaultValue={b.centro?.rut ?? ''} maxLength={14} placeholder="76.123.456-7" aria-invalid={mal('centro.rut')} />
+              <input
+                name="rut"
+                defaultValue={formatearRut(b.centro?.rut ?? '')}
+                maxLength={12}
+                inputMode="text"
+                autoComplete="off"
+                placeholder="76.123.456-7"
+                aria-invalid={mal('centro.rut')}
+                onChange={(e) => {
+                  e.currentTarget.value = formatearRut(e.currentTarget.value);
+                }}
+              />
             </label>
             <label className="f2-campo">
               Tipo de entidad

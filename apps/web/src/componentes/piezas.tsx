@@ -58,6 +58,8 @@ export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo
     { l: 'Ajustes', items: [{ href: '/consola/config', l: 'Configuracion', d: ICONOS.config }] },
   ];
   const activo = (href: string) => ruta === href || (href !== '/consola' && ruta.startsWith(`${href}/`));
+  // Vista de detalle (/consola/<seccion>/<id>): enlace para volver a la lista de su seccion.
+  const padre = grupos.flatMap((g) => g.items).find((e) => e.href !== '/consola' && ruta.startsWith(`${e.href}/`));
   const { datos: yo } = useDatos<Yo>('consola/acceso/yo', 60_000);
   const [sitioUrl, setSitioUrl] = useState<string>();
   useEffect(() => {
@@ -117,6 +119,11 @@ export function Shell({ resumen, titulo, children }: { resumen?: Resumen; titulo
       </aside>
       <main className="principal">
         <div className="barra">
+          {padre && (
+            <Link href={padre.href} className="boton" aria-label={`Volver a ${padre.l}`}>
+              ← {padre.l}
+            </Link>
+          )}
           <span className="ruta">
             consola / <b>{titulo}</b>
           </span>

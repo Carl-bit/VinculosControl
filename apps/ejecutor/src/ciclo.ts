@@ -7,7 +7,7 @@
  *                            redes, secretos ni respaldos: se revierte con reanudar.
  *   reanudar(slug)           B: arranca los contenedores existentes (db, espera
  *                            sana, backend, frontend). Rollback de una salida en gracia.
- *   eliminar(slug, acta)     C: UNICO verbo que destruye. Borra contenedores,
+ *   eliminar(slug, acta)     C: verbo que destruye un silo real. Borra contenedores,
  *                            volumenes y redes del proyecto erp-<slug> y la carpeta
  *                            respaldos/<slug>/ del host. Exige:
  *                              - consentimiento local en el host B: el archivo
@@ -19,6 +19,9 @@
  *                              - el silo detenido y fuera de la ventana de respaldo.
  *                            No toca infra/secrets/<slug>/ (llaves: shred manual del
  *                            operador), el bucket externo, el DNS ni el crontab.
+ *   eliminarDemo(slug)       Baja de un demo vencido (2026-11-19): solo slugs de
+ *                            EJECUTOR_DEMOS con ES_DEMO=true en su .env; detiene
+ *                            y borra lo mismo que eliminar, sin acta ni bajas/<slug>.
  * Todo nombre que se borra se valida contra el proyecto erp-<slug> (label de
  * compose y prefijo del nombre): nunca otro silo ni el plano del host.
  */
@@ -174,6 +177,16 @@ export async function eliminar(
   const cs = await d.listar(proyecto(slug));
   const enMarcha = cs.filter((c) => c.State === 'running' || c.State === 'restarting');
   if (enMarcha.length) throw new ErrorVerbo(409, `erp-${slug} sigue en marcha (${enMarcha.map(servicio).join(', ')}): detener primero`);
+  const r = await borrarProyecto(d, disco, slug, cs, soltarBorde);
+  r.log.push(`pendiente manual: shred de infra/secrets/${slug}/, bucket externo, DNS/tunel, crontab y bajas/${slug}`);
+  return r;
+}
+
+/**
+ * Borrado comun de eliminar y eliminarDemo, ya pasadas sus precondiciones.
+ * Lee todo antes de borrar lo primero: si algo es inesperado no se empieza.
+ */
+async function borrarProyecto(d: DockerCiclo, disco: Disco, slug: string, cs: Contenedor[], soltarBorde: () => Promise<string[]>): Promise<{ log: string[]; inventario: Inventario }> {
   const vols = (await d.volumenes(proyecto(slug))).filter((v) => delProyecto(slug, v.Name, v.Labels));
   const redes = (await d.redes(proyecto(slug))).filter((r) => delProyecto(slug, r.Name, r.Labels));
   const resp = await disco.respaldos(slug);
@@ -206,8 +219,54 @@ export async function eliminar(
     await disco.borrarArchivosSilo(slug);
     log.push(`archivos del ejecutor: ${delSilo.join(', ')}`);
   } else log.push(disco.archivosSilo ? `silos/${slug}/ no existe` : 'archivos del ejecutor: sin EJECUTOR_SILOS_DIR (no se tocan)');
-  log.push(`pendiente manual: shred de infra/secrets/${slug}/, bucket externo, DNS/tunel, crontab y bajas/${slug}`);
   return { log, inventario };
+}
+
+/**
+ * Baja de un demo vencido (decision del usuario 2026-11-19, opcion A). Solo
+ * slugs de EJECUTOR_DEMOS cuyo .env lo escribio el ejecutor con ES_DEMO=true:
+ * un demo no tiene datos reales, por eso no pide acta ni bajas/<slug>. Detiene
+ * lo que siga en marcha, suelta el borde y borra como eliminar. Nunca toca
+ * infra/secrets/<slug>/ (llaves: shred manual).
+ *
+ * `esDemo` lee silos/<slug>/.env: 'si' (marca del ejecutor y ES_DEMO=true),
+ * 'no' (existe pero no es demo) o 'sin_env'. Sin .env solo se acepta si no
+ * queda nada del proyecto (reintento tras un exito): un silo levantado a mano
+ * con un slug de la lista nunca se borra por aqui.
+ */
+export async function eliminarDemo(
+  d: DockerCiclo,
+  disco: Disco,
+  demos: string[],
+  esDemo: (slug: string) => Promise<'si' | 'no' | 'sin_env'>,
+  slug: string,
+  ahora = new Date(),
+  soltarBorde: () => Promise<string[]> = async () => [],
+): Promise<{ log: string[]; inventario: Inventario }> {
+  validarSlug(slug);
+  if (!demos.includes(slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B: no es un silo de demostracion`);
+  if (enVentanaRespaldo(ahora)) throw new ErrorVerbo(409, 'ventana de respaldo (01:45 a 02:30 Chile): intenta despues');
+  const marca = await esDemo(slug);
+  if (marca === 'no') throw new ErrorVerbo(409, `silos/${slug}/.env sin ES_DEMO=true o no lo escribio el ejecutor: no se borra como demo`);
+  let cs = await d.listar(proyecto(slug));
+  if (marca === 'sin_env') {
+    const vols = (await d.volumenes(proyecto(slug))).filter((v) => delProyecto(slug, v.Name, v.Labels));
+    if (cs.length || vols.length) throw new ErrorVerbo(409, `erp-${slug} existe pero sin silos/${slug}/.env del ejecutor: no se borra como demo`);
+  }
+  const log: string[] = [];
+  const enMarcha = cs.filter((c) => c.State === 'running' || c.State === 'restarting');
+  if (enMarcha.length) {
+    log.push(...(await soltarBorde()));
+    for (const c of enOrden(enMarcha, ORDEN_DETENER)) {
+      await d.detener(c.Id, 30);
+      log.push(`${servicio(c)} detenido (${c.Id.slice(0, 12)})`);
+    }
+    cs = await d.listar(proyecto(slug));
+  }
+  const r = await borrarProyecto(d, disco, slug, cs, enMarcha.length ? async () => [] : soltarBorde);
+  r.log.unshift(...log);
+  r.log.push(`pendiente manual: shred de infra/secrets/${slug}/ y hostname ${slug} del tunel`);
+  return r;
 }
 
 const vacio = (i: Inventario) => !i.contenedores.length && !i.volumenes.length && !i.redes.length && !i.respaldos.archivos;
@@ -218,13 +277,13 @@ const vacio = (i: Inventario) => !i.contenedores.length && !i.volumenes.length &
  * respuesta de un eliminar que si borro y reintenta: la segunda corrida no
  * encuentra nada, y sin esto el acta S7 recibiria un inventario vacio.
  */
-export function eliminacionPrevia(auditoria: string, slug: string): { en: string; inventario: Inventario } | null {
+export function eliminacionPrevia(auditoria: string, slug: string, verbo = 'eliminar'): { en: string; inventario: Inventario } | null {
   const lineas = auditoria.split('\n');
   for (let i = lineas.length - 1; i >= 0; i--) {
-    if (!lineas[i].includes('"eliminar"')) continue;
+    if (!lineas[i].includes(`"${verbo}"`)) continue;
     try {
       const r = JSON.parse(lineas[i]) as { en?: string; verbo?: string; slug?: string; ok?: boolean; inventario?: Inventario };
-      if (r.verbo === 'eliminar' && r.slug === slug && r.ok && r.inventario && !vacio(r.inventario)) return { en: r.en ?? '?', inventario: r.inventario };
+      if (r.verbo === verbo && r.slug === slug && r.ok && r.inventario && !vacio(r.inventario)) return { en: r.en ?? '?', inventario: r.inventario };
     } catch {
       // linea cortada o ajena: se ignora
     }
@@ -233,9 +292,9 @@ export function eliminacionPrevia(auditoria: string, slug: string): { en: string
 }
 
 /** Si esta corrida no borro nada, agrega al log lo que borro la corrida previa (evidencia para el acta). */
-export function conPrevia(r: { log: string[]; inventario: Inventario }, auditoria: string, slug: string) {
+export function conPrevia(r: { log: string[]; inventario: Inventario }, auditoria: string, slug: string, verbo = 'eliminar') {
   if (!vacio(r.inventario)) return r;
-  const p = eliminacionPrevia(auditoria, slug);
+  const p = eliminacionPrevia(auditoria, slug, verbo);
   if (!p) return r;
   const i = p.inventario;
   return {

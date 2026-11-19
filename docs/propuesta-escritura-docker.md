@@ -112,7 +112,7 @@ El usuario aprobo, para la salida de un centro (CONTEXTO.md seccion 8):
   borra contenedores, volumenes, redes, secretos ni respaldos. `reanudar`
   arranca db, espera que este sana y arranca backend y frontend (une el borde).
   Jobs DETENER_SILO (S6) y REANUDAR_SILO (reversion en gracia).
-- **C. `eliminar`**: el unico verbo que destruye. Para que sea real y no un
+- **C. `eliminar`**: el unico verbo que destruye un silo real (los demos tienen `eliminar_demo`, ver `docs/roadmap.md`, 2026-11-19). Para que sea real y no un
   checklist, pero acotado:
   - consentimiento local en el host B: el operador crea a mano
     `infra/host-b/bajas/<slug>` con el hash del acta de recepcion de esa salida;

@@ -6,6 +6,7 @@ import {
   CAMPOS_REGLAS,
   completarDependencias,
   DEPENDENCIAS,
+  formatearRut,
   type Modulo,
   MODULOS_MVP,
   NOMBRE_MODULO,
@@ -205,7 +206,7 @@ export function VistaManifiesto({
       <section className="panel columna-form">
         <div className="rejilla-campos">
           {campo('Razon social', c.razon_social, (s) => cambiar((x) => void ((x.centro ??= {}).razon_social = s)))}
-          {campo('RUT', c.rut, (s) => cambiar((x) => void ((x.centro ??= {}).rut = s)), { max: 14, ph: '76.123.456-7' })}
+          {campo('RUT', c.rut, (s) => cambiar((x) => void ((x.centro ??= {}).rut = formatearRut(s))), { max: 12, ph: '76.123.456-7' })}
           <label className="campo-consola">
             Tipo de entidad
             <Selector

@@ -16,6 +16,9 @@ import { enviarConSesion, hace, mensajeDe, useDatos, type DetalleJob, type Resum
  * Correos y contrasena de las cuentas quedan solo en el host B
  * (silos/<slug>/demo-cuentas.txt): aqui llegan conteos. Solo los slugs de
  * EJECUTOR_DEMOS del host B pueden ser demo.
+ * Cada demo vive 24 h (decision 2026-11-19): se extiende de a 24 h para que el
+ * centro lo revise despues de la reunion; al vencer, el plano de control
+ * encola ELIMINAR_DEMO y el ejecutor lo borra.
  */
 
 interface FilaDemo {
@@ -28,6 +31,18 @@ interface FilaDemo {
   silo: { vistoEn: string | null; version: string | null; adoptado: boolean } | null;
   aprovisionar: { id: number; estado: string; error: string | null } | null;
   resembrado: { id: number; estado: string; creadoEn: string; terminadoEn: string | null } | null;
+  venceEn: string | null;
+  baja: { id: number; estado: string; error: string | null } | null;
+}
+
+/** "en 5 h 20 min" hasta la fecha; "vencido" si ya paso. */
+function restante(fecha: string | null): string {
+  if (!fecha) return 'sin vencimiento';
+  const ms = new Date(fecha).getTime() - Date.now();
+  if (ms <= 0) return 'vencido';
+  const min = Math.round(ms / 60_000);
+  const h = Math.floor(min / 60);
+  return h >= 24 ? `en ${Math.floor(h / 24)} d ${h % 24} h` : h ? `en ${h} h ${min % 60} min` : `en ${min} min`;
 }
 
 const MODULOS = ['FICHAS', 'AGENDA', 'EQUIPO', 'MATCH', 'PAGINA_PUBLICA'] as const;
@@ -61,7 +76,7 @@ export default function Demos() {
     const si = await confirmar({
       etiqueta: `Demo · erp-${slug}`,
       titulo: 'Crear demo',
-      texto: `Se aprovisiona erp-${slug} con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. Antes, en el host B, el slug debe estar en EJECUTOR_DEMOS (si no, P10 falla). Las llaves (P5) las corre el operador como en todo silo. Correos y contrasena quedan en silos/${slug}/demo-cuentas.txt del host B.`,
+      texto: `Se aprovisiona erp-${slug} por 24 h (extensible) con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. Antes, en el host B, el slug debe estar en EJECUTOR_DEMOS (si no, P10 falla). Las llaves (P5) las corre el operador como en todo silo. Correos y contrasena quedan en silos/${slug}/demo-cuentas.txt del host B.`,
       boton: 'Crear y aprovisionar',
     });
     if (si === null) return;
@@ -83,6 +98,27 @@ export default function Demos() {
     } finally {
       setOcupado(false);
     }
+  };
+
+  const extender = async (d: FilaDemo) => {
+    const res = await enviarConSesion<{ venceEn: string }>(`consola/demos/${d.centroId}/extender`, undefined);
+    setMsg(res.ok ? { t: `erp-${d.slug} vence ${new Date(res.datos.venceEn).toLocaleString('es-CL')}`, ok: true } : { t: mensajeDe(res.datos, `No se pudo (HTTP ${res.status})`), ok: false });
+    await recargar();
+  };
+
+  const darDeBaja = async (d: FilaDemo) => {
+    const si = await confirmar({
+      etiqueta: `Demo · erp-${d.slug}`,
+      titulo: 'Dar de baja ahora',
+      texto: `Detiene y borra erp-${d.slug} en el host B: contenedores, volumenes, redes, respaldos y credenciales del demo. No se puede deshacer. Las llaves (infra/secrets/${d.slug}/) y el hostname del tunel quedan para borrar a mano.`,
+      boton: 'Dar de baja',
+    });
+    if (si === null) return;
+    const res = await enviarConSesion<{ job: DetalleJob | null }>(`consola/demos/${d.centroId}/baja`, undefined);
+    if (!res.ok) setMsg({ t: mensajeDe(res.datos, `No se pudo (HTTP ${res.status})`), ok: false });
+    else if (res.datos.job) router.push(`/consola/jobs/${res.datos.job.id}`);
+    else setMsg({ t: `erp-${d.slug} eliminado (no se habia preparado en el host B)`, ok: true });
+    await recargar();
   };
 
   const resembrar = async (d: FilaDemo) => {
@@ -181,6 +217,7 @@ export default function Demos() {
                   <th>Estado</th>
                   <th>Aprovisionar</th>
                   <th>Resembrado</th>
+                  <th>Vence</th>
                   <th />
                 </tr>
               </thead>
@@ -219,9 +256,30 @@ export default function Demos() {
                       )}
                     </td>
                     <td>
-                      <button type="button" className="boton" disabled={!['ACTIVO', 'ACTIVO_SIN_DOMINIO'].includes(d.estado)} onClick={() => void resembrar(d)}>
-                        Resembrar
-                      </button>
+                      {d.estado === 'ELIMINADO' ? (
+                        <span className="mono-corto">eliminado</span>
+                      ) : d.baja && d.baja.estado !== 'CANCELADO' ? (
+                        <Link href={`/consola/jobs/${d.baja.id}`} className={`chip ${claseJob[d.baja.estado] ?? 'neu'}`} title={d.baja.error ?? undefined}>
+                          baja #{d.baja.id} {d.baja.estado}
+                        </Link>
+                      ) : (
+                        <span className={`chip ${restante(d.venceEn) === 'vencido' ? 'danger' : 'neu'}`} title={d.venceEn ? new Date(d.venceEn).toLocaleString('es-CL') : undefined}>
+                          {restante(d.venceEn)}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="acciones" style={{ flexWrap: 'nowrap' }}>
+                        <button type="button" className="boton" disabled={!['ACTIVO', 'ACTIVO_SIN_DOMINIO'].includes(d.estado)} onClick={() => void resembrar(d)}>
+                          Resembrar
+                        </button>
+                        <button type="button" className="boton" disabled={d.estado === 'ELIMINADO'} onClick={() => void extender(d)} title="Para revisarlo despues de la reunion (tope 7 dias)">
+                          Extender 24 h
+                        </button>
+                        <button type="button" className="boton" disabled={d.estado === 'ELIMINADO'} onClick={() => void darDeBaja(d)}>
+                          Dar de baja
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

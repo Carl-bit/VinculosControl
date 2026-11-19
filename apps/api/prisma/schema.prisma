@@ -237,6 +237,9 @@ model Centro {
   hashAprobado     String?   @map("hash_aprobado")
   aprobadoEn       DateTime? @map("aprobado_en")
 
+  /// Solo demos (origen demo): pasada esta fecha se encola ELIMINAR_DEMO. 24 h al crearlo; el operador lo extiende de a 24 h.
+  demoVenceEn      DateTime? @map("demo_vence_en")
+
   transiciones TransicionCentro[]
   revisiones   RevisionManifiesto[]
   enlaces      EnlaceFase2[]
@@ -317,6 +320,8 @@ enum TipoJob {
   REANUDAR_SILO
   /// R12 (salida S2): pone o quita el silo en solo lectura por /api/internal/salida. referencia: ACTIVAR:<fecha de corte> o QUITAR.
   SOLO_LECTURA
+  /// Baja de un demo vencido (o dado de baja por el operador): el ejecutor detiene y borra el silo (solo EJECUTOR_DEMOS con ES_DEMO=true).
+  ELIMINAR_DEMO
 
   @@map("tipo_job")
 }

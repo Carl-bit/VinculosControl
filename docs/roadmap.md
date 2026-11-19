@@ -365,6 +365,30 @@ separados. Se mantiene el modelo pull: el agente llega a la API por HTTPS (por
 el tunel de Cloudflare), nunca por la red local. La separacion en dos hosts
 sigue siendo la regla para produccion.
 
+Revision en el VPS (2026-11-19):
+- Enlaces de `/solicitud` y `/manifiesto/<token>` con NXDOMAIN: `LANDING_URL`
+  mal escrito en `infra/host-a/.env` (configuracion, no codigo).
+- P0 de aprovisionar y demos falla sin version promovida al canal: el agente
+  no reportaba (sin latido) y no habia version publicada con `publicar.sh`.
+  Es el orden esperado (pasos 4 y 5 de `docs/despliegue-vps.md`).
+- Hecho: RUT formateado mientras se escribe (`formatearRut` en
+  `packages/manifest`, landing fase 2 y consola) y enlace para volver a la
+  lista en las vistas de detalle de la consola.
+- Hecho (decision del usuario: opcion A, 1 dia): demos con vencimiento.
+  `centros.demo_vence_en` (24 h al crear; "Extender 24 h" en Demos, tope 7
+  dias); cada 10 min el plano de control encola `ELIMINAR_DEMO` (P0, Y1
+  `eliminar_demo` del ejecutor, Y2 comprobar) y al terminar el centro queda
+  ELIMINADO, sale el registro del silo y el slug queda libre. Un demo que no
+  llego a P2 pasa directo a ELIMINADO; un APROVISIONAR esperando llaves o
+  dominio se cancela. `eliminar_demo` solo acepta slugs de `EJECUTOR_DEMOS`
+  con `ES_DEMO=true` en su `.env` (sin acta ni `bajas/<slug>`) y nunca toca
+  `infra/secrets/<slug>/` ni el hostname del tunel (manual).
+- Requisito del ERP (anotado): `publicar.sh` escribe `infra/imagenes/<v>.env`
+  despues de subir las imagenes; si la carpeta no se puede escribir, el tag
+  queda en el registro sin release. Revisar la escritura antes del push.
+- Hallazgo: recrear el agente lo saca de las redes de borde de los silos
+  (`POST /v1/bordes/reconectar` del ejecutor lo repone).
+
 ## Siguiente paso (2026-11-15)
 
 Prioridad (decision del usuario, 2026-11-15): terminar el MVP antes de buscar

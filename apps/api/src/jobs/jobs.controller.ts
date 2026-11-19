@@ -135,7 +135,7 @@ export class JobsConsolaController {
 
 class ReclamarDto {
   @IsArray()
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(20)
   @IsEnum(TipoJob, { each: true })
   tipos: TipoJob[];
 }
