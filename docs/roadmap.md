@@ -386,6 +386,9 @@ Revision en el VPS (2026-11-19):
 - Requisito del ERP (anotado): `publicar.sh` escribe `infra/imagenes/<v>.env`
   despues de subir las imagenes; si la carpeta no se puede escribir, el tag
   queda en el registro sin release. Revisar la escritura antes del push.
+- Hecho: columna Categoria en Releases (version demo, beta, estable o sin
+  promover, y marca "prueba" para las con sufijo) con la explicacion de cada
+  canal; P0 de aprovisionar avisa que una version de prueba no llega a estable.
 - Hallazgo: recrear el agente lo saca de las redes de borde de los silos
   (`POST /v1/bordes/reconectar` del ejecutor lo repone).
 

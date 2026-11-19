@@ -57,7 +57,10 @@ export class AprovisionarService {
         version = m.version.fija;
       } else {
         const r = await this.releases.deCanal(m.version.canal as Canal);
-        if (!r) return no(`No hay una version promovida al canal ${m.version.canal}: promover una en Releases`);
+        if (!r)
+          return no(
+            `No hay una version promovida al canal ${m.version.canal}: promover una en Releases${m.version.canal === 'estable' ? ' (una version de prueba, con sufijo, no llega a estable: usar canal demo o beta en el manifiesto, o publicar X.Y.Z)' : ''}`,
+          );
         version = r.version;
       }
       await this.prisma.job.update({ where: { id: job.id }, data: { referencia: version } });

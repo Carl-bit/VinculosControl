@@ -21,6 +21,19 @@ const CANALES = [
   { canal: 'estable', campo: 'enEstableEn' },
 ] as const;
 
+/**
+ * Categoria visible de una version: el canal mas alto al que llego. "prueba" =
+ * version con sufijo (0.1.0-prueba.3): sirve para demo y beta, nunca estable.
+ */
+function categoria(rel: Release): { t: string; clase: string; ayuda: string } {
+  if (rel.conflicto) return { t: 'En conflicto', clase: 'danger', ayuda: 'El host B informa otros digests para este tag: no se usa' };
+  if (rel.enEstableEn) return { t: 'Version estable', clase: 'ok', ayuda: 'Probada en demo y beta: para los centros reales' };
+  if (rel.enBetaEn) return { t: 'Version beta', clase: 'info', ayuda: 'Para centros que aceptan probar antes; aun no estable' };
+  if (rel.enDemoEn) return { t: 'Version demo', clase: 'warn', ayuda: 'Solo para demos y pruebas internas' };
+  return { t: 'Sin promover', clase: 'neu', ayuda: 'Publicada en el registro; ningun silo la recibe hasta promoverla' };
+}
+const esPrueba = (v: string) => v.includes('-');
+
 const claseCascada: Record<Cascada['estado'], string> = { EN_CURSO: 'info', DETENIDA: 'danger', TERMINADA: 'ok' };
 const corto = (d: string) => d.slice(7, 19);
 
@@ -81,8 +94,15 @@ export default function Releases() {
       <div>
         <h1>Releases y canales</h1>
         <span className="sub">
-          Versiones publicadas en el registro del host B (las informa el agente). Orden de promocion: demo, beta, estable{error && ` · error: ${error}`}
+          Versiones publicadas en el registro del host B (las informa el agente). Cada version sube por los canales en orden: demo, beta, estable{error && ` · error: ${error}`}
         </span>
+      </div>
+      <div className="panel">
+        <p className="mono-corto" style={{ margin: 0, whiteSpace: 'normal' }}>
+          <b>Demo</b>: demos y pruebas internas. <b>Beta</b>: centros que prueban antes. <b>Estable</b>: centros reales. Un silo usa la ultima version promovida a su canal (el del
+          manifiesto); promover no actualiza silos por si solo. Una version con sufijo (<b>prueba</b>, ej. 0.1.0-prueba.3) llega a demo y beta, nunca a estable: para estable se
+          publica X.Y.Z sin sufijo desde un commit limpio.
+        </p>
       </div>
       {msg && (
         <p role="status" className={`chip ${msg.ok ? 'ok' : 'danger'}`} style={{ whiteSpace: 'normal' }}>
@@ -102,6 +122,7 @@ export default function Releases() {
               <thead>
                 <tr>
                   <th>Version</th>
+                  <th>Categoria</th>
                   <th>Digests (api / web)</th>
                   <th>Commit</th>
                   {CANALES.map((c) => (
@@ -127,6 +148,21 @@ export default function Releases() {
                         {rel.notas ? 'notas para el ADMIN' : '+ notas para el ADMIN'}
                       </button>
                     </td>
+                    <td>
+                      {(() => {
+                        const k = categoria(rel);
+                        return (
+                          <span className={`chip ${k.clase}`} title={k.ayuda}>
+                            {k.t}
+                          </span>
+                        );
+                      })()}
+                      {esPrueba(rel.version) && (
+                        <span className="chip neu" title="Version de prueba (con sufijo): no llega a estable" style={{ marginLeft: 4 }}>
+                          prueba
+                        </span>
+                      )}
+                    </td>
                     <td className="mono-corto">
                       {corto(rel.apiDigest)} / {corto(rel.webDigest)}
                     </td>
@@ -147,11 +183,11 @@ export default function Releases() {
                             <button
                               type="button"
                               className="boton"
-                              disabled={ocupado || !previo || Boolean(rel.conflicto) || (c.canal === 'estable' && rel.version.includes('-'))}
-                              title={!previo ? `Primero en ${CANALES[i - 1].canal}` : c.canal === 'estable' && rel.version.includes('-') ? 'Una version de prueba no llega a estable' : undefined}
+                              disabled={ocupado || !previo || Boolean(rel.conflicto) || (c.canal === 'estable' && esPrueba(rel.version))}
+                              title={!previo ? `Primero en ${CANALES[i - 1].canal}` : c.canal === 'estable' && esPrueba(rel.version) ? 'Una version de prueba (con sufijo) no llega a estable' : undefined}
                               onClick={() => void promover(rel, c.canal)}
                             >
-                              Promover
+                              {c.canal === 'estable' && esPrueba(rel.version) ? 'No aplica' : previo ? 'Promover' : `Despues de ${CANALES[i - 1].canal}`}
                             </button>
                           )}
                         </td>
