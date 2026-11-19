@@ -114,13 +114,17 @@ describe('respaldar', () => {
   it('nombre como respaldar.sh y resultado con sha256', async () => {
     assert.equal(nombreRespaldo('kibou', new Date('2026-11-15T17:05:51.123Z')), 'kibou-20261115T170551Z.dump.enc');
     const r = await respaldar(entorno().disco, t({ bytes: 4096, sha256: 'c'.repeat(64) }), 'kibou', DIA);
-    assert.equal(r.respaldo.bytes, 4096);
+    assert.equal(r.respaldo?.bytes, 4096);
   });
   it('sin respaldo.key: 409; pg_dump fallido o respaldo de 32 bytes (R14): 500', async () => {
     const e = entorno();
     const sinLlave = t({ error: 'pg_dump 0, openssl 125. invalid mount config for type "bind": bind source path does not exist: /srv/erp/infra/secrets/kibou/respaldo.key' });
     assert.equal(await status(respaldar(e.disco, sinLlave, 'kibou', DIA)), 409);
     assert.equal(await status(respaldar(e.disco, t({ error: 'pg_dump 1, openssl 0' }), 'kibou', DIA)), 500);
+    // Demo: sin respaldo.key ni respaldo (P9 omitido); no lanza la tuberia.
+    const demo = await respaldar(e.disco, sinLlave, 'kibou', DIA, true);
+    assert.match(demo.log[0]!, /^demo: sin respaldo/);
+    assert.equal('respaldo' in demo, false);
     assert.equal(await status(respaldar(e.disco, t({ bytes: 32, sha256: 'c'.repeat(64) }), 'kibou', DIA)), 500);
     assert.equal(await status(respaldar(e.disco, t({ bytes: 4096, sha256: 'c'.repeat(64) }), 'kibou', VENTANA)), 409);
   });

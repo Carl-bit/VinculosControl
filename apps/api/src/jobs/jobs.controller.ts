@@ -84,6 +84,28 @@ class DatosP2Dto {
   webDigest: string;
 }
 
+/** Cuenta ficticia de un demo (P10): rol del ERP y correo del dominio del demo. */
+class CuentaDemoDto {
+  @Matches(/^[A-Z_]{2,30}$/)
+  rol: string;
+
+  @IsString()
+  @MaxLength(120)
+  email: string;
+}
+
+/** Acceso de un demo (P10 de APROVISIONAR, decision 2026-11-19): contrasena comun y cuentas ficticias. */
+class AccesoDemoDto {
+  @Matches(/^[A-Za-z0-9]{12,64}$/)
+  clave: string;
+
+  @IsArray()
+  @ArrayMaxSize(400)
+  @ValidateNested({ each: true })
+  @Type(() => CuentaDemoDto)
+  cuentas: CuentaDemoDto[];
+}
+
 /** Vista Aprovisionamiento de la consola. */
 @Controller('consola/jobs')
 @UseGuards(ConsolaGuard, SesionGuard)
@@ -165,6 +187,11 @@ class ReportePasoDto {
   @ValidateNested()
   @Type(() => DatosP2Dto)
   datos?: DatosP2Dto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AccesoDemoDto)
+  acceso?: AccesoDemoDto;
 }
 
 /** Endpoints del agente (modelo pull: reclama y reporta; el host A nunca llama al host B). */
@@ -189,6 +216,6 @@ export class JobsAgenteController {
   @Post(':id/pasos/:codigo')
   @HttpCode(200)
   paso(@Req() req: Request & { agenteId: number }, @Param('id', ParseIntPipe) id: number, @Param('codigo') codigo: string, @Body() b: ReportePasoDto) {
-    return this.jobs.reportarPaso(req.agenteId, id, codigo.slice(0, 8), b.estado, b.log, b.error, { espera: b.espera, datos: b.datos });
+    return this.jobs.reportarPaso(req.agenteId, id, codigo.slice(0, 8), b.estado, b.log, b.error, { espera: b.espera, datos: b.datos, acceso: b.acceso });
   }
 }

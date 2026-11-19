@@ -6,6 +6,7 @@ import { hashManifiesto } from '@vinculos/manifest/hash';
 import type { OperadorSesion } from '../acceso/acceso.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { PrismaService } from '../comun/prisma.service';
+import { cifrarClave, type CuentaDemo, cuentasValidas } from '../demos/acceso';
 import { ExportacionesService } from '../exportaciones/exportaciones.controller';
 import { SalidasCierre } from '../salidas/cierre.service';
 import { bloqueosEliminar } from '../salidas/reglas';
@@ -27,6 +28,7 @@ import {
   estadoTrasPasos,
   FINALES_PASO,
   limpiarLog,
+  pasosAprovisionar,
   pasosAReintentar,
   puedeCancelar,
   reintentoActualizar,
@@ -39,6 +41,9 @@ const SLUG = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 
 /** Estados del centro desde los que se puede verificar/aprovisionar (manifiesto aprobado). */
 const CON_APROBADO = ['APROBADO', 'APROVISIONANDO', 'ACTIVO', 'ACTIVO_SIN_DOMINIO', 'SUSPENDIDO'];
+
+/** Demo: centro de origen demo con el prefijo reservado demo- (el host B lo cruza con EJECUTOR_DEMOS y ES_DEMO). */
+const esDemo = (c: { origen: string; slug: string | null }) => c.origen === 'demo' && Boolean(c.slug?.startsWith('demo-'));
 
 @Injectable()
 export class JobsService {
@@ -144,6 +149,20 @@ export class JobsService {
   }
 
   /** ELIMINAR_DEMO OK: el centro queda ELIMINADO y el silo sale del registro (deja libre el slug para otro demo). */
+  /**
+   * Acceso de un demo (decision 2026-11-19): solo centros de origen demo con slug demo-, y solo correos del
+   * dominio ficticio del demo. La contrasena queda cifrada; se borra con el demo (demoEliminado).
+   */
+  private async guardarAccesoDemo(job: { id: number; centroId: number | null; siloSlug: string | null }, acceso: { clave: string; cuentas: CuentaDemo[] }) {
+    const c = job.centroId ? await this.prisma.centro.findUnique({ where: { id: job.centroId }, select: { id: true, origen: true, slug: true } }) : null;
+    if (!c || c.origen !== 'demo' || !c.slug?.startsWith('demo-') || c.slug !== job.siloSlug) throw new UnprocessableEntityException({ mensaje: 'Acceso de demo solo para centros de demostracion' });
+    const secreto = process.env.CONSOLA_SECRETO ?? '';
+    const cuentas = cuentasValidas(c.slug, acceso.cuentas).map((x) => ({ rol: x.rol, email: x.email }));
+    const datos = { claveCifrada: cifrarClave(secreto, acceso.clave), cuentas };
+    await this.prisma.accesoDemo.upsert({ where: { centroId: c.id }, create: { centroId: c.id, ...datos }, update: datos });
+    await this.auditoria.registrar('control', 'demo.acceso_guardado', `centro:${c.id}`, `${c.slug} · ${cuentas.length} cuenta(s) ficticia(s) · job:${job.id}`);
+  }
+
   async demoEliminado(centroId: number, slug: string, actor: string, motivo: string) {
     await this.prisma.$transaction(async (tx) => {
       const c = await tx.centro.findUniqueOrThrow({ where: { id: centroId } });
@@ -151,6 +170,8 @@ export class JobsService {
       await tx.centro.update({ where: { id: centroId }, data: { estado: 'ELIMINADO' } });
       await tx.transicionCentro.create({ data: { centroId, desde: c.estado, hacia: 'ELIMINADO', actor, motivo: motivo.slice(0, 300) } });
       await tx.silo.deleteMany({ where: { slug } });
+      // El acceso del demo (cuentas ficticias y contrasena cifrada) se va con el silo.
+      await tx.accesoDemo.deleteMany({ where: { centroId } });
     });
     await this.auditoria.registrar(actor, 'demo.eliminado', `centro:${centroId}`, `${slug} · ${motivo}`.slice(0, 300));
   }
@@ -228,7 +249,7 @@ export class JobsService {
         revision: c.revisionAprobada,
         hashManifiesto: c.hashAprobado,
         creadoPor: op.correo,
-        pasos: { create: defs.map((d, i) => ({ orden: i, codigo: d.codigo, nombre: d.nombre, detalle: d.detalle, ejecutor: d.ejecutor })) },
+        pasos: { create: (tipo === 'APROVISIONAR' ? pasosAprovisionar(esDemo(c)) : defs).map((d, i) => ({ orden: i, codigo: d.codigo, nombre: d.nombre, detalle: d.detalle, ejecutor: d.ejecutor })) },
       },
     });
     await this.auditoria.registrar(op.correo, 'job.creado', `job:${job.id}`, `${tipo} ${c.slug} rev ${c.revisionAprobada}${ip ? ` · ${ip}` : ''}`);
@@ -618,7 +639,7 @@ export class JobsService {
     estado: EstadoPaso,
     lineas: unknown,
     error?: string,
-    extra: { espera?: string; datos?: DatosP2 } = {},
+    extra: { espera?: string; datos?: DatosP2; acceso?: { clave: string; cuentas: CuentaDemo[] } } = {},
   ) {
     const job = await this.prisma.job.findUnique({ where: { id: jobId }, include: { pasos: true } });
     if (!job) throw new NotFoundException();
@@ -646,6 +667,10 @@ export class JobsService {
     if (extra.datos) {
       if (job.tipo !== 'APROVISIONAR' || codigo !== 'P2' || estado !== 'OK') throw new UnprocessableEntityException({ mensaje: 'Datos de imagen solo en P2 de APROVISIONAR' });
       await this.aprov.guardarDatosP2(job, extra.datos);
+    }
+    if (extra.acceso) {
+      if (job.tipo !== 'APROVISIONAR' || codigo !== 'P10' || estado !== 'OK') throw new UnprocessableEntityException({ mensaje: 'Acceso de demo solo en P10 de APROVISIONAR' });
+      await this.guardarAccesoDemo(job, extra.acceso);
     }
     const final = FINALES_PASO.includes(estado);
     const datos: Prisma.PasoJobUpdateInput =

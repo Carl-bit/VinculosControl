@@ -1,4 +1,4 @@
-import { ACTIVOS, anterioresListos, EJECUTABLES, enVentanaRespaldo, ESPERAS, estadoTrasPasos, limpiarLog, pasosAReintentar, puedeCancelar, reintentoActualizar, siguientePaso } from './pasos';
+import { ACTIVOS, anterioresListos, EJECUTABLES, enVentanaRespaldo, ESPERAS, estadoTrasPasos, limpiarLog, pasosAprovisionar, pasosAReintentar, puedeCancelar, reintentoActualizar, siguientePaso } from './pasos';
 
 describe('cola de jobs: reglas', () => {
   it('un paso FALLIDO detiene el job', () => {
@@ -92,5 +92,13 @@ describe('reintento de ACTUALIZAR', () => {
   });
   it('un fallo antes (respaldo o cambio de imagen) se reintenta desde ese paso', () => {
     expect(reintentoActualizar(p({ U0: 'OK', UC: 'OMITIDO', U1: 'FALLIDO', U2: 'PENDIENTE' }))).toEqual(['U1']);
+  });
+
+  it('APROVISIONAR de un demo: P5 lo corre el agente (llaves_demo); un centro real lo deja al operador', () => {
+    const p5 = (demo: boolean) => pasosAprovisionar(demo).find((p) => p.codigo === 'P5')!;
+    expect(p5(false).ejecutor).toBe('operador');
+    expect(p5(true).ejecutor).toBe('agente');
+    expect(p5(true).detalle).toContain('llaves_demo');
+    expect(pasosAprovisionar(true).map((p) => p.codigo)).toEqual(pasosAprovisionar(false).map((p) => p.codigo));
   });
 });

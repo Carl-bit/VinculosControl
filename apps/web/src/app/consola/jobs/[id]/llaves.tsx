@@ -11,10 +11,19 @@ import type { PedidoConfirmacion } from '@/componentes/dialogo';
  * consola arma el comando con estos mismos custodios, y "Llaves listas" los
  * registra (nunca las partes). No se buscan en el silo: en P5 aun no tiene
  * usuarios (el ADMIN llega en P10) y el plano de control no lee personas del silo.
+ * Demo (slug demo-, 2026-11-19): P5 lo corre el agente (llaves_demo). Este
+ * panel solo aparece si P6 no encuentra la KEK y el job vuelve aqui: custodios
+ * de prueba ya puestos, --prueba y un comando para copiar.
  */
 
 const ROLES = ['Proveedor', 'Centro', 'Sobre offline', 'Otro'];
 const PREDETERMINADOS = ['Proveedor', 'Centro', 'Sobre offline'];
+/** Demo: custodios fijos (nadie recibe partes: el script las borra con --prueba). */
+const CUSTODIOS_DEMO = [
+  { nombre: 'Operador', rol: 'Proveedor', otro: '' },
+  { nombre: 'Demo', rol: 'Centro', otro: '' },
+  { nombre: 'Sobre', rol: 'Sobre offline', otro: '' },
+];
 /** Mismo formato que el script del ERP (Nombre:rol separados por coma): sin ':' ni ','. */
 const VALIDO = /^[^:,\r\n]{2,80}$/;
 
@@ -39,8 +48,10 @@ export function PanelLlaves({
   confirmar: (p: PedidoConfirmacion) => Promise<string | null>;
   enviar: (custodios: { nombre: string; rol: string }[]) => void;
 }) {
-  const [filas, setFilas] = useState<Fila[]>(PREDETERMINADOS.map((rol) => ({ nombre: '', rol, otro: '' })));
-  const [prueba, setPrueba] = useState('real');
+  const esDemo = slug.startsWith('demo-');
+  const [filas, setFilas] = useState<Fila[]>(esDemo ? CUSTODIOS_DEMO : PREDETERMINADOS.map((rol) => ({ nombre: '', rol, otro: '' })));
+  const [prueba, setPrueba] = useState(esDemo ? 'prueba' : 'real');
+  const [copiado, setCopiado] = useState(false);
 
   const cambiar = (i: number, cambio: Partial<Fila>) => setFilas((fs) => fs.map((f, j) => (j === i ? { ...f, ...cambio } : f)));
   const errores = filas.map((f) => {
@@ -56,65 +67,91 @@ export function PanelLlaves({
   const comando = completo
     ? `Windows:  .\\infra\\host-b\\llaves-silo.ps1 -Slug ${slug} -Custodios "${lista}"${extraPs}\nLinux:    sh infra/host-b/llaves-silo.sh ${slug} "${lista}"${extraSh}`
     : 'Completa los 3 custodios para ver el comando.';
+  const comandoLinux = `sh infra/host-b/llaves-silo.sh ${slug} "${lista}"${extraSh}`;
 
   return (
     <section className="panel" aria-label="Llaves del silo">
       <h2>P5 · Llaves del silo (manual)</h2>
-      <p className="mono-corto" style={{ marginTop: 0 }}>
-        La llave de recuperacion se divide en 3 partes y 2 cualquiera la reconstruyen. Indica a quien va cada parte antes de correr el script: el comando se arma con
-        estos custodios y quedan registrados en el silo. Aqui se guardan solo nombres y roles, nunca las partes.
-      </p>
-
-      <div className="custodios" role="group" aria-label="Custodios de las partes">
-        {filas.map((f, i) => (
-          <div key={i} className="custodio-fila">
-            <span className="paso-codigo">Parte {i + 1}</span>
-            <label className="campo-consola">
-              Nombre
-              <input className="campo-texto" value={f.nombre} maxLength={80} onChange={(e) => cambiar(i, { nombre: e.target.value })} placeholder="Nombre y apellido o descripcion" />
-            </label>
-            <label className="campo-consola">
-              Rol
-              <Selector valor={f.rol} opciones={ROLES.map((r) => ({ valor: r, etiqueta: r }))} onCambio={(v) => cambiar(i, { rol: v })} etiqueta={`Rol del custodio de la parte ${i + 1}`} />
-            </label>
-            {f.rol === 'Otro' ? (
-              <label className="campo-consola">
-                Cual
-                <input className="campo-texto" value={f.otro} maxLength={40} onChange={(e) => cambiar(i, { otro: e.target.value })} placeholder="Rol" />
-              </label>
-            ) : (
-              <span />
-            )}
-            <span className={`mono-corto ${errores[i] ? 't-warn' : ''}`}>{errores[i] ?? 'ok'}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="acciones">
-        <label className="campo-consola">
-          Tipo de silo
-          <Selector
-            valor={prueba}
-            opciones={[
-              { valor: 'real', etiqueta: 'Centro real: entregar las partes' },
-              { valor: 'prueba', etiqueta: 'Silo de prueba: borrar las partes' },
-            ]}
-            onCambio={setPrueba}
-          />
-        </label>
-      </div>
-      {prueba === 'prueba' ? (
-        <p className="chip warn" style={{ whiteSpace: 'normal' }}>
-          Con -Prueba el script borra las partes al terminar: nadie podra recuperar la llave. Solo para silos de prueba.
+      {esDemo ? (
+        <p className="mono-corto" style={{ marginTop: 0 }}>
+          Demo: corre este comando en el host B (raiz del plano de control) y pulsa &quot;Llaves listas&quot;. Custodios de prueba (Operador, Demo, Sobre); el script
+          borra las partes al terminar. P9 (respaldo) se omite en los demos.
         </p>
       ) : (
-        <p className="mono-corto">Al terminar, entrega cada parte (infra/secrets/{slug}/partes_entregar/) a su custodio por un canal distinto y despues borra la carpeta.</p>
-      )}
+        <>
+          <p className="mono-corto" style={{ marginTop: 0 }}>
+            La llave de recuperacion se divide en 3 partes y 2 cualquiera la reconstruyen. Indica a quien va cada parte antes de correr el script: el comando se arma con
+            estos custodios y quedan registrados en el silo. Aqui se guardan solo nombres y roles, nunca las partes.
+          </p>
 
-      <p className="mono-corto">En el host B, desde la raiz del plano de control (llama al script de llaves del ERP con el .env que dejo el ejecutor):</p>
+          <div className="custodios" role="group" aria-label="Custodios de las partes">
+            {filas.map((f, i) => (
+              <div key={i} className="custodio-fila">
+                <span className="paso-codigo">Parte {i + 1}</span>
+                <label className="campo-consola">
+                  Nombre
+                  <input className="campo-texto" value={f.nombre} maxLength={80} onChange={(e) => cambiar(i, { nombre: e.target.value })} placeholder="Nombre y apellido o descripcion" />
+                </label>
+                <label className="campo-consola">
+                  Rol
+                  <Selector valor={f.rol} opciones={ROLES.map((r) => ({ valor: r, etiqueta: r }))} onCambio={(v) => cambiar(i, { rol: v })} etiqueta={`Rol del custodio de la parte ${i + 1}`} />
+                </label>
+                {f.rol === 'Otro' ? (
+                  <label className="campo-consola">
+                    Cual
+                    <input className="campo-texto" value={f.otro} maxLength={40} onChange={(e) => cambiar(i, { otro: e.target.value })} placeholder="Rol" />
+                  </label>
+                ) : (
+                  <span />
+                )}
+                <span className={`mono-corto ${errores[i] ? 't-warn' : ''}`}>{errores[i] ?? 'ok'}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="acciones">
+            <label className="campo-consola">
+              Tipo de silo
+              <Selector
+                valor={prueba}
+                opciones={[
+                  { valor: 'real', etiqueta: 'Centro real: entregar las partes' },
+                  { valor: 'prueba', etiqueta: 'Silo de prueba: borrar las partes' },
+                ]}
+                onCambio={setPrueba}
+              />
+            </label>
+          </div>
+          {prueba === 'prueba' ? (
+            <p className="chip warn" style={{ whiteSpace: 'normal' }}>
+              Con -Prueba el script borra las partes al terminar: nadie podra recuperar la llave. Solo para silos de prueba.
+            </p>
+          ) : (
+            <p className="mono-corto">Al terminar, entrega cada parte (infra/secrets/{slug}/partes_entregar/) a su custodio por un canal distinto y despues borra la carpeta.</p>
+          )}
+
+          <p className="mono-corto">En el host B, desde la raiz del plano de control (llama al script de llaves del ERP con el .env que dejo el ejecutor):</p>
+        </>
+      )}
       <pre className="codigo" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {comando}
+        {esDemo ? comandoLinux : comando}
       </pre>
+      {completo && (
+        <div className="acciones">
+          <button
+            type="button"
+            className="boton"
+            onClick={() =>
+              void navigator.clipboard
+                .writeText(comandoLinux)
+                .then(() => setCopiado(true))
+                .catch(() => undefined)
+            }
+          >
+            {copiado ? 'Comando copiado' : 'Copiar comando (Linux)'}
+          </button>
+        </div>
+      )}
 
       <button
         type="button"

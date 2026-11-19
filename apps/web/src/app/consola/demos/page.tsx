@@ -9,12 +9,15 @@ import { useConfirmacion } from '@/componentes/dialogo';
 import { claseJob, EnlaceDominio, Shell } from '@/componentes/piezas';
 import { enviarConSesion, hace, mensajeDe, useDatos, type DetalleJob, type Resumen } from '@/lib/api';
 
+import { type AccesoDemo, DialogoAcceso } from './acceso';
+
 /*
  * Demos a medida (R10). El operador elige cuantas cuentas madre, profesionales
  * y pacientes tendra el centro de demostracion; se aprovisiona como cualquier
- * silo (P5 de llaves sigue siendo manual) y en P10 el host B genera los datos.
- * Correos y contrasena de las cuentas quedan solo en el host B
- * (silos/<slug>/demo-cuentas.txt): aqui llegan conteos. Solo los slugs de
+ * silo, sin pasos manuales: P5 lo corre el host B (llaves de prueba con la
+ * CLI del ERP, partes borradas), P9 se omite y en P10 el host B genera los datos. El acceso (cuentas ficticias y contrasena)
+ * llega cifrado a la API para compartir el demo desde aqui ("Acceso"); tambien
+ * queda en silos/<slug>/demo-cuentas.txt del host B. Solo los slugs de
  * EJECUTOR_DEMOS del host B pueden ser demo.
  * Cada demo vive 24 h (decision 2026-11-19): se extiende de a 24 h para que el
  * centro lo revise despues de la reunion; al vencer, el plano de control
@@ -33,6 +36,7 @@ interface FilaDemo {
   resembrado: { id: number; estado: string; creadoEn: string; terminadoEn: string | null } | null;
   venceEn: string | null;
   baja: { id: number; estado: string; error: string | null } | null;
+  conAcceso: boolean;
 }
 
 /** "en 5 h 20 min" hasta la fecha; "vencido" si ya paso. */
@@ -64,6 +68,14 @@ export default function Demos() {
   const [pacientes, setPacientes] = useState<number | undefined>(40);
   const [msg, setMsg] = useState<{ t: string; ok: boolean }>();
   const [ocupado, setOcupado] = useState(false);
+  const [acceso, setAcceso] = useState<{ nombre: string; datos: AccesoDemo } | null>(null);
+
+  const verAcceso = async (d: FilaDemo) => {
+    const r = await fetch(`/api/consola/demos/${d.centroId}/acceso`, { cache: 'no-store' });
+    const datos = (await r.json().catch(() => ({}))) as AccesoDemo & { mensaje?: string };
+    if (r.ok) setAcceso({ nombre: d.nombre, datos });
+    else setMsg({ t: mensajeDe(datos, `No se pudo leer el acceso (HTTP ${r.status})`), ok: false });
+  };
 
   const alternar = (m: string) => {
     const con = modulos.includes(m) ? modulos.filter((x) => x !== m) : [...modulos, m];
@@ -77,7 +89,7 @@ export default function Demos() {
     const si = await confirmar({
       etiqueta: `Demo · erp-${slug}`,
       titulo: 'Crear demo',
-      texto: `Se aprovisiona erp-${slug} por 24 h (extensible) con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. En el host B, EJECUTOR_DEMOS debe permitirlo (demo-* o el slug); si no, P2 falla antes de crear nada. Las llaves (P5) las corre el operador como en todo silo. Correos y contrasena quedan en silos/${slug}/demo-cuentas.txt del host B.`,
+      texto: `Se aprovisiona erp-${slug} por 24 h (extensible) con ${madres} cuenta(s) madre, ${profesionales} profesional(es) y ${pacientes} paciente(s) ficticios. En el host B, EJECUTOR_DEMOS debe permitirlo (demo-* o el slug); si no, P2 falla antes de crear nada. Sin pasos manuales: el host B genera llaves de prueba (P5, partes borradas) y P9 se omite. Al terminar, "Acceso" muestra el enlace, la contrasena y las cuentas para compartir.`,
       boton: 'Crear y aprovisionar',
     });
     if (si === null) return;
@@ -140,7 +152,7 @@ export default function Demos() {
     <Shell resumen={r} titulo="demos">
       <div>
         <h1>Demos</h1>
-        <span className="sub">Centros de demostracion a medida del cliente. Datos ficticios; las credenciales quedan en el host B.</span>
+        <span className="sub">Centros de demostracion a medida del cliente. Datos ficticios; "Acceso" entrega enlace, contrasena y cuentas para compartir.</span>
       </div>
       {msg && (
         <p role="status" className={`chip ${msg.ok ? 'ok' : 'danger'}`} style={{ whiteSpace: 'normal' }}>
@@ -271,6 +283,15 @@ export default function Demos() {
                     </td>
                     <td>
                       <div className="acciones" style={{ flexWrap: 'nowrap' }}>
+                        <button
+                          type="button"
+                          className="boton primario"
+                          disabled={!d.conAcceso || d.estado === 'ELIMINADO'}
+                          title={d.conAcceso ? 'Enlace, contrasena y cuentas para compartir' : 'Disponible al terminar P10'}
+                          onClick={() => void verAcceso(d)}
+                        >
+                          Acceso
+                        </button>
                         <button type="button" className="boton" disabled={!['ACTIVO', 'ACTIVO_SIN_DOMINIO'].includes(d.estado)} onClick={() => void resembrar(d)}>
                           Resembrar
                         </button>
@@ -290,6 +311,7 @@ export default function Demos() {
         )}
       </section>
       {dialogo}
+      <DialogoAcceso nombre={acceso?.nombre ?? ''} acceso={acceso?.datos ?? null} onCerrar={() => setAcceso(null)} />
     </Shell>
   );
 }

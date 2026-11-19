@@ -111,9 +111,22 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
   { codigo: 'P6', nombre: 'Levantar', detalle: 'up del silo completo, borde unido y /api/salud 200 (ejecutor: levantar todo)', ejecutor: 'agente' },
   { codigo: 'P7', nombre: 'Carga inicial', detalle: 'POST /api/internal/config con modulos y reglas de la revision (R4) y confirmacion', ejecutor: 'agente' },
   { codigo: 'P8', nombre: 'Dominio', detalle: 'https://<dominio>/api/salud 200 por el tunel; si no responde, espera al operador', ejecutor: 'agente' },
-  { codigo: 'P9', nombre: 'Continuidad', detalle: 'respaldos/<slug>/ con un respaldo y su .sha256 (instalar.sh del ERP)', ejecutor: 'agente' },
+  { codigo: 'P9', nombre: 'Continuidad', detalle: 'respaldos/<slug>/ con un respaldo y su .sha256 (instalar.sh del ERP); en un demo se omite', ejecutor: 'agente' },
   { codigo: 'P10', nombre: 'Admin y cierre', detalle: 'invitacion del ADMIN inicial por /api/internal/admin-inicial (R5); en un demo, datos de demostracion por el ejecutor (cargar_demo; correos y contrasena quedan en el host B); centro ACTIVO', ejecutor: 'agente' },
 ];
+
+/**
+ * Pasos de APROVISIONAR para un centro. Demo (origen demo, slug demo-; decision
+ * del usuario 2026-11-19): P5 lo corre el agente (ejecutor: llaves_demo, la CLI
+ * de llaves del ERP con custodios de prueba y partes borradas), porque los demos
+ * se muestran fuera del entorno del host B. Un centro real: P5 manual.
+ */
+export function pasosAprovisionar(demo: boolean): DefPaso[] {
+  if (!demo) return PASOS_APROVISIONAR;
+  return PASOS_APROVISIONAR.map((p) =>
+    p.codigo === 'P5' ? { ...p, nombre: 'Llaves (demo)', detalle: 'demo: llaves de prueba con la CLI de llaves del ERP en el host B, sin custodios reales; partes borradas (ejecutor: llaves_demo)', ejecutor: 'agente' } : p,
+  );
+}
 
 /**
  * ACTUALIZAR (CONTEXTO.md seccion 7; decisiones del usuario 2026-11-15): un
@@ -124,7 +137,7 @@ export const PASOS_APROVISIONAR: DefPaso[] = [
 export const PASOS_ACTUALIZAR: DefPaso[] = [
   { codigo: 'U0', nombre: 'Validar', detalle: 'version promovida al canal del silo y posterior a la actual, sin conflicto; silo reportado; fuera de la ventana de respaldo', ejecutor: 'control' },
   { codigo: 'UC', nombre: 'Confirmar minor', detalle: 'un minor (0.x) puede traer cambios incompatibles: el operador lo confirma para este silo', ejecutor: 'operador' },
-  { codigo: 'U1', nombre: 'Respaldo', detalle: 'pg_dump cifrado en respaldos/<slug>/ con su .sha256 (ejecutor: respaldar; la llave solo la monta un auxiliar sin red)', ejecutor: 'agente' },
+  { codigo: 'U1', nombre: 'Respaldo', detalle: 'pg_dump cifrado en respaldos/<slug>/ con su .sha256 (ejecutor: respaldar; la llave solo la monta un auxiliar sin red); en un demo se omite', ejecutor: 'agente' },
   { codigo: 'U2', nombre: 'Imagen nueva', detalle: 'lineas de imagen del .env a la version nueva; las anteriores en anterior.env (ejecutor: actualizar)', ejecutor: 'agente' },
   { codigo: 'U3', nombre: 'Migraciones', detalle: 'migrate con la imagen nueva termina en 0 (ejecutor: levantar bd); si falla, vuelve a la imagen anterior', ejecutor: 'agente' },
   { codigo: 'U4', nombre: 'Recrear', detalle: 'backend y frontend con la imagen nueva y borde unido (ejecutor: levantar todo)', ejecutor: 'agente' },

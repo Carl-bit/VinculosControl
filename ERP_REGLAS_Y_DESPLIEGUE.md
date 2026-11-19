@@ -89,7 +89,7 @@ descifra los valores de prueba.
 ADMIN (cuenta madre), GESTION (apagado por defecto: `rol_gestion_habilitado`),
 PROFESIONAL, PRACTICANTE, PACIENTE, RESPONSABLE (adulto responsable de un menor).
 Multirrol permitido; el rol activo se elige y cambiarlo emite token nuevo.
-- Segundo factor por correo (6 digitos, 10 min, 5 intentos, 10 codigos de respaldo): obligatorio equipo, opcional paciente/responsable. TOTP existe pero apagado (`TOTP_HABILITADO=false`).
+- Segundo factor por correo (6 digitos, 10 min, 5 intentos, 10 codigos de respaldo): obligatorio equipo, opcional paciente/responsable. TOTP existe pero apagado (`TOTP_HABILITADO=false`). R10 (2026-11-19): un silo de demostracion (`ES_DEMO=true` en el backend y `silo_es_demo()` en la BD) no lo pide.
 - Sesion unica por usuario: un login nuevo corta el anterior. Conexiones registradas sin IP ni ciudad.
 - Practicantes: acceso con `fecha_expiracion_acceso`; revocar = deshabilitar, nunca borrar historial.
 

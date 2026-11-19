@@ -36,7 +36,7 @@ interface EstadoContenedor {
   salud: string | null;
 }
 
-type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo' | 'eliminar_demo';
+type VerboEjecutor = 'estado' | 'reiniciar' | 'detener' | 'reanudar' | 'eliminar' | 'preparar' | 'levantar' | 'respaldar' | 'actualizar' | 'revertir' | 'cargar_demo' | 'resembrar_demo' | 'llaves_demo' | 'eliminar_demo';
 
 /** Cuerpos que acepta el ejecutor (validados alli): eliminar, preparar, levantar y actualizar. */
 type EnvioEjecutor = { actaHash: string } | { version: string; dominio: string; nombre: string; tema: string; demo: boolean } | { fase: 'bd' | 'todo' } | { version: string } | { cuentasMadre: number; profesionales: number; pacientes: number; nombre: string };
@@ -58,7 +58,7 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEje
     headers: { authorization: `Bearer ${EJECUTOR_TOKEN}`, ...(envio ? { 'content-type': 'application/json' } : {}) },
     body: envio ? JSON.stringify(envio) : undefined,
     // levantar puede bajar imagenes y esperar migrate (el ejecutor corta a los 15 + 10 min); respaldar, un pg_dump completo.
-    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir', 'cargar_demo', 'resembrar_demo', 'eliminar_demo'].includes(verbo) ? 30 * 60_000 : 180_000),
+    signal: AbortSignal.timeout(['levantar', 'respaldar', 'revertir', 'cargar_demo', 'resembrar_demo', 'llaves_demo', 'eliminar_demo'].includes(verbo) ? 30 * 60_000 : 180_000),
   });
   const cuerpo = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor ${verbo}: ${cuerpo.error ?? `HTTP ${r.status}`}`);
@@ -98,6 +98,8 @@ export interface Resultado {
   espera?: 'LLAVES' | 'DOMINIO';
   /** APROVISIONAR P2: version y digests que preparo el ejecutor (el silo guarda tag + digest). */
   datos?: { version: string; apiDigest: string; webDigest: string };
+  /** APROVISIONAR P10 de un demo: correos ficticios, rol y contrasena para compartir el demo desde la consola. */
+  acceso?: { clave: string; cuentas: { rol: string; email: string }[] };
 }
 
 /** Lo que APROVISIONAR lee del manifiesto aprobado (ya validado en P0 por el plano de control). */
@@ -369,6 +371,14 @@ export const EJECUTORES: Record<string, Ejecutor> = {
     return { estado: 'OK', log };
   },
 
+  async P5(j) {
+    // Solo demos (decision del usuario 2026-11-19): el plano de control asigna P5 al agente cuando el centro es un demo.
+    // El ejecutor corre la CLI de llaves del ERP con custodios de prueba y borra las partes (solo EJECUTOR_DEMOS con ES_DEMO=true).
+    if (!(j.manifiesto as ManifiestoAprov | null)?.demo) return { estado: 'FALLIDO', log: [], error: 'P5 de un centro real es manual: el operador corre el script de llaves del ERP' };
+    const { log } = await ejecutor<{ log: string[] }>('POST', j.slug, 'llaves_demo');
+    return { estado: 'OK', log };
+  },
+
   async P6(j) {
     let log: string[];
     try {
@@ -411,6 +421,9 @@ export const EJECUTORES: Record<string, Ejecutor> = {
   },
 
   async P9(j) {
+    // Un demo vive 24 h y no tiene datos reales: sin respaldo ni cron (decision del usuario 2026-11-19).
+    // El prefijo demo- y EJECUTOR_DEMOS (revisados en P0 y P2) impiden que un centro real llegue aqui como demo.
+    if ((j.manifiesto as ManifiestoAprov | null)?.demo) return { estado: 'OMITIDO', log: ['demo de 24 h: sin respaldo ni cron de continuidad'] };
     const r = await ultimoRespaldo(j.slug);
     if (!r) return { estado: 'FALLIDO', log: [`respaldos/${j.slug}/ sin respaldos`], error: `Sin respaldo: correr infra/scripts/continuidad/instalar.sh del ERP para ${j.slug} (respaldo.key, cron 02:00) y un primer respaldar.sh; luego reintentar desde P9` };
     const log = [`ultimo respaldo ${r.archivo} (${r.bytes} bytes, ${r.fecha})`];
@@ -424,14 +437,14 @@ export const EJECUTORES: Record<string, Ejecutor> = {
   async P10(j) {
     const m = (j.manifiesto ?? {}) as ManifiestoAprov;
     if (m.demo) {
-      // Demo (R10): el ejecutor genera las cuentas y los datos; correos y contrasena quedan en el host B.
-      const r = await ejecutor<{ log: string[] }>('POST', j.slug, 'cargar_demo', {
+      // Demo (R10): el ejecutor genera las cuentas y los datos. El acceso (cuentas ficticias) va a la consola para compartir el demo.
+      const r = await ejecutor<{ log: string[]; acceso?: Resultado['acceso'] | null }>('POST', j.slug, 'cargar_demo', {
         cuentasMadre: m.demo.cuentas_madre,
         profesionales: m.demo.profesionales,
         pacientes: m.demo.pacientes,
         nombre: m.centro?.nombre ?? j.slug,
       });
-      return { estado: 'OK', log: r.log };
+      return { estado: 'OK', log: r.log, ...(r.acceso ? { acceso: r.acceso } : {}) };
     }
     const admin = m.centro?.admin;
     if (!admin?.correo || !admin.nombre) return { estado: 'FALLIDO', log: [], error: 'El manifiesto no trae el ADMIN inicial' };

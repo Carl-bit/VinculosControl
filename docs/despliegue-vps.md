@@ -200,9 +200,9 @@ La consola muestra el host B "en linea" y los silos de `servidor.sh` sin adoptar
    falla antes de crear nada.
 3. Consola > Demos: slug `demo-kibou` (siempre con `demo-`), nombre, canal `demo`, modulos y
    cantidades. Se encola APROVISIONAR:
-   - P5 (llaves, manual): `sh infra/host-b/llaves-silo.sh demo-kibou "Operador:proveedor,Demo:centro,Sobre:caja" --prueba` y confirmar en la consola.
-   - P9 (respaldo): `sh infra/host-b/respaldo-silo.sh demo-kibou` y reintentar el paso.
-   - P10 genera los datos. Correos y contrasena: `infra/host-b/silos/demo-kibou/demo-cuentas.txt` (600, solo en el VPS).
+   - P5 lo corre el host B solo (llaves de prueba con la CLI del ERP, partes borradas). Si P6 no encuentra la KEK, el job vuelve a P5 con el comando listo para copiar.
+   - P9 se omite en los demos (sin respaldo ni cron). En un centro real: `sh infra/host-b/respaldo-silo.sh <slug>` y reintentar el paso.
+   - P10 genera los datos. Consola > Demos > "Acceso": enlace, contrasena y cuentas por rol, con "Copiar todo" para compartir. Copia en el VPS: `cat infra/host-b/silos/demo-kibou/demo-cuentas.txt` (600). Con un ERP que tenga R10 (2026-11-19) el demo no pide codigo por correo.
 4. Resembrar desde Demos (una vez por hora como maximo).
 5. Cada demo vive 24 h: "Extender 24 h" en Demos (tope 7 dias). Al vencer se
    encola ELIMINAR_DEMO y el ejecutor lo borra; quedan a mano `infra/secrets/<slug>/`
@@ -228,6 +228,37 @@ version (`0.1.0-prueba.3`, o subir la version del ERP a 0.1.1 en
 `backend/package.json` y `frontend/package.json` con su commit), promoverla a
 `demo` y "Actualizar" desde el silo (o "Aplicar al canal"). El job respalda,
 migra, recrea, comprueba `/api/salud` y entrega las notas de version.
+
+### 7.1 Demos sin codigo por correo (R10, 2026-11-19)
+
+Desde esta version un demo entra solo con correo y contrasena (el ERP no pide
+segundo factor con `ES_DEMO=true` y la marca de la BD). En un demo "Actualizar"
+omite el respaldo (U1), igual que P9. Una sola vez, en el VPS:
+
+```sh
+# 1. Repos al dia (ERP con R10 y control con la plantilla nueva)
+cd ~/Vinculos/Vinculos && git pull
+cd ~/VinculosControl && git pull
+
+# 2. Control y host B reconstruidos (api trae la migracion accesos_demo)
+docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env up -d --build api web
+docker compose -f infra/host-b/docker-compose.yml --env-file infra/host-b/.env up -d --build agente ejecutor
+
+# 3. Version del ERP con R10 (tag nuevo, inmutable)
+cd ~/Vinculos/Vinculos && sh infra/scripts/imagenes/publicar.sh 0.1.0-prueba.3
+# Consola > Releases: promover 0.1.0-prueba.3 a demo.
+
+# 4. Demos ya creados: ES_DEMO al backend de su compose (los nuevos ya lo traen)
+cd ~/VinculosControl && sh infra/host-b/demos-sin-codigo.sh
+```
+
+5. Consola > Silos > cada `demo-*` > "Actualizar" (o Releases > "Aplicar al
+   canal" `demo`). Recrea backend y frontend con la imagen nueva y el compose
+   corregido. Probar: entrar con una cuenta de Demos > "Acceso"; no debe pedir
+   codigo.
+
+Si un demo es muy viejo (sin acceso en la consola, sin llaves automaticas), es
+mas rapido darlo de baja y crear otro desde Demos.
 
 ## 8. Problemas comunes
 

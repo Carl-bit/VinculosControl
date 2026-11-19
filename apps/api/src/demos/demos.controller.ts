@@ -1,4 +1,4 @@
-import { Body, ConflictException, Controller, Get, HttpCode, Injectable, NotFoundException, Param, ParseIntPipe, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Get, Header, HttpCode, Injectable, NotFoundException, Param, ParseIntPipe, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import type { Prisma } from '@prisma/client';
 import { CANALES_DEMO, errorPrefijoDemo, LIMITES_DEMO, MODULOS_MVP, TEMAS, validarP0, type Borrador } from '@vinculos/manifest';
@@ -13,6 +13,7 @@ import { PrismaService } from '../comun/prisma.service';
 import { ConsolaGuard } from '../consola/consola.guard';
 import { JobsService } from '../jobs/jobs.service';
 import { ACTIVOS, enVentanaRespaldo } from '../jobs/pasos';
+import { type CuentaDemo, descifrarClave } from './acceso';
 
 const SLUG = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 const HORA = 60 * 60_000;
@@ -79,8 +80,9 @@ class CrearDemoDto {
  * Demos a medida (R10): el operador elige cuantas cuentas madre, profesionales y
  * pacientes tendra el centro de demostracion. Se crea el centro (origen demo)
  * con un manifiesto ficticio ya aprobado y se encola APROVISIONAR: en P10 el
- * host B genera los datos (solo si el slug esta en EJECUTOR_DEMOS) y guarda
- * correos y contrasena alla; aqui llegan solo conteos.
+ * host B genera los datos (solo si el slug esta en EJECUTOR_DEMOS) y el agente
+ * reporta el acceso del demo (cuentas ficticias y contrasena, cifrada aqui)
+ * para compartirlo desde la consola (decision 2026-11-19). Se borra con el demo.
  */
 @Injectable()
 export class DemosService {
@@ -205,8 +207,18 @@ export class DemosService {
     }
   }
 
+  /** Acceso para compartir el demo: enlace, contrasena comun y cuentas ficticias por rol. Cada lectura queda en la auditoria. */
+  async acceso(centroId: number, op: OperadorSesion, ip: string | null) {
+    const c = await this.prisma.centro.findUnique({ where: { id: centroId }, include: { accesoDemo: true } });
+    if (!c || c.origen !== 'demo') throw new NotFoundException({ mensaje: 'Demo no encontrado' });
+    if (c.estado === 'ELIMINADO' || !c.accesoDemo) throw new NotFoundException({ mensaje: 'El demo aun no tiene acceso (P10 sin terminar) o ya fue eliminado' });
+    const clave = descifrarClave(process.env.CONSOLA_SECRETO ?? '', c.accesoDemo.claveCifrada);
+    await this.auditoria.registrar(op.correo, 'demo.acceso_visto', `centro:${centroId}`, `${c.slug}${ip ? ` · ${ip}` : ''}`);
+    return { url: c.slug ? `https://${c.slug}.${this.dominioBase}` : null, clave, cuentas: c.accesoDemo.cuentas as unknown as CuentaDemo[], creadoEn: c.accesoDemo.creadoEn, venceEn: c.demoVenceEn };
+  }
+
   async listar() {
-    const centros = await this.prisma.centro.findMany({ where: { origen: 'demo' }, orderBy: { creadoEn: 'desc' } });
+    const centros = await this.prisma.centro.findMany({ where: { origen: 'demo' }, orderBy: { creadoEn: 'desc' }, include: { accesoDemo: { select: { creadoEn: true } } } });
     return Promise.all(
       centros.map(async (c) => {
         const rev = c.revisionAprobada ? await this.prisma.revisionManifiesto.findUnique({ where: { centroId_numero: { centroId: c.id, numero: c.revisionAprobada } }, select: { contenido: true } }) : null;
@@ -229,6 +241,7 @@ export class DemosService {
           resembrado,
           venceEn: c.demoVenceEn,
           baja,
+          conAcceso: Boolean(c.accesoDemo),
         };
       }),
     );
@@ -249,6 +262,12 @@ export class DemosController {
   @HttpCode(201)
   crear(@Body() b: CrearDemoDto, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
     return this.demos.crear(b, op, ip);
+  }
+
+  @Get(':id/acceso')
+  @Header('Cache-Control', 'no-store')
+  acceso(@Param('id', ParseIntPipe) id: number, @Operador() op: OperadorSesion, @IpCliente() ip: string | null) {
+    return this.demos.acceso(id, op, ip);
   }
 
   @Post(':id/extender')

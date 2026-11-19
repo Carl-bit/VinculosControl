@@ -62,10 +62,12 @@ export function validarVersion(p: unknown): string {
 /** Nombre del respaldo, mismo formato que respaldar.sh: <slug>-AAAAMMDDTHHMMSSZ.dump.enc */
 export const nombreRespaldo = (slug: string, ahora: Date) => `${slug}-${ahora.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}.dump.enc`;
 
-export async function respaldar(disco: DiscoSilos, t: Tuberia, slug: string, ahora = new Date()) {
+export async function respaldar(disco: DiscoSilos, t: Tuberia, slug: string, ahora = new Date(), demo = false) {
   validarSlug(slug);
   if (enVentanaRespaldo(ahora)) throw new ErrorVerbo(409, 'ventana de respaldo (01:45 a 02:30 Chile): el respaldo diario ya corre; intenta despues');
   await envDelEjecutor(disco, slug);
+  // Demo (EJECUTOR_DEMOS con ES_DEMO=true; 2026-11-19): sin respaldo.key ni respaldo, igual que P9. Datos ficticios de 24 h.
+  if (demo) return { log: ['demo: sin respaldo (datos ficticios; P9 omitido)'] };
   const archivo = nombreRespaldo(slug, ahora);
   const r = await t.respaldar(slug, archivo);
   if ('error' in r) {

@@ -6,9 +6,11 @@
  *   cargar_demo(slug, { cuentasMadre, profesionales, pacientes, nombre })
  *     corre el generador del ERP (dist/demo/generador-demo.js) en el servicio
  *     backend del silo. La contrasena de las cuentas la genera el ejecutor y,
- *     junto con correos y roles, queda solo en silos/<slug>/demo-cuentas.txt
- *     (600). Al agente vuelven solo conteos. eliminar lo borra con el resto de
- *     silos/<slug>/.
+ *     junto con correos y roles, queda en silos/<slug>/demo-cuentas.txt (600).
+ *     Al agente vuelven conteos y el acceso del demo (correos ficticios, rol y
+ *     contrasena) para que el operador lo comparta desde la consola (decision
+ *     del usuario 2026-11-19; solo demos: cuentas ficticias de un silo de 24 h).
+ *     eliminar lo borra con el resto de silos/<slug>/.
  *   resembrar_demo(slug)
  *     corre prisma/scripts/demo_resembrar.js en el servicio migrate: agenda las
  *     proximas horas, sin borrar nada ni tocar llaves.
@@ -34,6 +36,26 @@ export interface DiscoDemo {
   leerCuentas(slug: string): Promise<string | null>;
   /** silos/<slug>/demo-cuentas.txt con modo 600. */
   escribirCuentas(slug: string, contenido: string): Promise<void>;
+}
+
+/** Acceso de un demo: correos ficticios con su rol y la contrasena comun. Solo slugs de EJECUTOR_DEMOS con ES_DEMO=true. */
+export interface AccesoDemo {
+  clave: string;
+  cuentas: { rol: string; email: string }[];
+}
+
+/** Lee demo-cuentas.txt (lo escribe cargarDemo): linea de contrasena y una linea rol<TAB>correo por cuenta. */
+export function leerAcceso(texto: string): AccesoDemo | null {
+  const clave = /^# Contrasena de todas las cuentas: (\S+)$/m.exec(texto)?.[1];
+  if (!clave) return null;
+  const cuentas = texto
+    .split('\n')
+    .map((l) => l.replace(/\r$/, ''))
+    .filter((l) => l && !l.startsWith('#'))
+    .map((l) => l.split('\t'))
+    .filter((c): c is [string, string] => c.length === 2 && /^[A-Z_]{2,30}$/.test(c[0]!) && /^[^\s@]+@[^\s@]+$/.test(c[1]!))
+    .map(([rol, email]) => ({ rol, email }));
+  return { clave, cuentas };
 }
 
 const NOMBRE = /^[\p{L}\p{N} .,'&()-]{2,80}$/u;
@@ -119,6 +141,7 @@ export async function cargarDemo(disco: DiscoDemo, c: Compose, cfg: Config, demo
   const res = JSON.parse(m[1]) as { yaCargado: boolean; cuentas: { email: string; rol: string }[]; conteos?: Record<string, number> };
   const porRol: Record<string, number> = {};
   for (const x of res.cuentas) porRol[x.rol] = (porRol[x.rol] ?? 0) + 1;
+  let acceso: AccesoDemo | null;
   if (!res.yaCargado) {
     await disco.escribirCuentas(
       slug,
@@ -130,17 +153,22 @@ export async function cargarDemo(disco: DiscoDemo, c: Compose, cfg: Config, demo
         '',
       ].join('\n'),
     );
-  } else if ((await disco.leerCuentas(slug)) === null) {
-    throw new ErrorVerbo(409, `erp-${slug} ya tiene datos de demo pero no hay demo-cuentas.txt: no se conoce la contrasena (reconstruir el demo)`);
+    acceso = { clave, cuentas: res.cuentas.map((x) => ({ rol: x.rol, email: x.email })) };
+  } else {
+    const previo = await disco.leerCuentas(slug);
+    if (previo === null) throw new ErrorVerbo(409, `erp-${slug} ya tiene datos de demo pero no hay demo-cuentas.txt: no se conoce la contrasena (reconstruir el demo)`);
+    // Reintento de P10: el acceso es el del archivo (la contrasena de esta corrida no se uso).
+    acceso = leerAcceso(previo);
   }
   const roles = Object.entries(porRol).map(([rol, n]) => `${n} ${rol}`);
   return {
     log: [
       res.yaCargado ? 'datos de demo ya cargados (sin cambios)' : 'datos de demo generados',
-      `cuentas: ${roles.join(', ')} (correos y contrasena en silos/${slug}/demo-cuentas.txt del host B)`,
+      `cuentas: ${roles.join(', ')} (acceso en Demos de la consola y en silos/${slug}/demo-cuentas.txt del host B)`,
       ...(res.conteos ? [`horas ${res.conteos.horas ?? 0}, evoluciones ${res.conteos.evoluciones ?? 0}, pacientes ${res.conteos.pacientes ?? 0}`] : []),
     ],
     demo: { yaCargado: res.yaCargado, porRol, conteos: res.conteos ?? null },
+    acceso,
   };
 }
 
@@ -154,4 +182,78 @@ export async function resembrarDemo(disco: DiscoDemo, c: Compose, cfg: Config, d
   const ultima = (lineas.at(-1) ?? '').replace(/^.*\[DemoResembrar\]\s*/, '');
   if (r.codigo !== 0) throw new ErrorVerbo(500, `resembrar fallido: ${ultima || `codigo ${r.codigo}`}`.slice(0, 400));
   return { log: [ultima || 'resembrado'] };
+}
+
+/** Custodios fijos de un demo: nadie recibe partes (se borran al terminar). */
+export const CUSTODIOS_DEMO = 'Operador:proveedor,Demo:centro,Sobre:caja';
+
+/**
+ * P5 de un demo sin operador (decision del usuario 2026-11-19: los demos se
+ * muestran fuera del entorno del host B y no pueden esperar un comando por SSH).
+ * Corre la MISMA CLI de llaves del ERP que usa infra/scripts/llaves/aprovisionar.sh
+ * con MODO=docker (dist/common/crypto/cli-llaves.js en el servicio migrate, con
+ * secrets/<slug>/ montado en /llaves), con custodios de prueba, y borra las
+ * partes (como --prueba). El ejecutor no lee la KEK ni las partes: solo lanza
+ * contenedores que montan secrets/<slug>/ de ese demo. Solo slugs de
+ * EJECUTOR_DEMOS, aprovisionados por el ejecutor y con ES_DEMO=true. Un centro
+ * real sigue con P5 manual.
+ *
+ * Idempotente: si ya hay KEK y publica, solo asegura que no queden partes.
+ */
+export async function llavesDemo(disco: DiscoDemo, c: Compose, cfg: Config, demos: string[], slug: string, o: { uid: number; imagenAyudante: string }) {
+  await exigirDemo(disco, demos, slug);
+  if (!Number.isInteger(o.uid) || o.uid < 0) throw new ErrorVerbo(500, 'EJECUTOR_UID_OPERADOR invalido');
+  const dir = `${cfg.erpInfra}/secrets/${slug}`;
+  // Auxiliar sin red que monta solo secrets/<slug>/ (la imagen del ejecutor, como en respaldar).
+  const ayudante = (usuario: string, cmd: string) =>
+    c.correr(
+      [
+        'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+        ...(usuario === '0' ? ['--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER'] : []),
+        '--security-opt', 'no-new-privileges:true', '--user', usuario,
+        '--label', `cl.vinculos.silo=${slug}`, '--label', 'cl.vinculos.servicio=llaves-demo',
+        '-v', `${dir}:/llaves`, '--entrypoint', 'sh', o.imagenAyudante, '-c', cmd,
+      ],
+      2 * 60_000,
+    );
+  const borrarPartes = () => ayudante(String(o.uid), 'rm -rf /llaves/partes_entregar && if [ -f /llaves/kek ] && [ -f /llaves/recuperacion.pub ]; then echo LLAVES_OK; fi');
+  const log: string[] = [];
+
+  // La carpeta la crea el daemon como root al montarla: queda del operador y 700 (como comun.sh del ERP).
+  const prep = await ayudante('0', `chown ${o.uid} /llaves && chmod 700 /llaves && if [ -f /llaves/kek ] && [ -f /llaves/recuperacion.pub ]; then echo LLAVES_EXISTEN; fi`);
+  if (prep.codigo !== 0) throw new ErrorVerbo(500, `no se pudo preparar secrets/${slug}/: ${ultimaLinea(prep.salida)}`);
+
+  if (!prep.salida.includes('LLAVES_EXISTEN')) {
+    const r = await c.correr(
+      [
+        ...argsCompose(cfg, slug), 'run', '--rm', '--no-deps', '-T', '--user', String(o.uid), '-v', `${dir}:/llaves`,
+        'migrate', 'node', 'dist/common/crypto/cli-llaves.js', 'aprovisionar',
+        '--kek', '/llaves/kek', '--publica', '/llaves/recuperacion.pub', '--partes', '/llaves/partes_entregar',
+        '--custodios', CUSTODIOS_DEMO, '--actor', 'ejecutor:demo',
+      ],
+      5 * 60_000,
+    );
+    if (r.codigo !== 0) {
+      await borrarPartes();
+      throw new ErrorVerbo(500, `cli-llaves del ERP fallo: ${ultimaLinea(r.salida)}`);
+    }
+    log.push(`llaves de prueba generadas con cli-llaves del ERP (custodios ${CUSTODIOS_DEMO})`);
+  } else {
+    log.push('las llaves del demo ya existian (sin cambios)');
+  }
+
+  const fin = await borrarPartes();
+  if (fin.codigo !== 0 || !fin.salida.includes('LLAVES_OK')) throw new ErrorVerbo(500, `faltan kek o recuperacion.pub en secrets/${slug}/ despues de generarlas: ${ultimaLinea(fin.salida)}`);
+  log.push('partes de recuperacion borradas (demo: nadie las recibe)');
+  return { log };
+}
+
+/** Ultima linea util de una salida (sin colores), para los errores. */
+function ultimaLinea(salida: string): string {
+  const l = salida
+    .split('\n')
+    .map((x) => x.replace(/\x1b\[[0-9;]*m/g, '').trim())
+    .filter(Boolean)
+    .at(-1);
+  return (l ?? 'sin salida').slice(0, 300);
 }

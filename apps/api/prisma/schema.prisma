@@ -238,16 +238,35 @@ model Centro {
   aprobadoEn       DateTime? @map("aprobado_en")
 
   /// Solo demos (origen demo): pasada esta fecha se encola ELIMINAR_DEMO. 24 h al crearlo; el operador lo extiende de a 24 h.
-  demoVenceEn      DateTime? @map("demo_vence_en")
+  demoVenceEn DateTime? @map("demo_vence_en")
 
   transiciones TransicionCentro[]
   revisiones   RevisionManifiesto[]
   enlaces      EnlaceFase2[]
   /// Expedientes de salida. A lo mas uno abierto (Salida.abierta = true); los revertidos quedan como historial.
   salidas      Salida[]
+  /// Solo demos: acceso para compartir el demo (cuentas ficticias). Se borra al eliminar el demo.
+  accesoDemo   AccesoDemo?
 
   @@index([estado, creadoEn])
   @@map("centros")
+}
+
+/// Acceso de un demo (decision del usuario 2026-11-19): correos FICTICIOS que genera el ERP para el silo de
+/// demostracion (<rol><n>@<slug>.demo.vinculos.cl), su rol y la contrasena comun, cifrada (AES-256-GCM con una
+/// llave derivada de CONSOLA_SECRETO). Solo centros de origen demo; nunca personas reales. Lo reporta el agente en
+/// P10 y se borra cuando el demo queda ELIMINADO.
+model AccesoDemo {
+  centroId     Int      @id @map("centro_id")
+  /// iv.tag.cifrado en base64url.
+  claveCifrada String   @map("clave_cifrada")
+  /// [{ rol, email }] (correos ficticios del demo).
+  cuentas      Json
+  creadoEn     DateTime @default(now()) @map("creado_en")
+
+  centro Centro @relation(fields: [centroId], references: [id], onDelete: Cascade)
+
+  @@map("accesos_demo")
 }
 
 /// Cada cambio de estado: quien, cuando, desde que estado y por que.

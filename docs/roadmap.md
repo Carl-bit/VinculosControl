@@ -404,6 +404,44 @@ Revision en el VPS (2026-11-19):
   tunel y del SSH por el tunel con Access (bitacora en Access y auth.log):
   `docs/despliegue-vps.md` 3.1 y 3.2. Las partes de la llave de un centro real
   se bajan por SSH, nunca por la consola (regla dura).
+- Hecho: P9 (continuidad) se omite en los demos (OMITIDO en el agente).
+- Hecho (decision del usuario): acceso rapido de los demos. `cargar_demo`
+  devuelve el acceso (correos ficticios `<rol><n>@<slug>.demo.vinculos.cl`,
+  rol y contrasena comun); el agente lo reporta en P10 y la API lo guarda en
+  `accesos_demo` (solo centros de origen demo con slug `demo-` y correos del
+  dominio ficticio; contrasena con AES-256-GCM, llave derivada de
+  `CONSOLA_SECRETO`). Demos > "Acceso": enlace, contrasena, cuentas por rol y
+  "Copiar todo" con un texto listo para compartir. Cada lectura queda en la
+  auditoria (`demo.acceso_visto`); se borra cuando el demo queda ELIMINADO.
+- Hecho (decision del usuario): P5 sin operador en los demos, para mostrarlos
+  fuera del entorno del host B. En un demo P5 es del agente; el ejecutor
+  (`llaves_demo`, solo `EJECUTOR_DEMOS` con `ES_DEMO=true`) corre la misma CLI
+  de llaves del ERP que usa `aprovisionar.sh` con `MODO=docker`
+  (`cli-llaves.js aprovisionar` en `migrate`, `secrets/<slug>/` en `/llaves`,
+  usuario `UID_OPERADOR`), con custodios de prueba, y borra las partes. Un
+  auxiliar sin red prepara la carpeta (700, del operador) y borra las partes;
+  el ejecutor no lee la KEK ni las partes. Idempotente (con KEK y publica solo
+  borra partes). Un centro real sigue con P5 manual. Si P6 no encuentra la KEK,
+  el job vuelve a P5 con el panel de demo (comando para copiar).
+- Hecho (decision del usuario, cambio en el ERP): demos sin segundo factor.
+  El ERP agrega `ES_DEMO` al backend y `silo_es_demo()` (SECURITY DEFINER,
+  solo lectura; migracion `20261119000100_r10_demo_sin_segundo_factor`, caso
+  183 de `seguridad_bd.sql`): con `ES_DEMO=true` y la marca de la BD, el login
+  abre sesion sin codigo; un silo real lo sigue pidiendo. La plantilla del silo
+  pasa `ES_DEMO` tambien al backend. Requiere publicar una version del ERP con
+  el cambio y crear los demos con ella: "Actualizar" no basta para un demo
+  ya creado (su compose se renderiza en P2 sin `ES_DEMO` en el backend):
+  `infra/host-b/demos-sin-codigo.sh` lo agrega una vez y luego "Actualizar"
+  (pasos en `docs/despliegue-vps.md` 7.1). En un demo, U1 (respaldo) se omite
+  como P9. `correr_tests_bd.sh` del ERP OK (caso 183 incluido); e2e del ERP
+  pendiente.
+- Diferencia con el ERP (decidida aqui, falta reflejarla alla): la regla del
+  ERP "nada genera llaves automaticamente" tiene ahora la excepcion de los
+  demos. Anotada en `docs/seguridad/runbooks_llaves.md` del ERP (2026-11-19).
+- Pendiente de probar en el VPS: un demo de punta a punta sin pasos manuales
+  (P5 `llaves_demo`, P9 omitido, P10 con acceso) y la migracion
+  `20261119180000_acceso_demo` (en local no habia Docker para el test de
+  integracion). Requiere reconstruir `ejecutor`, `agente` y `api`.
 - Requisito del ERP: certificado comodin en Traefik para no gastar el limite de
   Let's Encrypt con demos que se crean y se borran.
 - Hallazgo: recrear el agente lo saca de las redes de borde de los silos
