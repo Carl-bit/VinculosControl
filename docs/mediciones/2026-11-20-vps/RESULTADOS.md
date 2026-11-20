@@ -79,8 +79,9 @@ la colision (esperadas) + los 10 de `ocupacion`.
 
 Repetido con el silo solo el mismo dia: `../2026-11-20-solo/RESULTADOS.md`
 (cumple todos los umbrales; ahi esta la comparacion de las tres corridas).
-Pendiente: k6 desde otra maquina por `https://estres.<dominio>` (pasa por
-Cloudflare y Traefik).
+k6 desde otra maquina por `https://estres.<dominio>` (Cloudflare y Traefik):
+`../2026-11-20-externo-carga-estres/RESULTADOS.md`. Rampa y capacidad del
+host: `../2026-11-20-rampa-estres-solo/RESULTADOS.md`.
 
 ## Aprovisionamiento por la consola (`aprovisionamiento.txt`)
 

@@ -99,13 +99,15 @@ credenciales() {
 # Contenedores de un silo y Traefik en el CSV de stats (hora,nombre,cpu,ram).
 del_silo() { echo ",erp-$1-(db|backend|frontend)-1,|,vinculos-servidor-traefik-1,"; }
 
-# k6 en la red de borde del silo. $1 slug, $2 script, resto: argumentos extra de docker run.
+# k6 en la red de borde del silo. $1 slug, $2 script, resto: argumentos de
+# "k6 run" (van despues de la imagen: antes, docker los tomaria como suyos).
+# Salida, con los errores, a $R/k6.txt y a la pantalla.
 k6() {
   local slug=$1 script=$2; shift 2
   docker run --rm --user "$(id -u):$(id -g)" --network "erp-${slug}_borde" \
     -v "$ERP/backend/pruebas:/scripts:ro" -v "$R:/out" \
     -e API_URL="http://erp-${slug}-backend-1:3001/api" -e MAILPIT_URL="http://$M@mailpit:8025" -e PASSWORD="$P" \
-    "$@" "$K6" run "/scripts/$script"
+    "$K6" run "$@" "/scripts/$script" 2>&1 | tee "$R/k6.txt"
 }
 
 # Picos y promedios de un CSV de stats, entre dos horas (o todo).
@@ -140,7 +142,7 @@ modo_carga() {
   stats_inicio "$(del_silo "$slug")" stats-carga.csv
   paso "k6 stress-agenda.js (5 min)"
   local log desde hasta; log=$(date -u +%Y-%m-%dT%H:%M:%SZ); desde=$(ahora)
-  k6 "$slug" stress-agenda.js --summary-export=/out/k6.json | tee "$R/k6.txt" || echo "k6 cruzo algun umbral (ver k6.txt)"
+  k6 "$slug" stress-agenda.js --summary-export=/out/k6.json || echo "k6 cruzo algun umbral (ver k6.txt)"
   hasta=$(ahora); sleep 6; stats_fin
   cierre "$slug" "$desde" "$hasta" "$log"
 }
@@ -155,29 +157,33 @@ modo_rampa() {
   stats_inicio "$(del_silo "$slug")" stats-carga.csv
   paso "k6 stress-rampa.js (10, 25, 50, 100, 200 VUs; unos 10 min)"
   local log desde hasta; log=$(date -u +%Y-%m-%dT%H:%M:%SZ); desde=$(ahora)
-  k6 "$slug" stress-rampa.js -e SALIDA=/out/rampa.json | tee "$R/k6.txt" || echo "k6 cruzo umbrales (esperado en una rampa)"
+  k6 "$slug" stress-rampa.js -e SALIDA=/out/rampa.json || echo "k6 cruzo umbrales (esperado en una rampa)"
   hasta=$(ahora); sleep 6; stats_fin
   cierre "$slug" "$desde" "$hasta" "$log"
   { echo; echo "--- rampa"; sed -n '/^Rampa contra/,$p' "$R/k6.txt"; } >> "$R/resumen.txt"
   sed -n '/^Rampa contra/,$p' "$R/k6.txt"
 }
 
-modo_limpio() {
+borrar_limpio() {
   local slug=estres-limpio
+  paso "Borrando $slug (contenedores, volumenes, .env, llaves de prueba y token)"
+  ( cd "$ERP" && sh infra/servidor/servidor.sh bajar "$slug" ) || true
+  docker compose -p "erp-$slug" down -v --remove-orphans || true
+  rm -rf "$ERP/infra/servidor/silos/$slug.env" "$ERP/infra/secrets/$slug" "$ERP/infra/servidor/internos/$slug.token"
+}
+
+modo_limpio() {
+  local slug=estres-limpio estado=0
   [ -n "$DOMINIO_BASE" ] || falla "falta DOMINIO_BASE (infra/host-a/.env o DOMINIO_BASE=...)"
   paso "Creando $slug recien sembrado (servidor.sh del ERP; la primera vez tarda unos minutos)"
-  ( cd "$ERP" && PERFIL=estres sh infra/servidor/servidor.sh levantar "$slug" "$slug.$DOMINIO_BASE" "Centro Estres Limpio" )
-  local estado=0
-  modo_carga "$slug" --solo || estado=$?
-  restaurar
-  if [ "${CONSERVAR:-0}" = 1 ]; then
-    echo "CONSERVAR=1: $slug queda arriba"
+  # Si levantar falla a medias (ej. solo la db arriba) igual se borra: no queda un silo cojo.
+  if ( cd "$ERP" && PERFIL=estres sh infra/servidor/servidor.sh levantar "$slug" "$slug.$DOMINIO_BASE" "Centro Estres Limpio" ); then
+    modo_carga "$slug" --solo || estado=$?
   else
-    paso "Borrando $slug (contenedores, volumenes, .env, llaves de prueba y token)"
-    ( cd "$ERP" && sh infra/servidor/servidor.sh bajar "$slug" ) || true
-    docker compose -p "erp-$slug" down -v --remove-orphans || true
-    rm -rf "$ERP/infra/servidor/silos/$slug.env" "$ERP/infra/secrets/$slug" "$ERP/infra/servidor/internos/$slug.token"
+    estado=1; echo "medir: fallo servidor.sh levantar $slug (ver la salida de arriba)" >&2
   fi
+  restaurar
+  if [ "${CONSERVAR:-0}" = 1 ]; then echo "CONSERVAR=1: $slug queda arriba"; else borrar_limpio; fi
   return $estado
 }
 
@@ -186,25 +192,31 @@ modo_host() {
   carpeta "host-$slug"
   credenciales "$slug"
   maquina
+  # Un silo a medias (ej. solo la db de un estres-limpio que no termino) no cuenta.
+  local s cojos=""
+  for s in $(docker ps --format '{{.Names}}' | sed -n 's/^erp-\(.*\)-db-1$/\1/p'); do
+    docker ps --format '{{.Names}}' | grep -qx "erp-$s-backend-1" || cojos="$cojos $s"
+  done
+  [ -z "$cojos" ] || echo "Aviso: silos sin backend, fuera de la huella:$cojos" | tee "$R/cojos.txt"
   paso "Huella de todos los silos en reposo (2 min)"
   reposo ",erp-"
   free -m > "$R/free-reposo.txt"
   stats_inicio ",erp-|,vinculos-servidor-traefik-1," stats-carga.csv
   paso "Rampa contra $slug con todos los silos arriba"
   local log desde hasta; log=$(date -u +%Y-%m-%dT%H:%M:%SZ); desde=$(ahora)
-  k6 "$slug" stress-rampa.js -e SALIDA=/out/rampa.json | tee "$R/k6.txt" || true
+  k6 "$slug" stress-rampa.js -e SALIDA=/out/rampa.json || true
   hasta=$(ahora); sleep 6; stats_fin
   free -m > "$R/free-carga.txt"
   cierre "$slug" "$desde" "$hasta" "$log"
   # Por silo: suma de sus contenedores (RAM promedio en reposo) y cuantos mas caben.
   local disp; disp=$(awk '/^Mem:/ {print $7}' "$R/free-reposo.txt")
   { echo; echo "--- silos en reposo (suma de db, backend y frontend)"
-    awk -F, '{ split($4,m," / "); v=m[1]; if (v ~ /GiB/) {sub(/GiB/,"",v); v*=1024} else sub(/MiB/,"",v)
-      s=$2; sub(/-(db|backend|frontend|migrate)-1$/,"",s); suma[s"|"$1]+=v; vistos[s]=1 }
+    awk -F, -v cojos="$cojos" '{ split($4,m," / "); v=m[1]; if (v ~ /GiB/) {sub(/GiB/,"",v); v*=1024} else sub(/MiB/,"",v)
+      s=$2; sub(/-(db|backend|frontend|migrate)-1$/,"",s); if (index(cojos " ", " " substr(s,5) " ")) next; suma[s"|"$1]+=v; vistos[s]=1 }
       END { for (k in suma) { split(k,p,"|"); tot[p[1]]+=suma[k]; n[p[1]]++ } for (s in vistos) printf "%-28s %5.0f MiB\n", s, tot[s]/n[s] }' "$R/stats-reposo.csv" | sort
     echo
-    awk -F, -v disp="$disp" '{ split($4,m," / "); v=m[1]; if (v ~ /GiB/) {sub(/GiB/,"",v); v*=1024} else sub(/MiB/,"",v)
-      s=$2; sub(/-(db|backend|frontend|migrate)-1$/,"",s); suma[s"|"$1]+=v; vistos[s]=1 }
+    awk -F, -v disp="$disp" -v cojos="$cojos" '{ split($4,m," / "); v=m[1]; if (v ~ /GiB/) {sub(/GiB/,"",v); v*=1024} else sub(/MiB/,"",v)
+      s=$2; sub(/-(db|backend|frontend|migrate)-1$/,"",s); if (index(cojos " ", " " substr(s,5) " ")) next; suma[s"|"$1]+=v; vistos[s]=1 }
       END { for (k in suma) { split(k,p,"|"); tot[p[1]]+=suma[k]; n[p[1]]++ } c=0; t=0; for (s in vistos) { c++; t+=tot[s]/n[s] }
         prom=t/c; reserva=1024
         printf "Silos: %d, RAM promedio por silo en reposo: %.0f MiB\n", c, prom

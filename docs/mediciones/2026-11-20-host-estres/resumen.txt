@@ -1,0 +1,45 @@
+Silo: estres   k6: 04:32:38 a 04:42:58
+
+--- verificar
+Solapes de citas activas: 0
+erp-estres-db-1 reinicios/OOM/estado: 0 false running
+erp-estres-backend-1 reinicios/OOM/estado: 0 false running
+erp-estres-db-1 97.81MiB / 256MiB 0.43%
+erp-estres-backend-1 76.35MiB / 256MiB 5.77%
+
+--- pool lleno (P2028 en el log del backend): 0
+
+--- reposo
+erp-demo-backend-1                 CPU prom   0.0 %  pico   0.1 %   RAM prom   72  pico   76 MiB
+erp-demo-db-1                      CPU prom   0.6 %  pico   3.2 %   RAM prom   34  pico   38 MiB
+erp-demo-frontend-1                CPU prom   0.0 %  pico   0.0 %   RAM prom   53  pico   53 MiB
+erp-demo-paris-backend-1           CPU prom   0.2 %  pico   2.5 %   RAM prom   72  pico   78 MiB
+erp-demo-paris-db-1                CPU prom   0.8 %  pico   3.4 %   RAM prom   33  pico   37 MiB
+erp-demo-paris-frontend-1          CPU prom   0.0 %  pico   0.0 %   RAM prom   52  pico   53 MiB
+erp-estres-backend-1               CPU prom   0.0 %  pico   0.1 %   RAM prom   76  pico   77 MiB
+erp-estres-db-1                    CPU prom   0.9 %  pico   3.8 %   RAM prom   97  pico  101 MiB
+erp-estres-frontend-1              CPU prom   0.0 %  pico   0.0 %   RAM prom   52  pico   52 MiB
+erp-estres-limpio-db-1             CPU prom   1.2 %  pico   3.8 %   RAM prom   31  pico   33 MiB
+
+--- durante k6
+erp-demo-backend-1                 CPU prom   0.0 %  pico   0.1 %   RAM prom   73  pico   74 MiB
+erp-demo-db-1                      CPU prom   0.8 %  pico   4.4 %   RAM prom   46  pico   60 MiB
+erp-demo-frontend-1                CPU prom   0.0 %  pico   0.0 %   RAM prom   53  pico   53 MiB
+erp-demo-paris-backend-1           CPU prom   0.1 %  pico   3.2 %   RAM prom   74  pico   76 MiB
+erp-demo-paris-db-1                CPU prom   0.6 %  pico   3.9 %   RAM prom   44  pico   58 MiB
+erp-demo-paris-frontend-1          CPU prom   0.0 %  pico   0.0 %   RAM prom   52  pico   52 MiB
+erp-estres-backend-1               CPU prom  71.5 %  pico 106.1 %   RAM prom  100  pico  114 MiB
+erp-estres-db-1                    CPU prom  38.5 %  pico  70.2 %   RAM prom  100  pico  104 MiB
+erp-estres-frontend-1              CPU prom   0.0 %  pico   0.0 %   RAM prom   52  pico   52 MiB
+erp-estres-limpio-db-1             CPU prom   0.7 %  pico   4.0 %   RAM prom   32  pico   36 MiB
+vinculos-servidor-traefik-1        CPU prom   0.1 %  pico   0.3 %   RAM prom   30  pico   33 MiB
+
+--- silos en reposo (suma de db, backend y frontend)
+erp-demo                       158 MiB
+erp-demo-paris                 158 MiB
+erp-estres                     226 MiB
+erp-estres-limpio               31 MiB
+
+Silos: 4, RAM promedio por silo en reposo: 143 MiB
+RAM disponible del host: 12889 MiB (se reservan 1024 MiB para el SO y el plano del host)
+Caben aprox. 82 silos mas por uso en reposo, 15 mas por limite (768 MiB por silo)

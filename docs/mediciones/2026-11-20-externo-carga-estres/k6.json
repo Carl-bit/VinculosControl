@@ -1,0 +1,218 @@
+{
+    "metrics": {
+        "checks{escenario:carga_normal}": {
+            "passes": 4072,
+            "fails": 0,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "checks{escenario:lectura_publica}": {
+            "passes": 11718,
+            "fails": 0,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "reservas_409": {
+            "rate": 0.2873115434505894,
+            "count": 87
+        },
+        "iterations": {
+            "count": 6032,
+            "rate": 19.9202670125742
+        },
+        "http_req_waiting": {
+            "p(95)": 331.07204669999993,
+            "avg": 191.14495520051486,
+            "min": 130.650845,
+            "med": 167.78970500000003,
+            "max": 805.35199,
+            "p(90)": 268.1105280000001
+        },
+        "reservas_201": {
+            "count": 3,
+            "rate": 0.009907294601744462,
+            "thresholds": {
+                "count==3": false
+            }
+        },
+        "http_req_duration{escenario:lectura_publica}": {
+            "min": 131.170267,
+            "med": 162.5379575,
+            "max": 710.580191,
+            "p(90)": 229.9066942,
+            "p(95)": 283.71812275,
+            "avg": 179.37696156579608,
+            "thresholds": {
+                "p(95)<300": false
+            }
+        },
+        "http_req_duration": {
+            "avg": 195.44648113762247,
+            "min": 131.170267,
+            "med": 169.882795,
+            "max": 806.455402,
+            "p(90)": 278.0399772000001,
+            "p(95)": 342.92196004999954
+        },
+        "reservas_otro_estado": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_reqs": {
+            "rate": 52.45582248470301,
+            "count": 15884
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 806.455402,
+            "p(90)": 272.8547714,
+            "p(95)": 332.26028840000004,
+            "avg": 194.30473242932143,
+            "min": 131.170267,
+            "med": 169.715079
+        },
+        "http_req_sending": {
+            "min": 0.018586,
+            "med": 0.050614,
+            "max": 0.751985,
+            "p(90)": 0.0984117,
+            "p(95)": 0.11219884999999999,
+            "avg": 0.06003564379249565
+        },
+        "vus": {
+            "value": 18,
+            "min": 0,
+            "max": 60
+        },
+        "http_req_blocked": {
+            "avg": 0.55517331931491,
+            "min": 0.00006,
+            "med": 0.00016,
+            "max": 176.296761,
+            "p(90)": 0.000221,
+            "p(95)": 0.000261
+        },
+        "iteration_duration": {
+            "min": 1307.622291,
+            "med": 1496.6331115,
+            "max": 5047.191715,
+            "p(90)": 1666.3733795000003,
+            "p(95)": 1750.4665419,
+            "avg": 1552.3559886134028
+        },
+        "http_req_failed": {
+            "passes": 87,
+            "fails": 15797,
+            "value": 0.00547720977083858
+        },
+        "checks": {
+            "passes": 15880,
+            "fails": 0,
+            "value": 1
+        },
+        "data_sent": {
+            "rate": 7160.1768375520205,
+            "count": 2168153
+        },
+        "http_req_connecting": {
+            "avg": 0.2751915761143288,
+            "min": 0,
+            "med": 0,
+            "max": 100.967194,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0.2786825934903048,
+            "min": 0,
+            "med": 0,
+            "max": 105.062659,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "vus_max": {
+            "value": 60,
+            "min": 60,
+            "max": 60
+        },
+        "http_req_receiving": {
+            "avg": 4.241490293314047,
+            "min": 0.019849,
+            "med": 0.9195915,
+            "max": 146.296079,
+            "p(90)": 24.2335196,
+            "p(95)": 25.9549997
+        },
+        "data_received": {
+            "count": 216752242,
+            "rate": 715809.4390275364
+        }
+    },
+    "setup_data": {
+        "slots": [
+            {
+                "fin": "2026-11-24T20:50:00.000Z",
+                "inicio": "2026-11-24T20:00:00.000Z",
+                "modalidad": "PRESENCIAL"
+            },
+            {
+                "inicio": "2026-11-25T12:00:00.000Z",
+                "modalidad": "PRESENCIAL",
+                "fin": "2026-11-25T12:50:00.000Z"
+            },
+            {
+                "fin": "2026-11-25T18:50:00.000Z",
+                "inicio": "2026-11-25T18:00:00.000Z",
+                "modalidad": "PRESENCIAL"
+            }
+        ],
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YjAxN2NlMi0wNjMxLTQ2NTItOGY3MC1iNTljZGY1NmIzOWUiLCJyb2wiOiJHRVNUSU9OIiwic2lkIjoiMTBjMmE0NWMtNWViMy00NTBmLWJlNWUtZTQ1ZDU5YWY4MjdmIiwidGlwbyI6ImFjY2VzbyIsImlhdCI6MTc5NTE1MjkxMiwiZXhwIjoxNzk1MTUzODEyfQ.QLTQLTM6cwkrwPsnyR6XT6NxhoEbTx2QNuSCR0V40sE",
+        "pacientes": [
+            "6717ba72-c0ee-40cf-9360-a7d9f0ae3631"
+        ],
+        "perfil": "7676254a-361a-44d8-8679-8ed94170a82f",
+        "profesionalId": "7676254a-361a-44d8-8679-8ed94170a82f"
+    },
+    "root_group": {
+        "checks": {
+            "publico 200 (sin 5xx ni 429)": {
+                "name": "publico 200 (sin 5xx ni 429)",
+                "path": "::publico 200 (sin 5xx ni 429)",
+                "id": "1893bb9d55db4c5e5e635e5133e9e9e9",
+                "passes": 11718,
+                "fails": 0
+            },
+            "ocupacion 200": {
+                "name": "ocupacion 200",
+                "path": "::ocupacion 200",
+                "id": "1d8b461145e3804468f3c868e6a93fcf",
+                "passes": 2036,
+                "fails": 0
+            },
+            "citas 200": {
+                "name": "citas 200",
+                "path": "::citas 200",
+                "id": "96c88dfdbb86797daf4d5179256f8d9e",
+                "passes": 2036,
+                "fails": 0
+            },
+            "colision 201, 409 o 503": {
+                "name": "colision 201, 409 o 503",
+                "path": "::colision 201, 409 o 503",
+                "id": "4bee44ea8ba369e7a2548a838ec43bf6",
+                "passes": 90,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    }
+}

@@ -1,0 +1,26 @@
+CPU(s):                                  8
+Model name:                              Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz
+CPU(s) scaling MHz:                      80%
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       1.8Gi       1.8Gi        44Mi        11Gi        13Gi
+Swap:          4.0Gi       732Ki       4.0Gi
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2       457G   50G  384G  12% /
+Docker 29.9.2
+--- contenedores
+vinculos-agente-ejecutor-1
+vinculos-agente-agente-1
+erp-estres-frontend-1
+erp-estres-backend-1
+erp-estres-db-1
+vinculos-control-web-1
+vinculos-control-api-1
+vinculos-control-mailpit-1
+vinculos-agente-socket-proxy-1
+vinculos-agente-registro-1
+vinculos-control-landing-1
+vinculos-control-db-1
+vinculos-servidor-traefik-1
+vinculos-servidor-mailpit-1
+uptime-kuma
+cloudflared

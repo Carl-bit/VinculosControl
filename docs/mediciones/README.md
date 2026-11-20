@@ -6,6 +6,9 @@ mediciones) y `docs/operacion/servidor_pruebas.md` del ERP.
 
 | Corrida | Que se midio | Resultado |
 |---|---|---|
+| [2026-11-20-externo-carga-estres](2026-11-20-externo-carga-estres/RESULTADOS.md) | k6 desde otro PC por el dominio publico (Cloudflare, tunel, Traefik) | Mismo comportamiento que adentro; Cloudflare y el tunel suman ~130 ms por peticion; p95 lectura publica 284 ms (umbral 300) |
+| [2026-11-20-rampa-estres-solo](2026-11-20-rampa-estres-solo/RESULTADOS.md) (+ `2026-11-20-host-estres`) | Rampa 10 a 200 VUs, solo y con otros silos; huella por silo | Quiebre entre 100 y 200 VUs (CPU del backend al 100 %), 0 errores 5xx; 181 MiB por silo en reposo; caben 15 silos mas por limites |
+| `2026-11-20-carga-estres-solo` | `medir.sh carga --solo` | No valida: k6 no corrio (error del script, corregido); repetir |
 | [2026-11-20-solo](2026-11-20-solo/RESULTADOS.md) | k6 contra `estres` como unico silo (comparacion de las tres corridas) | Cumple todos los umbrales: 100 % de checks, 0 solapes, 0 respuestas 503, max 683 ms; p95 lectura publica 113 ms |
 | [2026-11-20-vps](2026-11-20-vps/RESULTADOS.md) | k6 contra `estres` con 6 silos en el host; aprovisionamiento de demos | Integridad, memoria y lectura publica cumplen; `carga_normal` 99,6 % (10 fallos en la rafaga de reservas); demo completo en 1,5 a 2 min |
 

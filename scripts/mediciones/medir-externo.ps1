@@ -79,8 +79,10 @@ Write-Host "k6 $script contra $api (carga: 5 min; rampa: unos 10 min)"
 $inicio = Get-Date
 # k6 escribe el progreso por stderr: en PowerShell 5.1 eso seria un error con Stop.
 $ErrorActionPreference = 'Continue'
-docker @k6args 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath (Join-Path $out 'k6.txt')
+# Tee-Object de PowerShell 5.1 escribe UTF-16: se junta y se guarda en UTF-8.
+docker @k6args 2>&1 | ForEach-Object { "$_" } | Tee-Object -Variable salida
 $ErrorActionPreference = 'Stop'
+$salida | Set-Content -Encoding utf8 (Join-Path $out 'k6.txt')
 $fin = Get-Date
 Add-Content -Encoding utf8 (Join-Path $out 'contexto.txt') "k6: $($inicio.ToString('HH:mm:ss')) a $($fin.ToString('HH:mm:ss')) (hora del PC)"
 

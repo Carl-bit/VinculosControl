@@ -1,0 +1,53 @@
+{
+  "api": "http://erp-estres-backend-1:3001/api",
+  "criterio": "p95 > 300 ms o 5xx > 1 %",
+  "punto_de_quiebre_vus": 200,
+  "respuestas_429": 0,
+  "etapas": [
+    {
+      "vus": 10,
+      "peticiones": 2823,
+      "por_segundo": 23.5,
+      "p95_ms": 67,
+      "max_ms": 342,
+      "errores_5xx": 0,
+      "quiebra": false
+    },
+    {
+      "vus": 25,
+      "peticiones": 6960,
+      "por_segundo": 58,
+      "p95_ms": 139,
+      "max_ms": 551,
+      "errores_5xx": 0,
+      "quiebra": false
+    },
+    {
+      "vus": 50,
+      "peticiones": 13365,
+      "por_segundo": 111.4,
+      "p95_ms": 187,
+      "max_ms": 529,
+      "errores_5xx": 0,
+      "quiebra": false
+    },
+    {
+      "vus": 100,
+      "peticiones": 25739,
+      "por_segundo": 214.5,
+      "p95_ms": 197,
+      "max_ms": 447,
+      "errores_5xx": 0,
+      "quiebra": false
+    },
+    {
+      "vus": 200,
+      "peticiones": 30026,
+      "por_segundo": 250.2,
+      "p95_ms": 805,
+      "max_ms": 1114,
+      "errores_5xx": 0,
+      "quiebra": true
+    }
+  ]
+}

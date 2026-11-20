@@ -1,0 +1,8 @@
+erp-estres-limpio-db-1
+erp-demo-frontend-1
+erp-demo-backend-1
+erp-demo-db-1
+erp-demo-paris-frontend-1
+erp-demo-paris-backend-1
+erp-demo-paris-db-1
+llama-server
