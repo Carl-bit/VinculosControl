@@ -64,7 +64,6 @@ $salud = try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 "$api/salud").
   "Equipo: $env:COMPUTERNAME ($((Get-CimInstance Win32_Processor | Select-Object -First 1).Name))"
   "API: $api  (salud: $salud)"
   "Modo: $Modo"
-  "IP publica: $(try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 'https://api.ipify.org').Content } catch { 'desconocida' })"
 ) | Set-Content -Encoding utf8 (Join-Path $out 'contexto.txt')
 Get-Content (Join-Path $out 'contexto.txt')
 
