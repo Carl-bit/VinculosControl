@@ -448,6 +448,10 @@ Revision en el VPS (2026-11-19):
   (`POST /v1/bordes/reconectar` del ejecutor lo repone). Hecho 2026-11-19: el
   agente lo pide al arrancar y cada 10 min (U1 de un ACTUALIZAR fallaba con
   "no resuelve" despues de `up -d --build agente`).
+- Hecho 2026-11-19: eliminar y eliminar_demo sueltan cualquier contenedor
+  ajeno que siga unido a las redes del silo antes de borrarlas (el Mailpit que
+  `servidor.sh` del ERP une a todas las redes de borde dejaba la baja de un
+  demo en "network has active endpoints").
 
 ## Siguiente paso (2026-11-15)
 

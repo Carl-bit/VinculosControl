@@ -138,6 +138,18 @@ export const dockerCiclo: DockerCiclo = {
     if (r.status !== 200) throw new Error(`docker redes: ${r.status}`);
     return (JSON.parse(r.cuerpo) as RedProyecto[]).map((x) => ({ Id: x.Id, Name: x.Name, Labels: x.Labels ?? {} }));
   },
+  async vaciarRed(id) {
+    const r = await llamar('GET', `/networks/${esId(id)}`);
+    if (r.status === 404) return [];
+    if (r.status !== 200) throw new Error(`docker red: ${r.status}`);
+    const unidos = Object.entries((JSON.parse(r.cuerpo) as { Containers?: Record<string, { Name?: string }> }).Containers ?? {});
+    const fuera: string[] = [];
+    for (const [cid, c] of unidos) {
+      await docker.desconectar(id, cid);
+      fuera.push(c.Name ?? cid.slice(0, 12));
+    }
+    return fuera;
+  },
   async borrarRed(id) {
     const r = await llamar('DELETE', `/networks/${esId(id)}`);
     if (r.status !== 204 && r.status !== 404) throw new Error(`docker borrar red: ${r.status} ${r.cuerpo.slice(0, 200)}`);

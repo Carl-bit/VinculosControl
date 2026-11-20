@@ -17,7 +17,7 @@ const c = (servicio: string, estado = 'running', proyecto = 'erp-kibou'): Conten
 const vol = (nombre: string, proyecto = 'erp-kibou'): Volumen => ({ Name: nombre, Labels: { 'com.docker.compose.project': proyecto } });
 const red = (nombre: string, proyecto = 'erp-kibou'): RedProyecto => ({ Id: nombre.length.toString(16).padStart(12, 'c'), Name: nombre, Labels: { 'com.docker.compose.project': proyecto } });
 
-function falso(cs: Contenedor[], opts: { vols?: Volumen[]; redes?: RedProyecto[]; salud?: (string | null)[] } = {}) {
+function falso(cs: Contenedor[], opts: { vols?: Volumen[]; redes?: RedProyecto[]; salud?: (string | null)[]; ajenos?: Record<string, string[]> } = {}) {
   const hechos: string[] = [];
   const salud = [...(opts.salud ?? ['healthy'])];
   const d: DockerCiclo = {
@@ -47,6 +47,11 @@ function falso(cs: Contenedor[], opts: { vols?: Volumen[]; redes?: RedProyecto[]
     },
     async borrarRed(id) {
       hechos.push(`rmred ${(opts.redes ?? []).find((r) => r.Id === id)?.Name}`);
+    },
+    async vaciarRed(id) {
+      const ajenos = opts.ajenos?.[id] ?? [];
+      for (const n of ajenos) hechos.push(`suelta ${n}`);
+      return ajenos;
     },
   };
   return { d, hechos };
@@ -236,6 +241,14 @@ describe('eliminarDemo (demo vencido)', () => {
     assert.deepEqual(h2, ['rm respaldos/kibou']);
     assert.equal(r.inventario.contenedores.length, 3);
     assert.ok(r.log.some((l) => l.includes('infra/secrets/kibou')));
+  });
+
+  it('un contenedor ajeno unido al borde (Mailpit de servidor.sh) se suelta antes de borrar la red', async () => {
+    const borde = red('erp-kibou_borde');
+    const { d, hechos } = falso([c('db')], { redes: [borde], ajenos: { [borde.Id]: ['vinculos-servidor-mailpit-1'] } });
+    const r = await eliminarDemo(d, disco(null).x, DEMOS, si, 'kibou', DIA, async () => []);
+    assert.ok(hechos.indexOf('suelta vinculos-servidor-mailpit-1') < hechos.indexOf('rmred erp-kibou_borde'));
+    assert.ok(r.log.includes('erp-kibou_borde: separados vinculos-servidor-mailpit-1'));
   });
 
   it('idempotente: ya borrado (sin .env ni nada del proyecto) no falla', async () => {

@@ -269,6 +269,10 @@ mas rapido darlo de baja y crear otro desde Demos.
   Un agente nuevo se reconecta solo al arrancar; con uno anterior:
   `docker network connect erp-<slug>_borde vinculos-agente-agente-1` y
   reintentar el paso desde el job.
+- **Baja de un demo con "network erp-<slug>_borde has active endpoints"**:
+  `servidor.sh` del ERP unio su Mailpit a esa red. Un ejecutor nuevo lo suelta
+  solo; con uno anterior: `docker network disconnect erp-<slug>_borde
+  vinculos-servidor-mailpit-1` y reintentar el paso desde el job.
 - **Agente sin latido**: revisar `CONTROL_URL` (https y el path `/agente/` en el
   tunel) y `AGENTE_TOKEN` (`crear-agente` con el mismo nombre rota el token).
 - **P2 de un demo falla con 403 "no esta en EJECUTOR_DEMOS"**: poner

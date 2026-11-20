@@ -57,6 +57,12 @@ export interface DockerCiclo {
   borrarVolumen(nombre: string): Promise<void>;
   redes(proyecto: string): Promise<RedProyecto[]>;
   borrarRed(id: string): Promise<void>;
+  /**
+   * Desconecta de la red lo que siga unido (ya sin los contenedores del silo):
+   * contenedores del plano del host que otro unio, como el Mailpit que une
+   * servidor.sh del ERP a todas las redes de borde. Devuelve sus nombres.
+   */
+  vaciarRed(id: string): Promise<string[]>;
 }
 
 /** Disco del host que toca eliminar: consentimiento (solo lectura) y respaldos. */
@@ -206,6 +212,9 @@ async function borrarProyecto(d: DockerCiclo, disco: Disco, slug: string, cs: Co
   }
   log.push(`volumenes: ${inventario.volumenes.join(', ') || 'ninguno'}`);
   for (const r of redes) {
+    // Docker no borra una red con contenedores unidos: los ajenos al silo se sueltan primero.
+    const fuera = await d.vaciarRed(r.Id);
+    if (fuera.length) log.push(`${r.Name}: separados ${fuera.join(', ')}`);
     await d.borrarRed(r.Id);
     inventario.redes.push(r.Name);
   }
