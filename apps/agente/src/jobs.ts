@@ -65,6 +65,20 @@ async function ejecutor<T>(metodo: 'GET' | 'POST', slug: string, verbo: VerboEje
   return cuerpo;
 }
 
+/**
+ * R11: vuelve a unir Traefik y el agente a la red de borde de cada silo
+ * (ejecutor: POST /v1/bordes/reconectar, verbo de la lista cerrada). Recrear el
+ * contenedor del agente (up -d --build) lo saca de esas redes y los pasos que
+ * hablan con un silo fallan con "no resuelve". Idempotente: lo ya unido no cambia.
+ */
+export async function reconectarBordes(): Promise<string[]> {
+  if (!EJECUTOR) return ['EJECUTOR_URL sin definir: bordes sin revisar'];
+  const r = await fetch(`${EJECUTOR}/v1/bordes/reconectar`, { method: 'POST', headers: { authorization: `Bearer ${EJECUTOR_TOKEN}` }, signal: AbortSignal.timeout(180_000) });
+  const cuerpo = (await r.json().catch(() => ({}))) as { log?: string[]; error?: string };
+  if (!r.ok) throw new ErrorEjecutor(r.status, `ejecutor reconectar_bordes: ${cuerpo.error ?? `HTTP ${r.status}`}`);
+  return cuerpo.log ?? [];
+}
+
 interface RedDocker {
   Name: string;
   Driver: string;

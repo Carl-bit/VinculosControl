@@ -13,7 +13,7 @@
  */
 import { dominioDesdeLabels, inspeccionar, listar, logs, siloDe, stats, type ContenedorDocker } from './docker';
 import { host, ultimoRespaldo } from './host';
-import { ejecutar, type JobReclamado, TIPOS } from './jobs';
+import { ejecutar, type JobReclamado, reconectarBordes, TIPOS } from './jobs';
 import { latenciasDesdeLogs } from './p95';
 import { informarReleases } from './releases';
 import { sincronizarExportaciones } from './exportaciones';
@@ -112,6 +112,8 @@ if (!CONTROL || TOKEN.length < 32) {
   process.exit(1);
 }
 log(`agente ${VERSION} -> ${CONTROL}`);
+// Al arrancar (un agente recreado queda fuera de las redes de borde) y cada 10 min: vuelve a unirse a erp-<slug>_borde.
+cada(600_000, async () => log(`bordes: ${(await reconectarBordes()).filter((l) => !l.includes('ya estaba')).join('; ') || 'sin cambios'}`), 'bordes');
 cada(30_000, () => enviar('latido', { version: VERSION }), 'latido');
 cada(60_000, async () => log(`reporte: ${await reporte()} silo(s)`), 'reporte');
 cada(15_000, jobs, 'jobs');

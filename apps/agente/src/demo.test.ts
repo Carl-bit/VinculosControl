@@ -55,4 +55,19 @@ describe('demos (R10) en el agente', () => {
       globalThis.fetch = antes;
     }
   });
+  it('reconectarBordes pide al ejecutor POST /v1/bordes/reconectar (agente recreado fuera del borde)', async () => {
+    const { reconectarBordes } = await import('./jobs');
+    const llamadas: { url: string; metodo?: string }[] = [];
+    const antes = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      llamadas.push({ url, metodo: init?.method });
+      return new Response(JSON.stringify({ log: ['vinculos-agente-agente-1 unido a erp-demo-2_borde'] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      assert.deepEqual(await reconectarBordes(), ['vinculos-agente-agente-1 unido a erp-demo-2_borde']);
+      assert.deepEqual(llamadas, [{ url: 'http://ejecutor:7070/v1/bordes/reconectar', metodo: 'POST' }]);
+    } finally {
+      globalThis.fetch = antes;
+    }
+  });
 });

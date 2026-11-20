@@ -264,6 +264,11 @@ mas rapido darlo de baja y crear otro desde Demos.
 
 - **Login de un silo con 503 "No se pudo enviar el codigo"**: Mailpit no esta
   unido a la red de borde con su alias. `servidor.sh levantar <slug>` lo repone.
+- **"erp-<slug>-backend-1 no resuelve: el agente no esta en erp-<slug>_borde"**:
+  el agente se recreo (`up -d --build agente`) y salio de las redes de borde.
+  Un agente nuevo se reconecta solo al arrancar; con uno anterior:
+  `docker network connect erp-<slug>_borde vinculos-agente-agente-1` y
+  reintentar el paso desde el job.
 - **Agente sin latido**: revisar `CONTROL_URL` (https y el path `/agente/` en el
   tunel) y `AGENTE_TOKEN` (`crear-agente` con el mismo nombre rota el token).
 - **P2 de un demo falla con 403 "no esta en EJECUTOR_DEMOS"**: poner

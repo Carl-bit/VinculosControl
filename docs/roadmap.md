@@ -445,7 +445,9 @@ Revision en el VPS (2026-11-19):
 - Requisito del ERP: certificado comodin en Traefik para no gastar el limite de
   Let's Encrypt con demos que se crean y se borran.
 - Hallazgo: recrear el agente lo saca de las redes de borde de los silos
-  (`POST /v1/bordes/reconectar` del ejecutor lo repone).
+  (`POST /v1/bordes/reconectar` del ejecutor lo repone). Hecho 2026-11-19: el
+  agente lo pide al arrancar y cada 10 min (U1 de un ACTUALIZAR fallaba con
+  "no resuelve" despues de `up -d --build agente`).
 
 ## Siguiente paso (2026-11-15)
 
