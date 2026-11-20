@@ -1,0 +1,162 @@
+ id | silo_slug  | codigo |  estado   | intentos | seg 
+----+------------+--------+-----------+----------+-----
+  1 | demo-paris | P0     | FALLIDO   |        1 |   0
+  1 | demo-paris | P1     | PENDIENTE |        0 |    
+  1 | demo-paris | P2     | PENDIENTE |        0 |    
+  1 | demo-paris | P4     | PENDIENTE |        0 |    
+  1 | demo-paris | P5     | PENDIENTE |        0 |    
+  1 | demo-paris | P6     | PENDIENTE |        0 |    
+  1 | demo-paris | P7     | PENDIENTE |        0 |    
+  1 | demo-paris | P8     | PENDIENTE |        0 |    
+  1 | demo-paris | P9     | PENDIENTE |        0 |    
+  1 | demo-paris | P10    | PENDIENTE |        0 |    
+  2 | demo-2     | P0     | FALLIDO   |        2 |   0
+  2 | demo-2     | P1     | PENDIENTE |        0 |    
+  2 | demo-2     | P2     | PENDIENTE |        0 |    
+  2 | demo-2     | P4     | PENDIENTE |        0 |    
+  2 | demo-2     | P5     | PENDIENTE |        0 |    
+  2 | demo-2     | P6     | PENDIENTE |        0 |    
+  2 | demo-2     | P7     | PENDIENTE |        0 |    
+  2 | demo-2     | P8     | PENDIENTE |        0 |    
+  2 | demo-2     | P9     | PENDIENTE |        0 |    
+  2 | demo-2     | P10    | PENDIENTE |        0 |    
+  5 | paz        | P0     | FALLIDO   |        1 |   0
+  5 | paz        | P1     | PENDIENTE |        0 |    
+  5 | paz        | P2     | PENDIENTE |        0 |    
+  5 | paz        | P4     | PENDIENTE |        0 |    
+  5 | paz        | P5     | PENDIENTE |        0 |    
+  5 | paz        | P6     | PENDIENTE |        0 |    
+  5 | paz        | P7     | PENDIENTE |        0 |    
+  5 | paz        | P8     | PENDIENTE |        0 |    
+  5 | paz        | P9     | PENDIENTE |        0 |    
+  5 | paz        | P10    | PENDIENTE |        0 |    
+  6 | paz        | P0     | FALLIDO   |        1 |   0
+  6 | paz        | P1     | PENDIENTE |        0 |    
+  6 | paz        | P2     | PENDIENTE |        0 |    
+  6 | paz        | P4     | PENDIENTE |        0 |    
+  6 | paz        | P5     | PENDIENTE |        0 |    
+  6 | paz        | P6     | PENDIENTE |        0 |    
+  6 | paz        | P7     | PENDIENTE |        0 |    
+  6 | paz        | P8     | PENDIENTE |        0 |    
+  6 | paz        | P9     | PENDIENTE |        0 |    
+  6 | paz        | P10    | PENDIENTE |        0 |    
+  8 | paz        | P0     | FALLIDO   |        2 |   0
+  8 | paz        | P1     | PENDIENTE |        0 |    
+  8 | paz        | P2     | PENDIENTE |        0 |    
+  8 | paz        | P4     | PENDIENTE |        0 |    
+  8 | paz        | P5     | PENDIENTE |        0 |    
+  8 | paz        | P6     | PENDIENTE |        0 |    
+  8 | paz        | P7     | PENDIENTE |        0 |    
+  8 | paz        | P8     | PENDIENTE |        0 |    
+  8 | paz        | P9     | PENDIENTE |        0 |    
+  8 | paz        | P10    | PENDIENTE |        0 |    
+ 10 | paz        | P0     | FALLIDO   |        1 |   0
+ 10 | paz        | P1     | PENDIENTE |        0 |    
+ 10 | paz        | P2     | PENDIENTE |        0 |    
+ 10 | paz        | P4     | PENDIENTE |        0 |    
+ 10 | paz        | P5     | PENDIENTE |        0 |    
+ 10 | paz        | P6     | PENDIENTE |        0 |    
+ 10 | paz        | P7     | PENDIENTE |        0 |    
+ 10 | paz        | P8     | PENDIENTE |        0 |    
+ 10 | paz        | P9     | PENDIENTE |        0 |    
+ 10 | paz        | P10    | PENDIENTE |        0 |    
+ 12 | demo-paris | P0     | OK        |        1 |   0
+ 12 | demo-paris | P1     | OK        |        1 |   0
+ 12 | demo-paris | P2     | OK        |        1 |   1
+ 12 | demo-paris | P4     | OK        |        1 |  22
+ 12 | demo-paris | P5     | OK        |        1 |   0
+ 12 | demo-paris | P6     | OK        |        1 |  12
+ 12 | demo-paris | P7     | OK        |        1 |   0
+ 12 | demo-paris | P8     | OK        |        2 |   1
+ 12 | demo-paris | P9     | OK        |        3 |   0
+ 12 | demo-paris | P10    | OK        |        3 |  50
+ 14 | demo-2     | P0     | OK        |        1 |   0
+ 14 | demo-2     | P1     | OK        |        1 |   0
+ 14 | demo-2     | P2     | OK        |        2 |   1
+ 14 | demo-2     | P4     | OK        |        1 |  23
+ 14 | demo-2     | P5     | OK        |        3 | 103
+ 14 | demo-2     | P6     | OK        |        3 |  11
+ 14 | demo-2     | P7     | OK        |        1 |   0
+ 14 | demo-2     | P8     | OK        |        1 |   1
+ 14 | demo-2     | P9     | OK        |        2 |   0
+ 14 | demo-2     | P10    | OK        |        1 |  50
+ 18 | demo-facil | P0     | OK        |        1 |   0
+ 18 | demo-facil | P1     | OK        |        1 |   0
+ 18 | demo-facil | P2     | OK        |        1 |   0
+ 18 | demo-facil | P4     | OK        |        1 |  23
+ 18 | demo-facil | P5     | OK        |        1 |  13
+ 18 | demo-facil | P6     | OK        |        1 |  12
+ 18 | demo-facil | P7     | OK        |        1 |   0
+ 18 | demo-facil | P8     | OK        |        1 |   4
+ 18 | demo-facil | P9     | OMITIDO   |        1 |   0
+ 18 | demo-facil | P10    | OK        |        1 |  27
+ 20 | demo-1     | P0     | OK        |        1 |   0
+ 20 | demo-1     | P1     | OK        |        1 |   0
+ 20 | demo-1     | P2     | OK        |        1 |   0
+ 20 | demo-1     | P4     | OK        |        1 |  23
+ 20 | demo-1     | P5     | OK        |        1 |  11
+ 20 | demo-1     | P6     | OK        |        1 |  13
+ 20 | demo-1     | P7     | OK        |        1 |   0
+ 20 | demo-1     | P8     | OK        |        1 |   1
+ 20 | demo-1     | P9     | OMITIDO   |        1 |   0
+ 20 | demo-1     | P10    | OK        |        1 |  47
+ 21 | demo-2     | P0     | OK        |        1 |   0
+ 21 | demo-2     | P1     | OK        |        1 |   0
+ 21 | demo-2     | P2     | OK        |        1 |   0
+ 21 | demo-2     | P4     | OK        |        1 |  23
+ 21 | demo-2     | P5     | OK        |        1 |   7
+ 21 | demo-2     | P6     | FALLIDO   |        1 | 343
+ 21 | demo-2     | P7     | PENDIENTE |        0 |    
+ 21 | demo-2     | P8     | PENDIENTE |        0 |    
+ 21 | demo-2     | P9     | PENDIENTE |        0 |    
+ 21 | demo-2     | P10    | PENDIENTE |        0 |    
+ 22 | demo-3     | P0     | OK        |        1 |   0
+ 22 | demo-3     | P1     | OK        |        1 |   0
+ 22 | demo-3     | P2     | OK        |        1 |   5
+ 22 | demo-3     | P4     | OK        |        1 |  22
+ 22 | demo-3     | P5     | OK        |        1 |  13
+ 22 | demo-3     | P6     | EN_CURSO  |        9 |    
+ 22 | demo-3     | P7     | PENDIENTE |        0 |    
+ 22 | demo-3     | P8     | PENDIENTE |        0 |    
+ 22 | demo-3     | P9     | PENDIENTE |        0 |    
+ 22 | demo-3     | P10    | PENDIENTE |        0 |    
+ 24 | demo-2     | P0     | OK        |        1 |   0
+ 24 | demo-2     | P1     | OK        |        1 |   0
+ 24 | demo-2     | P2     | OK        |        1 |   5
+ 24 | demo-2     | P4     | OK        |        1 |   5
+ 24 | demo-2     | P5     | OK        |        1 |   8
+ 24 | demo-2     | P6     | OK        |        2 |  12
+ 24 | demo-2     | P7     | OK        |        1 |   0
+ 24 | demo-2     | P8     | OK        |        1 |   1
+ 24 | demo-2     | P9     | OMITIDO   |        1 |   0
+ 24 | demo-2     | P10    | OK        |        1 |  49
+ 25 | demo-5     | P0     | OK        |        1 |   0
+ 25 | demo-5     | P1     | OK        |        1 |   0
+ 25 | demo-5     | P2     | OK        |        1 |   0
+ 25 | demo-5     | P4     | OK        |        1 |  29
+ 25 | demo-5     | P5     | OK        |        1 |  13
+ 25 | demo-5     | P6     | OK        |        1 |  13
+ 25 | demo-5     | P7     | OK        |        1 |   0
+ 25 | demo-5     | P8     | OK        |        1 |   1
+ 25 | demo-5     | P9     | OMITIDO   |        1 |   0
+ 25 | demo-5     | P10    | OK        |        1 |  59
+(140 rows)
+
+ id | silo_slug  |  estado   | seg_total | reintentos 
+----+------------+-----------+-----------+------------
+  1 | demo-paris | FALLIDO   |         0 |          0
+  2 | demo-2     | FALLIDO   |         5 |          1
+  5 | paz        | FALLIDO   |         0 |          0
+  6 | paz        | FALLIDO   |         0 |          0
+  8 | paz        | FALLIDO   |         3 |          1
+ 10 | paz        | FALLIDO   |         0 |          0
+ 12 | demo-paris | OK        |      2168 |          5
+ 14 | demo-2     | OK        |      1483 |          6
+ 18 | demo-facil | OK        |        91 |          0
+ 20 | demo-1     | OK        |        99 |          0
+ 21 | demo-2     | CANCELADO |       436 |          0
+ 22 | demo-3     | CANCELADO |      1136 |          8
+ 24 | demo-2     | OK        |       874 |          1
+ 25 | demo-5     | OK        |       126 |          0
+(14 rows)
+

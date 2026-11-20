@@ -464,6 +464,24 @@ Revision en el VPS (2026-11-19):
   API lo rechazaba (mas de 3 contenedores). (4) Con 6 silos Docker se quedo
   sin subredes: `default-address-pools` en el daemon (guia, problemas
   comunes). Pendiente: medir cuantos silos soporta el host con el pool nuevo.
+- Hecho 2026-11-20: mediciones en el VPS (`docs/mediciones/2026-11-20-vps/`).
+  Carga con k6 contra `estres` con 6 silos en el host: 0 solapes, memoria bajo
+  la mitad del limite, lectura publica p95 103 ms; `carga_normal` 99,6 % (10
+  fallos en la rafaga de reservas, CPU del backend al 87 %). Aprovisionamiento
+  de un demo sin intervencion: 91 a 126 s (3 de 3). Con el silo solo
+  (`docs/mediciones/2026-11-20-solo/`): cumple todos los umbrales (100 % de
+  checks, 0 solapes, 0 respuestas 503, max 683 ms, p95 lectura publica 113 ms);
+  compartir el host afecta la cola (503, max 17,5 s), no el p95. Pendiente: k6
+  desde otra maquina por el dominio publico, `estres` recien sembrado (separar
+  datos acumulados de CPU), estres creciente, actualizacion en cascada y
+  salida.
+- Hecho 2026-11-20: `scripts/mediciones/medir.sh` (modos carga, limpio, rampa,
+  host, sonda y jobs; `--solo` detiene y repone los demas silos) y
+  `medir-externo.ps1` (k6 desde el PC por el dominio publico). En el ERP,
+  `backend/pruebas/stress-rampa.js`: etapas 10, 25, 50, 100 y 200 VUs de 2 min,
+  quiebre = p95 > 300 ms o 5xx > 1 % (decision del usuario), solo lecturas
+  para poder repetirla. Guia en `docs/mediciones/README.md`. Probado: sintaxis
+  y resumenes contra los CSV reales; falta la primera corrida en el VPS.
 
 ## Siguiente paso (2026-11-15)
 
