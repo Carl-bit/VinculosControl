@@ -1,8 +1,42 @@
 # vinculos-control
 
 Plano de control de Vinculos (diseño en `CONTEXTO.md`, estado del ERP en
-`ERP_REGLAS_Y_DESPLIEGUE.md`). Primera entrega: **monitoreo** del host de
-silos y de cada silo. Manifiestos, jobs y landing vienen despues.
+`ERP_REGLAS_Y_DESPLIEGUE.md`). Recibe las solicitudes de los centros, arma y
+aprueba su manifiesto, aprovisiona cada silo del ERP
+(https://github.com/Carl-bit/Vinculos), lo monitorea, lo actualiza por canales
+y lo da de baja con el protocolo de salida. **Nunca guarda ni transporta datos
+de pacientes**: solo metadatos del centro, su version y su estado.
+
+## Funciones
+
+| Funcion | Donde |
+|---|---|
+| Landing por bloques y solicitud (fase 1) | `apps/landing` |
+| Solicitudes, enlace privado de datos formales (fase 2) y manifiesto con validacion P0 | Consola: Solicitudes, Manifiestos |
+| Aprovisionamiento P0 a P10 como job reintentable (P5, llaves, a cargo del operador en un centro real) | Consola: Aprovisionamiento |
+| Monitoreo de silos y del host, alertas | Consola: Resumen, Silos, Monitoreo |
+| Releases y canales (demo, beta, estable), actualizacion en cascada con vuelta atras | Consola: Releases y canales |
+| Salida de un centro (S1 a S8): solo lectura, exporte, actas, gracia y eliminacion | Consola: Salidas |
+| Centros demo a medida, con vencimiento de 24 h y eliminacion automatica | Consola: Demos |
+| Incidentes, soporte con autorizacion del centro, auditoria y configuracion | Consola |
+
+## Inicio rapido para evaluar
+
+Lo minimo para ver la consola y la landing en un equipo con Docker y pnpm
+(sin silos; para aprovisionar hace falta el host B y una version del ERP
+publicada, ver `docs/entorno-local.md` y `docs/despliegue-vps.md`):
+
+```sh
+pnpm install
+cp infra/host-a/.env.example infra/host-a/.env                 # CONTROL_DB_PASSWORD y CONSOLA_SECRETO largos
+docker compose -f infra/host-a/docker-compose.yml --env-file infra/host-a/.env up -d --build
+docker exec vinculos-control-api-1 node dist/cli/crear-operador.js tu@correo.cl "Tu nombre"   # contrasena: se muestra una vez
+pnpm test                                                       # API, manifiesto, agente y ejecutor
+```
+
+- Consola: http://127.0.0.1:3100 (contrasena + codigo de 6 digitos por correo).
+- Codigos del login: Mailpit en http://127.0.0.1:8026 (incluido en el compose, imagen `axllent/mailpit`).
+- Landing: http://127.0.0.1:3300.
 
 | Pieza | Donde corre | Que hace |
 |---|---|---|
@@ -11,10 +45,13 @@ silos y de cada silo. Manifiestos, jobs y landing vienen despues.
 | `apps/landing` | Host A (publico) | Unico sitio publico: landing para vender, solicitud de fase 1 (tambien por el enlace que comparte el operador) y enlace privado de fase 2. App, puerto y red propios; solo llega a `/landing/*` de la API |
 | `packages/manifest` | Compartido | Schema del manifiesto, modulos y dependencias (zod) |
 | `apps/agente` | Host B | Descubre los stacks `erp-<slug>`, reporta contenedores, host, p95 y respaldos. Solo numeros y booleanos |
+| `apps/ejecutor` | Host B | Unico con escritura en Docker, por una lista cerrada de verbos (ver Host B) |
 
-Hosts separados siempre (CLAUDE.md). En pruebas: host A = PC de desarrollo,
-host B = Ubuntu de los silos. Al pasar los silos a un VPS, el host A se muda
-al Ubuntu.
+Hosts separados en produccion (CLAUDE.md). Para las pruebas, el host A y el
+host B corren en un mismo servidor de pruebas (Ubuntu configurado como VPS),
+como proyectos de compose separados y con el agente llegando a la API por un
+tunel de Cloudflare: paso a paso en `docs/despliegue-vps.md`. La migracion a la
+infraestructura definitiva (AWS) queda pendiente.
 
 ## Que se vigila
 
@@ -30,7 +67,7 @@ al Ubuntu.
 Reglas en `apps/api/src/alertas/reglas.ts` (funcion pura, con tests). Las
 series se guardan 7 dias.
 
-## Host A (este PC)
+## Host A (plano de control)
 
 ```sh
 cp infra/host-a/.env.example infra/host-a/.env      # CONTROL_DB_PASSWORD y CONSOLA_SECRETO largos
@@ -67,10 +104,16 @@ solo los pasos de su lista cerrada.
 Lo que escribe en Docker lo hace el **ejecutor de silos** (`apps/ejecutor`,
 opcion C de `docs/propuesta-escritura-docker.md`): es el unico con el socket,
 no publica puertos, solo lo alcanza el agente por la red interna `ejecutor` con
-`EJECUTOR_TOKEN`, y solo conoce los verbos `estado`, `reiniciar` (backend y
-frontend de `erp-<slug>`; nunca db, nunca borra), `conectar_borde`,
-`soltar_borde` y `reconectar_bordes` (une a Traefik y al agente a la red
-`erp-<slug>_borde` de cada silo; R11). Cada verbo queda en su
+`EJECUTOR_TOKEN`, y solo conoce verbos fijos, sin parametros libres:
+
+| Verbos | Uso |
+|---|---|
+| `estado`, `reiniciar` | Consulta y reinicio de backend y frontend (nunca la db) |
+| `preparar`, `levantar` | Aprovisionamiento: secretos, compose por digest, base y arranque |
+| `respaldar`, `actualizar`, `revertir` | Actualizacion con respaldo previo y vuelta atras |
+| `detener`, `reanudar`, `eliminar` | Salida de un centro (eliminar exige el acta de recepcion en `bajas/<slug>`) |
+| `llaves_demo`, `cargar_demo`, `resembrar_demo`, `eliminar_demo` | Solo centros demo (`EJECUTOR_DEMOS`, prefijo `demo-`) |
+| `conectar_borde`, `soltar_borde`, `reconectar_bordes` | Une Traefik y el agente a la red `erp-<slug>_borde` de cada silo (R11) | Cada verbo queda en su
 auditoria local:
 `docker exec vinculos-agente-ejecutor-1 cat /var/log/ejecutor/verbos.jsonl`.
 
@@ -87,10 +130,14 @@ pnpm api operador:crear tu@correo.cl "Tu nombre"
 pnpm web dev          # consola en :3100. apps/web/.env.local: API_URL y el mismo CONSOLA_SECRETO
 pnpm manifest build   # paquete compartido (lo usan la API y la landing); repetir si cambia
 pnpm landing dev      # landing en :3300. apps/landing/.env.local: API_URL y el mismo LANDING_SECRETO
-pnpm test             # reglas de alerta (jest) y agente (node:test)
+pnpm test             # API (jest), manifiesto, agente y ejecutor (node:test)
 ```
 
 Avance y pendientes en `docs/roadmap.md`; registro detallado (para la memoria) en `docs/registro-implementacion.md`.
+
+Mediciones de carga, estres, capacidad del host y aprovisionamiento en el
+servidor de pruebas: `docs/mediciones/README.md` (resumen en
+`docs/mediciones/2026-11-20-RESUMEN.md`; scripts en `scripts/mediciones/`).
 
 **Otro computador o despues de un pull:** `docs/entorno-local.md` levanta todo
 (ERP + plano de control) desde cero, lista lo que no viaja con git y como
