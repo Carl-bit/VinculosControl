@@ -51,6 +51,8 @@ async function reporte() {
   for (const c of await listar()) {
     const slug = siloDe(c.Labels);
     if (!slug || !SERVICIOS.has(c.Labels['com.docker.compose.service'] ?? '')) continue;
+    // `compose run` (generador del demo, CLI de llaves) crea contenedores de un uso con la misma label de servicio: no son el silo.
+    if (c.Labels['com.docker.compose.oneoff'] === 'True') continue;
     porSilo.set(slug, [...(porSilo.get(slug) ?? []), c]);
   }
   const silos = await Promise.all(

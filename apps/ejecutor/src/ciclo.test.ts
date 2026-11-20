@@ -240,7 +240,7 @@ describe('eliminarDemo (demo vencido)', () => {
     assert.ok(hechos.includes('rmred erp-kibou_borde'));
     assert.deepEqual(h2, ['rm respaldos/kibou']);
     assert.equal(r.inventario.contenedores.length, 3);
-    assert.ok(r.log.some((l) => l.includes('infra/secrets/kibou')));
+    assert.ok(r.log.some((l) => l.includes('infra/secrets/kibou/ la vacia el ejecutor')));
   });
 
   it('un contenedor ajeno unido al borde (Mailpit de servidor.sh) se suelta antes de borrar la red', async () => {

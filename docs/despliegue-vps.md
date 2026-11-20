@@ -273,6 +273,14 @@ mas rapido darlo de baja y crear otro desde Demos.
   `servidor.sh` del ERP unio su Mailpit a esa red. Un ejecutor nuevo lo suelta
   solo; con uno anterior: `docker network disconnect erp-<slug>_borde
   vinculos-servidor-mailpit-1` y reintentar el paso desde el job.
+- **P6 con "all predefined address pools have been fully subnetted"**: Docker
+  se quedo sin subredes. Cada silo crea 3 redes (`interna`, `silo`, `borde`) y
+  los pools por defecto alcanzan para unas 30 redes en total. Una vez, en
+  `/etc/docker/daemon.json` (mezclar con lo que ya tenga):
+  `{"default-address-pools":[{"base":"10.200.0.0/16","size":24}]}` (256 redes
+  /24; elegir un rango que no use la red local) y `sudo systemctl restart
+  docker` (reinicia todos los contenedores; las redes existentes conservan su
+  subred). Ver cuantas hay: `docker network ls | wc -l`.
 - **Agente sin latido**: revisar `CONTROL_URL` (https y el path `/agente/` en el
   tunel) y `AGENTE_TOKEN` (`crear-agente` con el mismo nombre rota el token).
 - **P2 de un demo falla con 403 "no esta en EJECUTOR_DEMOS"**: poner

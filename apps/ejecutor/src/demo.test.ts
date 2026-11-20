@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { type Compose, type Config, contenidoEnv, MARCA } from './aprovisionar';
-import { cargarDemo, CUSTODIOS_DEMO, type DiscoDemo, esSlugDemo, leerAcceso, llavesDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
+import { borrarLlavesDemo, cargarDemo, CUSTODIOS_DEMO, type DiscoDemo, esSlugDemo, leerAcceso, llavesDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { ErrorVerbo } from './verbos';
 
 const cfg: Config = { erpInfra: '/srv/erp/infra', registro: '127.0.0.1:5000', silosDir: '/silos', smtpUrl: '', sesConfigurationSet: '' };
@@ -157,12 +157,36 @@ describe('demos (R10) en el ejecutor', () => {
       assert.match(r.log.join(' '), /partes de recuperacion borradas/);
     });
 
-    it('repetido: con KEK y publica no vuelve a generar, solo borra partes', async () => {
-      const { c, llamadas } = guion([() => ({ codigo: 0, salida: 'LLAVES_EXISTEN\n' }), () => ({ codigo: 0, salida: 'LLAVES_OK\n' })]);
+    const ok = () => ({ codigo: 0, salida: '' });
+    const verifica = (n: number) => () => ({ codigo: 0, salida: `[Nest] LOG [Llaves] Verificacion OK (KEK): ${n} versiones.` });
+
+    it('repetido: con KEK que verifica en esta BD no vuelve a generar, solo borra partes', async () => {
+      const { c, llamadas } = guion([() => ({ codigo: 0, salida: 'LLAVES_EXISTEN\n' }), verifica(4), () => ({ codigo: 0, salida: 'LLAVES_OK\n' })]);
       const r = await llavesDemo(disco(envDemo).d, c, cfg, ['demo1'], 'demo1', o);
-      assert.equal(llamadas.length, 2);
-      assert.ok(!llamadas.flat().includes('cli-llaves.js') && !llamadas.flat().includes('dist/common/crypto/cli-llaves.js'));
-      assert.match(r.log[0]!, /ya existian/);
+      assert.equal(llamadas.length, 3);
+      assert.ok(llamadas[1]!.includes('verificar') && !llamadas.flat().includes('aprovisionar'));
+      assert.match(r.log[0]!, /ya existian y verifican \(4 versiones/);
+    });
+
+    it('KEK de un demo anterior con el mismo slug (BD nueva, 0 versiones): la descarta y genera otra', async () => {
+      const { c, llamadas } = guion([() => ({ codigo: 0, salida: 'LLAVES_EXISTEN\n' }), verifica(0), ok, ok, () => ({ codigo: 0, salida: 'LLAVES_OK\n' })]);
+      const r = await llavesDemo(disco(envDemo).d, c, cfg, ['demo1'], 'demo1', o);
+      assert.match(llamadas[2]!.at(-1)!, /^rm -f \/llaves\/kek \/llaves\/recuperacion.pub/);
+      assert.ok(llamadas[3]!.includes('aprovisionar'));
+      assert.match(r.log.join(' '), /demo anterior con el mismo slug descartadas.*generadas/);
+    });
+
+    it('KEK que no abre las llaves de la BD: 409 sin tocar nada', async () => {
+      const { c, llamadas } = guion([() => ({ codigo: 0, salida: 'LLAVES_EXISTEN\n' }), () => ({ codigo: 1, salida: 'ErrorCifrado: Verificacion fallida: IDENTIFICACION v1: huella de KEK distinta' })]);
+      await assert.rejects(llavesDemo(disco(envDemo).d, c, cfg, ['demo1'], 'demo1', o), (e: ErrorVerbo) => e.status === 409 && /huella de KEK distinta/.test(e.message));
+      assert.equal(llamadas.length, 2, 'no borra ni genera');
+    });
+
+    it('baja: vacia secrets/<slug>/ solo de un demo de EJECUTOR_DEMOS', async () => {
+      const { c, llamadas } = guion([() => ({ codigo: 0, salida: 'VACIA\n' })]);
+      await assert.rejects(borrarLlavesDemo(c, cfg, ['otro'], 'demo1', o.imagenAyudante), /EJECUTOR_DEMOS/);
+      assert.deepEqual(await borrarLlavesDemo(c, cfg, ['demo1'], 'demo1', o.imagenAyudante), ['secrets/demo1/ vaciada (llaves de prueba del demo)']);
+      assert.ok(llamadas[0]!.includes('/srv/erp/infra/secrets/demo1:/llaves') && llamadas[0]!.includes('none'));
     });
 
     it('si la CLI falla, borra las partes igual y reporta el error', async () => {

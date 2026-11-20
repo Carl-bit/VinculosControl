@@ -33,7 +33,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { actualizar, respaldar, revertir, validarVersion } from './actualizar';
 import { argsCompose, type Config, leerVariables, levantar, MARCA, preparar, revisarDemo, validarConfig, validarFase, validarPedido } from './aprovisionar';
 import { conPrevia, detener, discoReal, eliminar, eliminarDemo, HASH, reanudar } from './ciclo';
-import { cargarDemo, esSlugDemo, llavesDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
+import { borrarLlavesDemo, cargarDemo, esSlugDemo, llavesDemo, resembrarDemo, slugsDemo, validarPedidoDemo } from './demo';
 import { docker, dockerApr, dockerCiclo } from './docker';
 import { composeReal, discoSilosReal, tuberiaReal } from './silos';
 import { conectarBorde, contenedoresBorde, ErrorVerbo, estado, reconectarBordes, reiniciar, soltarBorde } from './verbos';
@@ -221,6 +221,8 @@ async function escribir(verbo: Verbo, slug: string, req: IncomingMessage): Promi
       // Sin bajas/: el consentimiento de un demo es estar en EJECUTOR_DEMOS con ES_DEMO=true.
       const disco = discoReal(BAJAS_DIR || '/nonexistent', RESPALDOS_DIR, { silosDir: process.env.EJECUTOR_SILOS_DIR!, tokensDir: process.env.EJECUTOR_TOKENS_DIR! });
       const r = await eliminarDemo(dockerCiclo, disco, DEMOS, esDemo, slug, new Date(), () => soltarBorde(docker, slug, UNIR_BORDE));
+      // Las llaves de prueba se van con el demo: un demo nuevo con el mismo slug no las hereda.
+      r.log.push(...(await borrarLlavesDemo(composeReal, APR.cfg, DEMOS, slug, AYUDANTE)));
       return conPrevia(r, await readFile(LOG, 'utf8').catch(() => ''), slug, 'eliminar_demo');
     }
     default:

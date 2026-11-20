@@ -70,4 +70,12 @@ describe('demos (R10) en el agente', () => {
       globalThis.fetch = antes;
     }
   });
+  it('acotar: un error o un log largo cabe en el reporte (la API no lo rechaza y el job no entra en loop)', async () => {
+    const { acotar } = await import('./jobs');
+    const r = acotar({ estado: 'FALLIDO', log: Array.from({ length: 40 }, (_, i) => `linea ${i} ${'x'.repeat(400)}`), error: 'e'.repeat(2000) });
+    assert.equal(r.error!.length, 500);
+    assert.equal(r.log.length, 30);
+    assert.ok(r.log.every((l) => l.length <= 300));
+    assert.equal(acotar({ estado: 'OK', log: ['corto'] }).log[0], 'corto');
+  });
 });

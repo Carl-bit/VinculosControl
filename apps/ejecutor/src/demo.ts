@@ -187,6 +187,21 @@ export async function resembrarDemo(disco: DiscoDemo, c: Compose, cfg: Config, d
 /** Custodios fijos de un demo: nadie recibe partes (se borran al terminar). */
 export const CUSTODIOS_DEMO = 'Operador:proveedor,Demo:centro,Sobre:caja';
 
+/** Auxiliar sin red que monta solo secrets/<slug>/ (la imagen del ejecutor, como en respaldar). */
+function ayudanteLlaves(c: Compose, cfg: Config, slug: string, imagen: string) {
+  return (usuario: string, cmd: string) =>
+    c.correr(
+      [
+        'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+        ...(usuario === '0' ? ['--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER'] : []),
+        '--security-opt', 'no-new-privileges:true', '--user', usuario,
+        '--label', `cl.vinculos.silo=${slug}`, '--label', 'cl.vinculos.servicio=llaves-demo',
+        '-v', `${cfg.erpInfra}/secrets/${slug}:/llaves`, '--entrypoint', 'sh', imagen, '-c', cmd,
+      ],
+      2 * 60_000,
+    );
+}
+
 /**
  * P5 de un demo sin operador (decision del usuario 2026-11-19: los demos se
  * muestran fuera del entorno del host B y no pueden esperar un comando por SSH).
@@ -198,24 +213,18 @@ export const CUSTODIOS_DEMO = 'Operador:proveedor,Demo:centro,Sobre:caja';
  * EJECUTOR_DEMOS, aprovisionados por el ejecutor y con ES_DEMO=true. Un centro
  * real sigue con P5 manual.
  *
- * Idempotente: si ya hay KEK y publica, solo asegura que no queden partes.
+ * Idempotente: si ya hay KEK y publica y la BD tiene sus llaves (verificar de la
+ * CLI con 1 o mas versiones), no cambia nada. Si la KEK es de un demo anterior
+ * con el mismo slug (la BD nueva no tiene llaves: 0 versiones), se descarta y
+ * se generan otras; si la BD tiene llaves de otra KEK, falla sin tocar nada.
  */
 export async function llavesDemo(disco: DiscoDemo, c: Compose, cfg: Config, demos: string[], slug: string, o: { uid: number; imagenAyudante: string }) {
   await exigirDemo(disco, demos, slug);
   if (!Number.isInteger(o.uid) || o.uid < 0) throw new ErrorVerbo(500, 'EJECUTOR_UID_OPERADOR invalido');
   const dir = `${cfg.erpInfra}/secrets/${slug}`;
-  // Auxiliar sin red que monta solo secrets/<slug>/ (la imagen del ejecutor, como en respaldar).
-  const ayudante = (usuario: string, cmd: string) =>
-    c.correr(
-      [
-        'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
-        ...(usuario === '0' ? ['--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER'] : []),
-        '--security-opt', 'no-new-privileges:true', '--user', usuario,
-        '--label', `cl.vinculos.silo=${slug}`, '--label', 'cl.vinculos.servicio=llaves-demo',
-        '-v', `${dir}:/llaves`, '--entrypoint', 'sh', o.imagenAyudante, '-c', cmd,
-      ],
-      2 * 60_000,
-    );
+  const ayudante = ayudanteLlaves(c, cfg, slug, o.imagenAyudante);
+  const cli = (args: string[]) =>
+    c.correr([...argsCompose(cfg, slug), 'run', '--rm', '--no-deps', '-T', '--user', String(o.uid), '-v', `${dir}:/llaves`, 'migrate', 'node', 'dist/common/crypto/cli-llaves.js', ...args], 5 * 60_000);
   const borrarPartes = () => ayudante(String(o.uid), 'rm -rf /llaves/partes_entregar && if [ -f /llaves/kek ] && [ -f /llaves/recuperacion.pub ]; then echo LLAVES_OK; fi');
   const log: string[] = [];
 
@@ -223,29 +232,48 @@ export async function llavesDemo(disco: DiscoDemo, c: Compose, cfg: Config, demo
   const prep = await ayudante('0', `chown ${o.uid} /llaves && chmod 700 /llaves && if [ -f /llaves/kek ] && [ -f /llaves/recuperacion.pub ]; then echo LLAVES_EXISTEN; fi`);
   if (prep.codigo !== 0) throw new ErrorVerbo(500, `no se pudo preparar secrets/${slug}/: ${ultimaLinea(prep.salida)}`);
 
-  if (!prep.salida.includes('LLAVES_EXISTEN')) {
-    const r = await c.correr(
-      [
-        ...argsCompose(cfg, slug), 'run', '--rm', '--no-deps', '-T', '--user', String(o.uid), '-v', `${dir}:/llaves`,
-        'migrate', 'node', 'dist/common/crypto/cli-llaves.js', 'aprovisionar',
-        '--kek', '/llaves/kek', '--publica', '/llaves/recuperacion.pub', '--partes', '/llaves/partes_entregar',
-        '--custodios', CUSTODIOS_DEMO, '--actor', 'ejecutor:demo',
-      ],
-      5 * 60_000,
-    );
+  let generar = !prep.salida.includes('LLAVES_EXISTEN');
+  if (!generar) {
+    const v = await cli(['verificar', '--kek', '/llaves/kek']);
+    const versiones = /Verificacion OK \(KEK\): (\d+) versiones/.exec(v.salida.replace(/\x1b\[[0-9;]*m/g, ''));
+    if (v.codigo !== 0 || !versiones) throw new ErrorVerbo(409, `secrets/${slug}/ tiene una KEK que no abre las llaves de esta BD (no se toca): ${ultimaLinea(v.salida)}`);
+    if (Number(versiones[1]) > 0) {
+      log.push(`las llaves del demo ya existian y verifican (${versiones[1]} versiones; sin cambios)`);
+    } else {
+      // BD nueva sin llaves: la KEK es de un demo anterior con el mismo slug (datos ficticios ya eliminados).
+      const fuera = await ayudante(String(o.uid), 'rm -f /llaves/kek /llaves/recuperacion.pub && rm -rf /llaves/partes_entregar');
+      if (fuera.codigo !== 0) throw new ErrorVerbo(500, `no se pudieron descartar las llaves anteriores de secrets/${slug}/: ${ultimaLinea(fuera.salida)}`);
+      log.push('llaves de un demo anterior con el mismo slug descartadas (la BD nueva no tenia llaves)');
+      generar = true;
+    }
+  }
+
+  if (generar) {
+    const r = await cli(['aprovisionar', '--kek', '/llaves/kek', '--publica', '/llaves/recuperacion.pub', '--partes', '/llaves/partes_entregar', '--custodios', CUSTODIOS_DEMO, '--actor', 'ejecutor:demo']);
     if (r.codigo !== 0) {
       await borrarPartes();
       throw new ErrorVerbo(500, `cli-llaves del ERP fallo: ${ultimaLinea(r.salida)}`);
     }
     log.push(`llaves de prueba generadas con cli-llaves del ERP (custodios ${CUSTODIOS_DEMO})`);
-  } else {
-    log.push('las llaves del demo ya existian (sin cambios)');
   }
 
   const fin = await borrarPartes();
   if (fin.codigo !== 0 || !fin.salida.includes('LLAVES_OK')) throw new ErrorVerbo(500, `faltan kek o recuperacion.pub en secrets/${slug}/ despues de generarlas: ${ultimaLinea(fin.salida)}`);
   log.push('partes de recuperacion borradas (demo: nadie las recibe)');
   return { log };
+}
+
+/**
+ * Baja de un demo: vacia secrets/<slug>/ (KEK y publica de prueba de datos ya
+ * eliminados) para que un demo nuevo con el mismo slug no herede llaves. Solo
+ * slugs de EJECUTOR_DEMOS; se llama despues de eliminar_demo (contenedores y
+ * volumenes ya borrados). Idempotente.
+ */
+export async function borrarLlavesDemo(c: Compose, cfg: Config, demos: string[], slug: string, imagen: string) {
+  if (!SLUG.test(slug) || !esSlugDemo(demos, slug)) throw new ErrorVerbo(403, `${slug} no esta en EJECUTOR_DEMOS del host B`);
+  const r = await ayudanteLlaves(c, cfg, slug, imagen)('0', 'rm -rf /llaves/kek /llaves/recuperacion.pub /llaves/partes_entregar /llaves/respaldo.key && echo VACIA');
+  if (r.codigo !== 0 || !r.salida.includes('VACIA')) throw new ErrorVerbo(500, `no se pudo vaciar secrets/${slug}/: ${ultimaLinea(r.salida)}`);
+  return [`secrets/${slug}/ vaciada (llaves de prueba del demo)`];
 }
 
 /** Ultima linea util de una salida (sin colores), para los errores. */

@@ -274,7 +274,7 @@ export async function eliminarDemo(
   }
   const r = await borrarProyecto(d, disco, slug, cs, enMarcha.length ? async () => [] : soltarBorde);
   r.log.unshift(...log);
-  r.log.push(`pendiente manual: shred de infra/secrets/${slug}/ y hostname ${slug} del tunel`);
+  r.log.push(`pendiente manual: hostname ${slug} del tunel (sin comodin); infra/secrets/${slug}/ la vacia el ejecutor despues`);
   return r;
 }
 

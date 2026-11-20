@@ -452,6 +452,18 @@ Revision en el VPS (2026-11-19):
   ajeno que siga unido a las redes del silo antes de borrarlas (el Mailpit que
   `servidor.sh` del ERP une a todas las redes de borde dejaba la baja de un
   demo en "network has active endpoints").
+- Hecho 2026-11-19 (corrida en el VPS, jobs 18 a 22): (1) el agente acota el
+  error y el log de un paso a los limites de la API; un error de compose de
+  mas de 500 caracteres se rechazaba con 400 y el job se reclamaba en loop.
+  (2) Un demo nuevo con el slug de uno eliminado heredaba su KEK (la baja no
+  vaciaba `secrets/<slug>/`) y el backend no levantaba (P6 sin salud): la baja
+  de un demo ahora vacia `secrets/<slug>/` y `llaves_demo` descarta una KEK
+  que no tiene llaves en la BD nueva (verificar de la CLI con 0 versiones);
+  si la BD tiene llaves de otra KEK, falla sin tocar nada. (3) El reporte del
+  agente contaba los contenedores de `compose run` (generador del demo) y la
+  API lo rechazaba (mas de 3 contenedores). (4) Con 6 silos Docker se quedo
+  sin subredes: `default-address-pools` en el daemon (guia, problemas
+  comunes). Pendiente: medir cuantos silos soporta el host con el pool nuevo.
 
 ## Siguiente paso (2026-11-15)
 

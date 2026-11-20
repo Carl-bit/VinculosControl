@@ -558,6 +558,16 @@ async function conVueltaAtras(j: JobReclamado, paso: () => Promise<string[]>): P
 
 type Enviar = (ruta: string, cuerpo: unknown) => Promise<Response>;
 
+/**
+ * Limites del reporte de un paso (ReportePasoDto de la API: error 500, 30 lineas
+ * de 300). Un error largo (salida de compose) se acorta aqui: si la API lo
+ * rechazara con 400, el paso nunca quedaria FALLIDO y el job se reclamaria en loop.
+ */
+export function acotar(res: Resultado): Resultado {
+  const corto = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 3)}...` : t);
+  return { ...res, log: res.log.slice(-30).map((l) => corto(l, 300)), ...(res.error ? { error: corto(res.error, 500) } : {}) };
+}
+
 /** Ejecuta los pasos pendientes en orden. Se detiene si uno falla o si la API dice que pare (cancelado). */
 export async function ejecutar(j: JobReclamado, enviar: Enviar, log: (m: string) => void): Promise<void> {
   for (const p of j.pasos.filter((x) => x.estado !== 'OK' && x.estado !== 'OMITIDO')) {
@@ -580,7 +590,7 @@ export async function ejecutar(j: JobReclamado, enviar: Enviar, log: (m: string)
       clearInterval(reserva);
     }
     log(`job ${j.id} ${p.codigo} ${res.estado}${res.error ? `: ${res.error}` : ''}`);
-    const seguir = await reportar(res);
+    const seguir = await reportar(acotar(res));
     if (res.estado === 'FALLIDO' || !seguir) return;
   }
 }
