@@ -79,8 +79,19 @@ detener_otros() {
 restaurar() {
   stats_fin
   if [ -n "$DETENIDOS" ] && [ -s "$DETENIDOS" ]; then
-    paso "Encendiendo lo detenido"
-    docker start $(cat "$DETENIDOS") > /dev/null || echo "medir: revisar a mano: docker start \$(cat $DETENIDOS)" >&2
+    paso "Encendiendo lo detenido (primero las db: un backend sin su db se cae y suma un reinicio)"
+    local dbs resto c i
+    dbs=$(grep -- '-db-1$' "$DETENIDOS" || true); resto=$(grep -v -- '-db-1$' "$DETENIDOS" || true)
+    if [ -n "$dbs" ]; then
+      docker start $dbs > /dev/null || true
+      for c in $dbs; do
+        for i in $(seq 1 30); do
+          [ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}healthy{{end}}' "$c" 2>/dev/null)" = healthy ] && break
+          sleep 2
+        done
+      done
+    fi
+    [ -z "$resto" ] || docker start $resto > /dev/null || echo "medir: revisar a mano: docker start \$(cat $DETENIDOS)" >&2
     DETENIDOS=""
   fi
 }

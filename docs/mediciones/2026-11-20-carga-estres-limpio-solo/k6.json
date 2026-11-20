@@ -1,0 +1,248 @@
+{
+    "metrics": {
+        "http_req_tls_handshaking": {
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+        },
+        "reservas_503_pool": {
+            "count": 13,
+            "rate": 0.043109118547437625
+        },
+        "http_req_waiting": {
+            "p(95)": 183.22134184999996,
+            "avg": 70.30558515673208,
+            "min": 1.312042,
+            "med": 31.588531500000002,
+            "max": 15278.660298,
+            "p(90)": 118.5200678000001
+        },
+        "iterations": {
+            "count": 7846,
+            "rate": 26.01801108639966
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(90)": 117.0207374,
+            "p(95)": 178.61325429999988,
+            "avg": 60.76608921796682,
+            "min": 1.378406,
+            "med": 31.555429,
+            "max": 15278.754524
+        },
+        "data_received": {
+            "count": 285096521,
+            "rate": 945404.5939423876
+        },
+        "http_req_receiving": {
+            "min": 0.024091,
+            "med": 0.09932450000000001,
+            "max": 2.599743,
+            "p(90)": 0.199137,
+            "p(95)": 0.23323775,
+            "avg": 0.11615449151892672
+        },
+        "http_req_duration": {
+            "med": 31.769275999999998,
+            "max": 15278.754524,
+            "p(90)": 118.7145922000001,
+            "p(95)": 183.46302954999996,
+            "avg": 70.45353868447552,
+            "min": 1.378406
+        },
+        "checks{escenario:carga_normal}": {
+            "fails": 0,
+            "passes": 4988,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "vus": {
+            "value": 9,
+            "min": 9,
+            "max": 60
+        },
+        "http_req_blocked": {
+            "min": 0.001908,
+            "med": 0.0079105,
+            "max": 28.067489,
+            "p(90)": 0.015217300000000007,
+            "p(95)": 0.017314549999999998,
+            "avg": 0.014729158313368459
+        },
+        "reservas_otro_estado": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_connecting": {
+            "avg": 0.0032717445615716334,
+            "min": 0,
+            "med": 0,
+            "max": 12.237176,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "data_sent": {
+            "count": 5173704,
+            "rate": 17156.44762041171
+        },
+        "reservas_409": {
+            "count": 74,
+            "rate": 0.2453903671161834
+        },
+        "http_req_sending": {
+            "avg": 0.03179903622424534,
+            "min": 0.00534,
+            "med": 0.0271915,
+            "max": 1.624359,
+            "p(90)": 0.05313850000000003,
+            "p(95)": 0.05966584999999999
+        },
+        "http_req_failed": {
+            "passes": 87,
+            "fails": 20783,
+            "value": 0.004168663152850982
+        },
+        "checks{escenario:lectura_publica}": {
+            "passes": 15786,
+            "fails": 0,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "reservas_201": {
+            "count": 3,
+            "rate": 0.009948258126331759,
+            "thresholds": {
+                "count==3": false
+            }
+        },
+        "iteration_duration": {
+            "min": 860.269031,
+            "med": 1108.0916345,
+            "max": 20019.900606,
+            "p(90)": 1314.705098,
+            "p(95)": 1401.40169375,
+            "avg": 1214.082617699976
+        },
+        "checks": {
+            "passes": 20864,
+            "fails": 0,
+            "value": 1
+        },
+        "http_reqs": {
+            "count": 20870,
+            "rate": 69.20671569884793
+        },
+        "vus_max": {
+            "min": 60,
+            "max": 60,
+            "value": 60
+        },
+        "http_req_duration{escenario:lectura_publica}": {
+            "med": 25.223768,
+            "max": 5020.736772,
+            "p(90)": 90.23142200000001,
+            "p(95)": 117.9583595,
+            "avg": 46.81273034473545,
+            "min": 1.378406,
+            "thresholds": {
+                "p(95)<300": false
+            }
+        }
+    },
+    "setup_data": {
+        "pacientes": [
+            "bdd10cdc-38d8-4eb1-86d5-aab9ec1eddc9",
+            "00ee7b51-994b-49c1-a799-8bdf45045a27",
+            "22b642a0-4837-4d84-a706-7a7fb04e2df8",
+            "ac48ac31-ce1f-4e5c-8044-a9269b4bd5c2",
+            "5d70a9de-30ef-4f83-a9ea-d77cfefb53e7",
+            "559a2c20-71b4-47d5-bf76-0e80e5414330",
+            "48cd2bcb-a2e8-4f92-9510-2c47a280eb76",
+            "d7c79014-1c0a-408a-8bad-fba07c29bdfa",
+            "0a3e0ad5-1be6-44f5-ac77-9186f6e6a4ce",
+            "d2b596c7-b792-4c3e-90e8-055dec3a6c08",
+            "4a691962-df32-4bca-bd0f-334096279523",
+            "2b0787ff-274b-40bd-b4e8-4e61c7784e81",
+            "9dcb8c7a-61f6-45af-8fa0-728057b3b9d3",
+            "be933c89-11c6-408f-93ba-a318cf05f581",
+            "5fa7ac03-128f-457d-aec4-556dd4484fbb",
+            "818acf8c-1164-4fa9-ba30-b2a066488a15",
+            "6c2ddd29-a20e-4717-b5d8-8b7915063d2d",
+            "619554e5-029f-40f1-9467-c2f931a488ad",
+            "cb064b37-ba40-4b2c-a54e-8675d824ea06",
+            "ed42a4de-dc2e-49de-bf8a-5e4f2ee15d8b",
+            "32a6dedc-0fda-4d32-9dbe-66eb931a784f",
+            "44e95479-7fe0-478f-86f4-ca50e7c1577e",
+            "5a74380f-e1a3-4ada-b94c-29c79fbfaacb",
+            "14deb092-547e-4b24-b5f3-4e6e9eb06c41",
+            "1c5073eb-b2a2-4e44-b532-a884a169639c",
+            "6c1b569a-41c9-4eab-b859-11fa35b289f3",
+            "a75068b5-28de-4e24-a167-072d01dbc48e"
+        ],
+        "perfil": "1479db39-a951-46bc-b2aa-e5d72ba7e13b",
+        "profesionalId": "1479db39-a951-46bc-b2aa-e5d72ba7e13b",
+        "slots": [
+            {
+                "fin": "2026-11-23T12:50:00.000Z",
+                "inicio": "2026-11-23T12:00:00.000Z",
+                "modalidad": "ONLINE"
+            },
+            {
+                "inicio": "2026-11-23T18:00:00.000Z",
+                "modalidad": "PRESENCIAL",
+                "fin": "2026-11-23T18:50:00.000Z"
+            },
+            {
+                "fin": "2026-11-23T20:50:00.000Z",
+                "inicio": "2026-11-23T20:00:00.000Z",
+                "modalidad": "PRESENCIAL"
+            }
+        ],
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1OTMzODdjZC04ZWM1LTRjNzQtOTQ4NC1kMmM5OTRmYTI1MWQiLCJyb2wiOiJHRVNUSU9OIiwic2lkIjoiYTMwZWUwYjEtM2YxNS00MGU5LTk3MzMtYmVlMjM2M2RkMzRjIiwidGlwbyI6ImFjY2VzbyIsImlhdCI6MTc5NTE1NDc4MywiZXhwIjoxNzk1MTU1NjgzfQ.ikiTcNv76JuFKWAEjpVZC0jD2VzR0sMzW5FMgQUvpmA"
+    },
+    "root_group": {
+        "checks": {
+            "publico 200 (sin 5xx ni 429)": {
+                "passes": 15786,
+                "fails": 0,
+                "name": "publico 200 (sin 5xx ni 429)",
+                "path": "::publico 200 (sin 5xx ni 429)",
+                "id": "1893bb9d55db4c5e5e635e5133e9e9e9"
+            },
+            "ocupacion 200": {
+                "name": "ocupacion 200",
+                "path": "::ocupacion 200",
+                "id": "1d8b461145e3804468f3c868e6a93fcf",
+                "passes": 2494,
+                "fails": 0
+            },
+            "citas 200": {
+                "name": "citas 200",
+                "path": "::citas 200",
+                "id": "96c88dfdbb86797daf4d5179256f8d9e",
+                "passes": 2494,
+                "fails": 0
+            },
+            "colision 201, 409 o 503": {
+                "name": "colision 201, 409 o 503",
+                "path": "::colision 201, 409 o 503",
+                "id": "4bee44ea8ba369e7a2548a838ec43bf6",
+                "passes": 90,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    }
+}

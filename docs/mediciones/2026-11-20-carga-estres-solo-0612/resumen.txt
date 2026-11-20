@@ -1,0 +1,22 @@
+Silo: estres   k6: 06:14:48 a 06:19:55
+
+--- verificar
+Solapes de citas activas: 0
+erp-estres-db-1 reinicios/OOM/estado: 0 false running
+erp-estres-backend-1 reinicios/OOM/estado: 1 false running
+erp-estres-db-1 80.99MiB / 256MiB 0.03%
+erp-estres-backend-1 97.4MiB / 256MiB 0.18%
+
+--- pool lleno (P2028 en el log del backend): 13
+
+--- reposo
+erp-estres-backend-1               CPU prom   0.0 %  pico   0.1 %   RAM prom   73  pico   74 MiB
+erp-estres-db-1                    CPU prom   1.1 %  pico   5.5 %   RAM prom   36  pico   39 MiB
+erp-estres-frontend-1              CPU prom   0.0 %  pico   0.0 %   RAM prom   52  pico   52 MiB
+vinculos-servidor-traefik-1        CPU prom   0.1 %  pico   0.4 %   RAM prom   29  pico   30 MiB
+
+--- durante k6
+erp-estres-backend-1               CPU prom  62.1 %  pico  90.2 %   RAM prom   95  pico   98 MiB
+erp-estres-db-1                    CPU prom  30.5 %  pico  48.7 %   RAM prom  110  pico  117 MiB
+erp-estres-frontend-1              CPU prom   0.0 %  pico   0.1 %   RAM prom   52  pico   52 MiB
+vinculos-servidor-traefik-1        CPU prom   0.1 %  pico   1.8 %   RAM prom   24  pico   25 MiB

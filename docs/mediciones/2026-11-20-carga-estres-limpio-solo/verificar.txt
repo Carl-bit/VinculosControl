@@ -1,0 +1,5 @@
+Solapes de citas activas: 0
+erp-estres-limpio-db-1 reinicios/OOM/estado: 0 false running
+erp-estres-limpio-backend-1 reinicios/OOM/estado: 0 false running
+erp-estres-limpio-db-1 127MiB / 256MiB 3.28%
+erp-estres-limpio-backend-1 101.6MiB / 256MiB 30.41%

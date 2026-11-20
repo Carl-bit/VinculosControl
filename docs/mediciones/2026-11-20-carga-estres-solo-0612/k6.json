@@ -1,0 +1,222 @@
+{
+    "metrics": {
+        "checks": {
+            "passes": 20413,
+            "fails": 1,
+            "value": 0.9999510140099931
+        },
+        "http_req_failed": {
+            "passes": 88,
+            "fails": 20330,
+            "value": 0.004309922617298462
+        },
+        "reservas_201": {
+            "count": 3,
+            "rate": 0.009910175886599835,
+            "thresholds": {
+                "count==3": false
+            }
+        },
+        "data_received": {
+            "count": 271439314,
+            "rate": 896670.4480926669
+        },
+        "http_req_connecting": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.002694079194828094,
+            "min": 0,
+            "med": 0,
+            "max": 3.814625
+        },
+        "http_req_duration{escenario:lectura_publica}": {
+            "avg": 56.592995813504274,
+            "min": 1.489713,
+            "med": 26.2737185,
+            "max": 6795.943541,
+            "p(90)": 94.21013129999999,
+            "p(95)": 134.14042474999977,
+            "thresholds": {
+                "p(95)<300": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 1.489713,
+            "med": 32.429503,
+            "max": 21428.528706,
+            "p(90)": 121.95441210000001,
+            "p(95)": 186.9762681999999,
+            "avg": 71.38229572557759
+        },
+        "iteration_duration": {
+            "avg": 1265.1016183337267,
+            "min": 713.34041,
+            "med": 1114.5628219999999,
+            "max": 24412.688035,
+            "p(90)": 1315.6901639,
+            "p(95)": 1400.6408076999999
+        },
+        "checks{escenario:lectura_publica}": {
+            "fails": 0,
+            "passes": 15432,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "http_req_sending": {
+            "max": 3.625191,
+            "p(90)": 0.05374459999999999,
+            "p(95)": 0.06053334999999994,
+            "avg": 0.03227784714467618,
+            "min": 0.005117,
+            "med": 0.028065
+        },
+        "http_req_tls_handshaking": {
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0
+        },
+        "http_reqs": {
+            "rate": 67.44865708419847,
+            "count": 20418
+        },
+        "iterations": {
+            "count": 7680,
+            "rate": 25.370050269695575
+        },
+        "reservas_503_pool": {
+            "count": 12,
+            "rate": 0.03964070354639934
+        },
+        "reservas_otro_estado": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "vus": {
+            "value": 24,
+            "min": 0,
+            "max": 60
+        },
+        "http_req_waiting": {
+            "avg": 88.24248070295793,
+            "min": 1.410688,
+            "med": 32.4929455,
+            "max": 21428.318024,
+            "p(90)": 124.01440559999999,
+            "p(95)": 190.99062109999994
+        },
+        "data_sent": {
+            "count": 4923816,
+            "rate": 16265.294197751484
+        },
+        "http_req_blocked": {
+            "p(90)": 0.0153993,
+            "p(95)": 0.017515,
+            "avg": 0.012717646537369004,
+            "min": 0.001898,
+            "med": 0.00813,
+            "max": 4.433888
+        },
+        "http_req_duration": {
+            "avg": 88.38967396801888,
+            "min": 1.489713,
+            "med": 32.641678,
+            "max": 21428.528706,
+            "p(90)": 124.15442249999998,
+            "p(95)": 191.1677083
+        },
+        "checks{escenario:carga_normal}": {
+            "passes": 4891,
+            "fails": 1,
+            "thresholds": {
+                "rate==1": true
+            },
+            "value": 0.999795584627964
+        },
+        "http_req_receiving": {
+            "avg": 0.1149154179155655,
+            "min": 0.022383,
+            "med": 0.09916549999999999,
+            "max": 1.803505,
+            "p(90)": 0.1952609,
+            "p(95)": 0.23000874999999998
+        },
+        "vus_max": {
+            "value": 60,
+            "min": 60,
+            "max": 60
+        },
+        "reservas_409": {
+            "count": 75,
+            "rate": 0.24775439716499587
+        }
+    },
+    "setup_data": {
+        "pacientes": [
+            "6717ba72-c0ee-40cf-9360-a7d9f0ae3631"
+        ],
+        "perfil": "7676254a-361a-44d8-8679-8ed94170a82f",
+        "profesionalId": "7676254a-361a-44d8-8679-8ed94170a82f",
+        "slots": [
+            {
+                "fin": "2026-11-25T14:50:00.000Z",
+                "inicio": "2026-11-25T14:00:00.000Z",
+                "modalidad": "PRESENCIAL"
+            },
+            {
+                "modalidad": "PRESENCIAL",
+                "fin": "2026-11-26T20:50:00.000Z",
+                "inicio": "2026-11-26T20:00:00.000Z"
+            },
+            {
+                "fin": "2026-11-27T12:50:00.000Z",
+                "inicio": "2026-11-27T12:00:00.000Z",
+                "modalidad": "PRESENCIAL"
+            }
+        ],
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YjAxN2NlMi0wNjMxLTQ2NTItOGY3MC1iNTljZGY1NmIzOWUiLCJyb2wiOiJHRVNUSU9OIiwic2lkIjoiMWIzNWRlYzUtNmY0NS00NTlmLTk1OTAtMjA5OWUyZDk4MzdiIiwidGlwbyI6ImFjY2VzbyIsImlhdCI6MTc5NTE1NTI5MSwiZXhwIjoxNzk1MTU2MTkxfQ.MdaDsxB5QGIq73r43XgcqUUmJYYDXPJesdlscWI1tF4"
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "publico 200 (sin 5xx ni 429)": {
+                    "passes": 15432,
+                    "fails": 0,
+                    "name": "publico 200 (sin 5xx ni 429)",
+                    "path": "::publico 200 (sin 5xx ni 429)",
+                    "id": "1893bb9d55db4c5e5e635e5133e9e9e9"
+                },
+                "ocupacion 200": {
+                    "name": "ocupacion 200",
+                    "path": "::ocupacion 200",
+                    "id": "1d8b461145e3804468f3c868e6a93fcf",
+                    "passes": 2446,
+                    "fails": 0
+                },
+                "citas 200": {
+                    "name": "citas 200",
+                    "path": "::citas 200",
+                    "id": "96c88dfdbb86797daf4d5179256f8d9e",
+                    "passes": 2445,
+                    "fails": 1
+                },
+                "colision 201, 409 o 503": {
+                    "name": "colision 201, 409 o 503",
+                    "path": "::colision 201, 409 o 503",
+                    "id": "4bee44ea8ba369e7a2548a838ec43bf6",
+                    "passes": 90,
+                    "fails": 0
+                }
+            }
+    }
+}

@@ -57,10 +57,13 @@ frontend 53 MiB, Traefik 31 MiB.
   rafaga de reservas. Si en produccion hace falta mas margen, el primer ajuste
   es CPU del backend, no memoria ni conexiones.
 
-## Pendiente
+## Hecho despues
 
-- Prueba desde otra maquina por `https://estres.<dominio>` (Cloudflare y
-  Traefik en el camino).
-- Silo `estres` recien sembrado en el VPS, para separar el efecto de los datos
-  acumulados del de la CPU.
-- Estres creciente (punto de quiebre) y cuantos silos soporta el host.
+- Desde otra maquina por el dominio publico:
+  `../2026-11-20-externo-carga-estres/RESULTADOS.md`.
+- Silo recien sembrado: `../2026-11-20-carga-estres-limpio-solo/RESULTADOS.md`
+  (los datos acumulados no explican la diferencia; es la maquina). Las dos
+  corridas siguientes con el silo solo tuvieron 12 y 13 respuestas 503 en la
+  colision: la de este documento sin 503 fue la excepcion.
+- Punto de quiebre y capacidad del host:
+  `../2026-11-20-rampa-estres-solo/RESULTADOS.md`.

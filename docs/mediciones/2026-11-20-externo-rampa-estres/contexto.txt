@@ -1,0 +1,6 @@
+﻿Fecha: 2026-11-20T03:28:56
+Equipo: CHARLIE (AMD Ryzen 9 7900X 12-Core Processor            )
+API: https://estres.charlielearns.work/api  (salud: 200)
+Modo: rampa
+IP publica: 186.78.4.100
+k6: 03:28:57 a 03:39:15 (hora del PC)

@@ -1,0 +1,53 @@
+{
+  "api": "https://estres.charlielearns.work/api",
+  "criterio": "p95 > 300 ms o 5xx > 1 %",
+  "punto_de_quiebre_vus": 25,
+  "respuestas_429": 0,
+  "etapas": [
+    {
+      "vus": 10,
+      "peticiones": 2006,
+      "por_segundo": 16.7,
+      "p95_ms": 227,
+      "max_ms": 531,
+      "errores_5xx": 0,
+      "quiebra": false
+    },
+    {
+      "vus": 25,
+      "peticiones": 5085,
+      "por_segundo": 42.4,
+      "p95_ms": 301,
+      "max_ms": 609,
+      "errores_5xx": 0,
+      "quiebra": true
+    },
+    {
+      "vus": 50,
+      "peticiones": 9959,
+      "por_segundo": 83,
+      "p95_ms": 367,
+      "max_ms": 765,
+      "errores_5xx": 0,
+      "quiebra": true
+    },
+    {
+      "vus": 100,
+      "peticiones": 19160,
+      "por_segundo": 159.7,
+      "p95_ms": 453,
+      "max_ms": 1278,
+      "errores_5xx": 0,
+      "quiebra": true
+    },
+    {
+      "vus": 200,
+      "peticiones": 27467,
+      "por_segundo": 228.9,
+      "p95_ms": 890,
+      "max_ms": 1868,
+      "errores_5xx": 0,
+      "quiebra": true
+    }
+  ]
+}
